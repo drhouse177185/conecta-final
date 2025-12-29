@@ -13,6 +13,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+// Fallback para conexão manual (caso não use a string direta)
 if (!process.env.DATABASE_URL) {
     pool.options = {
         user: process.env.DB_USER,
@@ -52,7 +53,7 @@ app.post('/api/register', async (req, res) => {
     await ensureTablesExist();
     const result = await pool.query(
       `INSERT INTO users (name, email, password_hash, cpf, age, sex, role, credits) 
-       VALUES ($1, $2, $3, $4, $5, $6, 'user', 0) RETURNING id, name, email, role`,
+       VALUES ($1, $2, $3, $4, $5, $6, 'user', 100) RETURNING id, name, email, role`,
       [name, email, password, cpf, age, sex]
     );
     res.json({ success: true, user: result.rows[0] });
@@ -64,6 +65,7 @@ app.post('/api/register', async (req, res) => {
 
 // --- ROTAS ADMINISTRATIVAS ---
 
+// Listar Usuários (com status de bloqueio e créditos)
 app.get('/api/admin/users', async (req, res) => {
     try {
         await ensureTablesExist();
@@ -72,6 +74,7 @@ app.get('/api/admin/users', async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro ao buscar usuários' }); }
 });
 
+// Recarregar Créditos
 app.post('/api/admin/recharge', async (req, res) => {
     const { email, amount } = req.body;
     try {
@@ -80,6 +83,7 @@ app.post('/api/admin/recharge', async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro recarga' }); }
 });
 
+// Alternar Bloqueios (Toggles)
 app.post('/api/admin/toggle-block', async (req, res) => {
     const { email, field, value } = req.body;
     if (!['block_pre_consulta', 'block_pre_op'].includes(field)) return res.status(400).json({ error: 'Campo inválido' });
@@ -94,6 +98,7 @@ app.post('/api/admin/toggle-block', async (req, res) => {
 
 // --- ROTAS DO SISTEMA (DADOS) ---
 
+// Cirurgias
 app.get('/api/surgeries', async (req, res) => {
     try {
         await ensureTablesExist();
@@ -110,15 +115,17 @@ app.post('/api/surgeries/toggle', async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro toggle cirurgia' }); }
 });
 
+// Exames
 app.get('/api/exams', async (req, res) => {
     try {
         await ensureTablesExist();
+        // Ordena por nome para ficar bonito na lista
         const result = await pool.query('SELECT * FROM catalog_exams WHERE is_active = true ORDER BY name ASC');
         res.json({ lab: result.rows.filter(e => e.category === 'lab'), img: result.rows.filter(e => e.category === 'img') });
     } catch (err) { res.status(500).json({ error: 'Erro exames' }); }
 });
 
-// Rota de Encaminhamentos
+// Encaminhamentos (AME)
 app.get('/api/admin/referrals', async (req, res) => {
     try {
         await ensureTablesExist();
@@ -136,7 +143,7 @@ app.post('/api/referrals', async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro ao criar encaminhamento' }); }
 });
 
-// Fallback Frontend
+// Rota Coringa (Frontend)
 app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -150,9 +157,12 @@ async function ensureTablesExist() {
 
     try { 
         await pool.query(createUsers); await pool.query(createReferrals); await pool.query(createExams); await pool.query(createSurgeries);
+        // Migrations de segurança
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS credits INTEGER DEFAULT 0;");
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS block_pre_consulta BOOLEAN DEFAULT FALSE;");
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS block_pre_op BOOLEAN DEFAULT FALSE;");
 
-        // 1. INSERIR EXAMES DE LABORATÓRIO (LISTA COMPLETA DA FOTO 2)
+        // 1. INSERIR EXAMES DE LABORATÓRIO (LISTA COMPLETA DA FOTO)
         const labExams = [
             'Hemograma Completo', 'Creatinina', 'TSH', 'Parasitológico de Fezes', 'Proteína C Reativa', 
             'Sorologia HIV 1 e 2', 'Beta HCG (Gravidez)', 'Glicemia em Jejum', 'Ureia', 'T4 Livre', 
@@ -161,7 +171,7 @@ async function ensureTablesExist() {
             'TGP (ALT)', 'Urocultura', 'Ácido Úrico', 'Vitamina D', 'Anti-HCV (Hepatite C)'
         ];
 
-        // 2. INSERIR EXAMES DE IMAGEM (LISTA COMPLETA DA FOTO 3)
+        // 2. INSERIR EXAMES DE IMAGEM (LISTA COMPLETA DA FOTO)
         const imgExams = [
             'Raio-X de Tórax', 'USG Transvaginal', 'USG de Mamas', 'USG Abdome Total', 
             'USG Próstata (Via Abdominal)', 'USG Obstétrica', 'Mamografia Bilateral', 
@@ -169,13 +179,13 @@ async function ensureTablesExist() {
             'Tomografia de Tórax', 'Ecocardiograma'
         ];
 
-        // 3. INSERIR CIRURGIAS (LISTA COMPLETA DA FOTO 4)
+        // 3. INSERIR CIRURGIAS (LISTA COMPLETA DA FOTO)
         const surgeries = [
             'Correção de Catarata', 'Hernioplastia', 'Hemorroidectomia', 'Colecistectomia', 
             'Laqueadura Tubária', 'Histerectomia Total', 'Outra (Médio Porte)'
         ];
 
-        // Função auxiliar para inserir se não existir
+        // Função auxiliar para inserir apenas se não existir (evita duplicatas)
         for(let ex of labExams) {
             const check = await pool.query("SELECT id FROM catalog_exams WHERE name = $1", [ex]);
             if(check.rowCount === 0) await pool.query("INSERT INTO catalog_exams (name, category, slug) VALUES ($1, 'lab', $1)", [ex]);

@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conecta Saúde - Admin v3.1 (Full Fix)</title>
+    <title>Conecta Saúde - Sistema Integrado v3.2 (Produção)</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -12,6 +13,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=Merriweather:ital,wght@0,300;0,700;1,300&display=swap');
         body { font-family: 'Lato', sans-serif; background-color: #f0f9ff; }
@@ -39,7 +41,7 @@
     <div id="splash-screen">
         <div class="splash-content">
             <h1 class="text-4xl font-black font-serif tracking-widest mb-2">CONECTA SAÚDE</h1>
-            <p class="text-blue-200 text-sm tracking-widest uppercase">Carregando Banco de Dados Atualizado...</p>
+            <p class="text-blue-200 text-sm tracking-widest uppercase">Sistema Integrado v3.2</p>
             <div class="mt-4 w-32 h-1 bg-blue-900 mx-auto overflow-hidden rounded"><div class="h-full bg-blue-500 animate-[loading-bar_2s_infinite]"></div></div>
         </div>
     </div>
@@ -79,7 +81,11 @@
         <nav class="bg-white shadow-sm sticky top-0 z-30">
             <div class="max-w-6xl mx-auto px-4 flex justify-between h-16">
                 <div class="flex items-center"><i data-lucide="activity" class="w-6 h-6 text-blue-600 mr-2"></i><span class="font-black text-xl text-blue-900 uppercase">Conecta Saúde</span></div>
-                <div class="flex items-center gap-4"><span id="user-display" class="text-sm font-bold text-gray-600"></span><button onclick="location.reload()" class="text-xs text-red-500 font-bold border border-red-200 px-3 py-1 rounded">SAIR</button></div>
+                <div class="flex items-center gap-4">
+                    <span id="user-display" class="text-sm font-bold text-gray-600"></span>
+                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-bold"><i class="fa-solid fa-coins"></i> <span id="credit-val">0</span></span>
+                    <button onclick="location.reload()" class="text-xs text-red-500 font-bold border border-red-200 px-3 py-1 rounded">SAIR</button>
+                </div>
             </div>
             <div class="max-w-6xl mx-auto px-4 flex overflow-x-auto">
                 <button id="btn-tab-0" onclick="switchTab(0)" class="tab-active flex-1 py-3 text-sm font-bold border-b-2 uppercase"><i class="fa-solid fa-user-doctor mr-2"></i> Pré-Consulta</button>
@@ -108,7 +114,7 @@
             <div id="page-2" class="hidden animate-fade-in">
                 <div class="bg-white rounded-xl shadow p-6">
                     <h2 class="text-xl font-bold text-blue-900 mb-4">Pré-Operatório</h2>
-                    <select id="surgery-type" class="w-full p-2 border rounded mb-4"><option>Catarata</option><option>Vesícula</option></select>
+                    <select id="surgery-type" class="w-full p-2 border rounded mb-4"></select>
                     <div class="bg-blue-50 border-2 border-dashed border-blue-200 rounded-xl p-8 cursor-pointer text-center" onclick="document.getElementById('file-input-2').click()"><input type="file" id="file-input-2" class="hidden" multiple onchange="handleFiles(this.files, 2)"><p class="text-blue-900 font-bold">Enviar Exames</p></div>
                     <button onclick="processPreOp()" class="w-full bg-blue-600 text-white font-bold py-4 rounded mt-4">Calcular Risco</button>
                     <div id="results-2" class="hidden mt-6"><p class="text-2xl font-bold">ASA: <span id="res-asa"></span></p></div>
@@ -129,6 +135,18 @@
 
         <div class="max-w-6xl mx-auto p-6 space-y-8">
             
+            <div class="bg-white rounded-xl shadow-md border border-purple-100 overflow-hidden">
+                <div class="bg-purple-50 p-4 border-b border-purple-100 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fa-solid fa-calendar-check text-purple-600 mr-3 text-xl"></i>
+                        <h2 class="text-lg font-bold text-purple-900">Agenda de Encaminhamentos (AME)</h2>
+                    </div>
+                    <span class="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded font-bold">Monitoramento Real</span>
+                    <button onclick="renderReferralDashboard()" class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded border border-purple-200"><i class="fa-solid fa-rotate"></i></button>
+                </div>
+                <div class="p-4" id="referral-container"></div>
+            </div>
+
             <div class="bg-white rounded-xl shadow-md border border-red-100 overflow-hidden">
                 <div class="bg-red-50 p-4 border-b border-red-100 flex items-center justify-between">
                     <h2 class="text-lg font-bold text-red-900"><i class="fa-solid fa-users-gear mr-2"></i> Gestão de Pacientes</h2>
@@ -150,16 +168,8 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl shadow-md border border-purple-100 overflow-hidden">
-                <div class="bg-purple-50 p-4 border-b border-purple-100 flex items-center justify-between">
-                    <h2 class="text-lg font-bold text-purple-900"><i class="fa-solid fa-calendar-check mr-2"></i> Agenda de Encaminhamentos (AME)</h2>
-                    <button onclick="renderReferralDashboard()" class="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded font-bold"><i class="fa-solid fa-rotate mr-1"></i> Atualizar</button>
-                </div>
-                <div class="p-0 overflow-x-auto"><div id="referral-container" class="p-4"></div></div>
-            </div>
-
             <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-                <div class="bg-blue-50 p-4 border-b border-blue-100"><h2 class="text-lg font-bold text-blue-900"><i class="fa-solid fa-list-check mr-2"></i> Catálogo de Exames Disponíveis</h2></div>
+                <div class="bg-blue-50 p-4 border-b border-blue-100"><h2 class="text-lg font-bold text-blue-900"><i class="fa-solid fa-list-check mr-2"></i> Catálogo de Exames</h2></div>
                 <div class="p-6">
                     <div class="flex border-b border-slate-200 mb-4"><button onclick="switchAdminTab('lab')" id="adm-tab-lab" class="px-4 py-2 text-sm font-bold text-blue-600 border-b-2 border-blue-600">Laboratório</button><button onclick="switchAdminTab('img')" id="adm-tab-img" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-blue-600">Imagem</button></div>
                     <div id="adm-list-lab" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"></div>
@@ -168,10 +178,7 @@
             </div>
 
             <div class="bg-white rounded-xl shadow-md border border-green-100 overflow-hidden">
-                <div class="bg-green-50 p-4 border-b border-green-100 flex justify-between">
-                    <h2 class="text-lg font-bold text-green-900"><i class="fa-solid fa-hospital mr-2"></i> Catálogo de Cirurgias Habilitadas</h2>
-                    <span class="text-xs bg-green-200 text-green-800 px-2 py-1 rounded font-bold">Editável</span>
-                </div>
+                <div class="bg-green-50 p-4 border-b border-green-100"><h2 class="text-lg font-bold text-green-900"><i class="fa-solid fa-hospital mr-2"></i> Catálogo de Cirurgias</h2></div>
                 <div class="p-6">
                     <div id="adm-list-surgeries" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
                 </div>
@@ -186,10 +193,12 @@
 
         let currentUser = null;
         let referralData = [];
+        let systemSettings = { surgeries: [] }; // Cache local para popular o select do usuário
         
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('splash-screen').style.opacity = '0'; setTimeout(() => document.getElementById('splash-screen').remove(), 1000); }, 2000);
             lucide.createIcons();
+            fetchSurgeries(); // Busca cirurgias logo de cara para o select
         });
 
         // --- AUTH ---
@@ -225,7 +234,12 @@
             } else {
                 document.getElementById('main-app').classList.remove('hidden');
                 document.getElementById('user-display').textContent = user.name;
+                document.getElementById('credit-val').textContent = user.credits || 0;
                 if(user.name) document.getElementById('pre-name').value = user.name;
+                
+                // Popula o select de cirurgias
+                const sel = document.getElementById('surgery-type');
+                sel.innerHTML = systemSettings.surgeries.filter(s => s.is_active).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
             }
         }
 
@@ -282,18 +296,24 @@
             } catch(e) {}
         }
 
-        async function renderSurgeryList() {
-            const container = document.getElementById('adm-list-surgeries');
-            try {
+        async function fetchSurgeries() {
+             try {
                 const res = await fetch(`${API_URL}/surgeries`);
                 const surgs = await res.json();
-                container.innerHTML = surgs.map(s => `
-                    <div class="flex items-center p-3 border rounded bg-white shadow-sm">
-                        <input type="checkbox" ${s.is_active ? 'checked' : ''} class="w-5 h-5 text-green-600 rounded focus:ring-green-500 border-gray-300 mr-3" onchange="toggleSurgery(${s.id}, this.checked)">
-                        <span class="font-bold text-gray-700 text-sm">${s.name}</span>
-                    </div>
-                `).join('');
-            } catch(e) { container.innerHTML = "Erro ao carregar cirurgias."; }
+                systemSettings.surgeries = surgs;
+                return surgs;
+             } catch(e) { return []; }
+        }
+
+        async function renderSurgeryList() {
+            const container = document.getElementById('adm-list-surgeries');
+            const surgs = await fetchSurgeries();
+            container.innerHTML = surgs.map(s => `
+                <div class="flex items-center p-3 border rounded bg-white shadow-sm">
+                    <input type="checkbox" ${s.is_active ? 'checked' : ''} class="w-5 h-5 text-green-600 rounded focus:ring-green-500 border-gray-300 mr-3" onchange="toggleSurgery(${s.id}, this.checked)">
+                    <span class="font-bold text-gray-700 text-sm">${s.name}</span>
+                </div>
+            `).join('');
         }
 
         async function toggleSurgery(id, is_active) {
@@ -305,7 +325,7 @@
              try {
                 const res = await fetch(`${API_URL}/admin/referrals`);
                 const refs = await res.json();
-                referralData = refs; // Guardar para o PDF
+                referralData = refs;
                 const grouped = refs.reduce((acc, curr) => { acc[curr.specialty] = acc[curr.specialty] || []; acc[curr.specialty].push(curr); return acc; }, {});
                 
                 let html = "";
@@ -314,7 +334,7 @@
                         <div class="font-bold text-purple-900"><i class="fa-solid fa-user-doctor mr-2"></i> ${spec}</div>
                         <div class="flex gap-2 items-center">
                             <span class="bg-purple-600 text-white px-2 py-1 rounded text-xs font-bold">${list.length} pendentes</span>
-                            <button onclick="generateReferralEmailPDF('${spec}')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-bold flex items-center gap-1"><i class="fa-solid fa-file-pdf"></i> Gerar PDF</button>
+                            <button onclick="generateReferralEmailPDF('${spec}')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-bold flex items-center gap-1"><i class="fa-solid fa-file-pdf"></i> Enviar Email AME</button>
                         </div>
                     </div>`;
                 }
@@ -322,7 +342,7 @@
              } catch(e) {}
         }
 
-        // --- CORREÇÃO DA FUNÇÃO DE PDF ---
+        // --- PDF GENERATION ---
         async function generateReferralEmailPDF(specialty) {
             const patients = referralData.filter(p => p.specialty === specialty);
             if (patients.length === 0) return showToast("Nenhum paciente.", "error");
