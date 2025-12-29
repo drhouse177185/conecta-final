@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conecta Saúde - Admin v3.0 (Fixed)</title>
+    <title>Conecta Saúde - Admin v3.1 (Full Fix)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -15,13 +15,11 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=Merriweather:ital,wght@0,300;0,700;1,300&display=swap');
         body { font-family: 'Lato', sans-serif; background-color: #f0f9ff; }
-        /* Toggle Switch CSS */
         .toggle-checkbox { appearance: none; display: none; }
         .toggle-label { width: 40px; height: 20px; background: #cbd5e1; border-radius: 20px; position: relative; cursor: pointer; transition: 0.3s; }
         .toggle-label:after { content: ''; width: 16px; height: 16px; background: #fff; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: 0.3s; }
         .toggle-checkbox:checked + .toggle-label { background: #10b981; }
         .toggle-checkbox:checked + .toggle-label:after { left: 22px; }
-        /* Outros estilos */
         #splash-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #0f172a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; transition: opacity 1s ease-out; }
         .splash-content { text-align: center; animation: pulse-slow 3s infinite; }
         .tab-active { border-bottom: 3px solid #1e3a8a; color: #1e3a8a; font-weight: 800; background-color: #eff6ff; }
@@ -41,7 +39,7 @@
     <div id="splash-screen">
         <div class="splash-content">
             <h1 class="text-4xl font-black font-serif tracking-widest mb-2">CONECTA SAÚDE</h1>
-            <p class="text-blue-200 text-sm tracking-widest uppercase">Sistema Integrado v3.0</p>
+            <p class="text-blue-200 text-sm tracking-widest uppercase">Carregando Banco de Dados Atualizado...</p>
             <div class="mt-4 w-32 h-1 bg-blue-900 mx-auto overflow-hidden rounded"><div class="h-full bg-blue-500 animate-[loading-bar_2s_infinite]"></div></div>
         </div>
     </div>
@@ -133,7 +131,7 @@
             
             <div class="bg-white rounded-xl shadow-md border border-red-100 overflow-hidden">
                 <div class="bg-red-50 p-4 border-b border-red-100 flex items-center justify-between">
-                    <h2 class="text-lg font-bold text-red-900"><i class="fa-solid fa-users-gear mr-2"></i> Gestão de Pacientes (Cotas e Bloqueios)</h2>
+                    <h2 class="text-lg font-bold text-red-900"><i class="fa-solid fa-users-gear mr-2"></i> Gestão de Pacientes</h2>
                     <button onclick="renderUserList()" class="text-xs bg-red-200 text-red-800 px-2 py-1 rounded font-bold"><i class="fa-solid fa-rotate mr-1"></i> Atualizar</button>
                 </div>
                 <div class="overflow-x-auto">
@@ -157,8 +155,7 @@
                     <h2 class="text-lg font-bold text-purple-900"><i class="fa-solid fa-calendar-check mr-2"></i> Agenda de Encaminhamentos (AME)</h2>
                     <button onclick="renderReferralDashboard()" class="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded font-bold"><i class="fa-solid fa-rotate mr-1"></i> Atualizar</button>
                 </div>
-                <div class="p-0 overflow-x-auto"><tbody id="referral-dashboard-body"></tbody></div>
-                <div id="referral-container" class="p-4"></div>
+                <div class="p-0 overflow-x-auto"><div id="referral-container" class="p-4"></div></div>
             </div>
 
             <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
@@ -176,12 +173,7 @@
                     <span class="text-xs bg-green-200 text-green-800 px-2 py-1 rounded font-bold">Editável</span>
                 </div>
                 <div class="p-6">
-                    <p class="text-sm text-gray-500 mb-4">Desativar uma cirurgia impedirá que os usuários a selecionem para avaliação pré-operatória.</p>
-                    <div id="adm-list-surgeries" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                        </div>
-                    <div class="mt-6 flex justify-end">
-                        <button onclick="renderSurgeryList()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow"><i class="fa-solid fa-floppy-disk mr-2"></i> Salvar Alterações (Simulado)</button>
-                    </div>
+                    <div id="adm-list-surgeries" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
                 </div>
             </div>
 
@@ -193,6 +185,7 @@
         const API_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? "http://localhost:3000/api" : "/api";
 
         let currentUser = null;
+        let referralData = [];
         
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('splash-screen').style.opacity = '0'; setTimeout(() => document.getElementById('splash-screen').remove(), 1000); }, 2000);
@@ -220,7 +213,6 @@
         }
 
         async function handleRegister() {
-             // ... (Lógica de registro padrão)
              showToast("Use o login admin para testar: drtiago.barros@gmail.com / 123456", "info");
         }
 
@@ -254,7 +246,7 @@
                     <tr class="hover:bg-gray-50 border-b">
                         <td class="px-6 py-4 font-bold text-gray-700">${u.name}<br><span class="text-xs font-normal text-gray-400">${u.email}</span></td>
                         <td class="px-6 py-4 text-center"><span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded">${u.credits || 0} Créditos</span></td>
-                        <td class="px-6 py-4 text-center"><button onclick="recharge('${u.email}')" class="bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-blue-700 transition"><i class="fa-solid fa-bolt mr-1"></i> Recarregar (+100)</button></td>
+                        <td class="px-6 py-4 text-center"><button onclick="recharge('${u.email}')" class="bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-blue-700 transition"><i class="fa-solid fa-bolt mr-1"></i> +100</button></td>
                         <td class="px-6 py-4 text-center">
                             <div class="flex justify-center items-center">
                                 <input type="checkbox" id="toggle-c-${u.id}" class="toggle-checkbox" ${u.block_pre_consulta ? 'checked' : ''} onchange="toggleBlock('${u.email}', 'block_pre_consulta', this.checked)">
@@ -273,18 +265,12 @@
         }
 
         async function toggleBlock(email, field, value) {
-            try {
-                await fetch(`${API_URL}/admin/toggle-block`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email, field, value }) });
-                showToast("Status atualizado!", "success");
-            } catch(e) { showToast("Erro ao atualizar", "error"); }
+            try { await fetch(`${API_URL}/admin/toggle-block`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email, field, value }) }); showToast("Status atualizado!", "success"); } catch(e) { showToast("Erro ao atualizar", "error"); }
         }
 
         async function recharge(email) {
             if(!confirm("Adicionar 100 créditos?")) return;
-            try {
-                await fetch(`${API_URL}/admin/recharge`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email, amount: 100 }) });
-                renderUserList(); showToast("Recarga OK", "success");
-            } catch(e) { showToast("Erro recarga"); }
+            try { await fetch(`${API_URL}/admin/recharge`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email, amount: 100 }) }); renderUserList(); showToast("Recarga OK", "success"); } catch(e) { showToast("Erro recarga"); }
         }
 
         async function renderExamList() {
@@ -315,12 +301,11 @@
         }
 
         async function renderReferralDashboard() {
-             // Lógica simplificada de renderização de encaminhamentos
              const container = document.getElementById('referral-container');
              try {
                 const res = await fetch(`${API_URL}/admin/referrals`);
                 const refs = await res.json();
-                // Agrupando por especialidade
+                referralData = refs; // Guardar para o PDF
                 const grouped = refs.reduce((acc, curr) => { acc[curr.specialty] = acc[curr.specialty] || []; acc[curr.specialty].push(curr); return acc; }, {});
                 
                 let html = "";
@@ -329,7 +314,7 @@
                         <div class="font-bold text-purple-900"><i class="fa-solid fa-user-doctor mr-2"></i> ${spec}</div>
                         <div class="flex gap-2 items-center">
                             <span class="bg-purple-600 text-white px-2 py-1 rounded text-xs font-bold">${list.length} pendentes</span>
-                            <button class="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold">Gerar PDF</button>
+                            <button onclick="generateReferralEmailPDF('${spec}')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-bold flex items-center gap-1"><i class="fa-solid fa-file-pdf"></i> Gerar PDF</button>
                         </div>
                     </div>`;
                 }
@@ -337,23 +322,56 @@
              } catch(e) {}
         }
 
-        function switchAuthTab(t) { 
-            if(t==='login'){ document.getElementById('form-login').classList.remove('hidden'); document.getElementById('form-register').classList.add('hidden'); }
-            else { document.getElementById('form-login').classList.add('hidden'); document.getElementById('form-register').classList.remove('hidden'); }
+        // --- CORREÇÃO DA FUNÇÃO DE PDF ---
+        async function generateReferralEmailPDF(specialty) {
+            const patients = referralData.filter(p => p.specialty === specialty);
+            if (patients.length === 0) return showToast("Nenhum paciente.", "error");
+
+            const wrapper = document.getElementById('pdf-content-wrapper');
+            const now = new Date().toLocaleDateString('pt-BR');
+
+            wrapper.innerHTML = `
+                <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial'; width: 794px;">
+                    <div style="border-bottom: 2px solid #6b21a8; padding-bottom: 20px; margin-bottom: 30px;">
+                        <h1 style="color: #6b21a8; font-size: 24px; margin: 0; font-weight: bold;">ENCAMINHAMENTO MÉDICO - AME</h1>
+                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Sistema Conecta Saúde - Solicitação de Vagas</p>
+                    </div>
+                    <div style="margin-bottom: 30px;">
+                        <p><strong>Especialidade:</strong> ${specialty}</p>
+                        <p><strong>Data:</strong> ${now}</p>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px;">
+                        <tr style="background-color: #f3e8ff; color: #4c1d95;"><th style="border: 1px solid #ddd; padding: 10px;">Paciente</th><th style="border: 1px solid #ddd; padding: 10px;">CPF</th><th style="border: 1px solid #ddd; padding: 10px;">Justificativa</th></tr>
+                        ${patients.map(p => `<tr><td style="border: 1px solid #ddd; padding: 10px;">${p.patient_name}</td><td style="border: 1px solid #ddd; padding: 10px;">${p.cpf}</td><td style="border: 1px solid #ddd; padding: 10px;">${p.reason}</td></tr>`).join('')}
+                    </table>
+                </div>
+            `;
+
+            try {
+                wrapper.style.opacity = '1'; wrapper.style.zIndex = '9999'; wrapper.style.left = '0';
+                await new Promise(r => setTimeout(r, 1000));
+                
+                const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true });
+                const { jsPDF } = window.jspdf; 
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                pdf.addImage(imgData, 'JPEG', 0, 0, 210, (canvas.height * 210) / canvas.width);
+                pdf.save(`Encaminhamento_AME_${specialty}.pdf`);
+                showToast("PDF gerado com sucesso!", 'success');
+            } catch(e) { 
+                console.error(e); 
+                showToast("Erro ao gerar PDF", "error"); 
+            } finally { 
+                wrapper.style.opacity = '0'; wrapper.style.left = '-9999px'; 
+            }
         }
-        function switchTab(n) {
-            [0,1,2].forEach(i => document.getElementById(`page-${i}`).classList.add('hidden'));
-            document.getElementById(`page-${n}`).classList.remove('hidden');
-        }
-        function switchAdminTab(t) {
-            if(t==='lab') { document.getElementById('adm-list-lab').classList.remove('hidden'); document.getElementById('adm-list-img').classList.add('hidden'); }
-            else { document.getElementById('adm-list-img').classList.remove('hidden'); document.getElementById('adm-list-lab').classList.add('hidden'); }
-        }
-        function showToast(msg, type='info') {
-            const t = document.createElement('div'); t.className = `bg-gray-800 text-white p-4 rounded shadow-lg mb-2`; t.innerText = msg;
-            document.getElementById('toast-container').appendChild(t); setTimeout(()=>t.remove(), 3000);
-        }
-        // Funções de IA (simplificadas para o exemplo)
+
+        function switchAuthTab(t) { if(t==='login'){ document.getElementById('form-login').classList.remove('hidden'); document.getElementById('form-register').classList.add('hidden'); } else { document.getElementById('form-login').classList.add('hidden'); document.getElementById('form-register').classList.remove('hidden'); } }
+        function switchTab(n) { [0,1,2].forEach(i => document.getElementById(`page-${i}`).classList.add('hidden')); document.getElementById(`page-${n}`).classList.remove('hidden'); }
+        function switchAdminTab(t) { if(t==='lab') { document.getElementById('adm-list-lab').classList.remove('hidden'); document.getElementById('adm-list-img').classList.add('hidden'); } else { document.getElementById('adm-list-img').classList.remove('hidden'); document.getElementById('adm-list-lab').classList.add('hidden'); } }
+        function showToast(msg, type='info') { const t = document.createElement('div'); t.className = `bg-gray-800 text-white p-4 rounded shadow-lg mb-2`; t.innerText = msg; document.getElementById('toast-container').appendChild(t); setTimeout(()=>t.remove(), 3000); }
+        
+        // Stubs de IA
         async function generateRationalExams() { showToast("Gerando exames via IA..."); setTimeout(() => { document.getElementById('pre-results').classList.remove('hidden'); }, 1500); }
         async function processPreOp() { showToast("Calculando risco..."); setTimeout(() => { document.getElementById('results-2').classList.remove('hidden'); document.getElementById('res-asa').innerText = "ASA II"; }, 1500); }
         function downloadPDF() { showToast("Baixando PDF..."); }
