@@ -1,7 +1,7 @@
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
-const path = require('path'); // <--- NOVO: Importante para caminhos de pastas
+const path = require('path'); 
 require('dotenv').config();
 
 const app = express();
@@ -14,27 +14,12 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: { rejectUnauthorized: false }
 });
 
-// Middlewares
 app.use(cors());
 app.use(express.json());
-
-// <--- NOVO: Serve os ficheiros estáticos da pasta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
-
-// --- TESTE DE CONEXÃO ---
-pool.connect((err, client, release) => {
-    if (err) {
-        console.error('❌ ERRO FATAL: Não foi possível conectar ao banco Render.', err.message);
-    } else {
-        console.log('✅ SUCESSO: Conectado ao PostgreSQL do Render!');
-        release();
-    }
-});
 
 // --- ROTAS DE AUTENTICAÇÃO ---
 
@@ -61,9 +46,10 @@ app.post('/api/register', async (req, res) => {
   const { name, email, password, cpf, age, sex } = req.body;
   try {
     await ensureTablesExist();
+    // Define 0 créditos iniciais
     const result = await pool.query(
-      `INSERT INTO users (name, email, password_hash, cpf, age, sex, role) 
-       VALUES ($1, $2, $3, $4, $5, $6, 'user') RETURNING id, name, email, role`,
+      `INSERT INTO users (name, email, password_hash, cpf, age, sex, role, credits) 
+       VALUES ($1, $2, $3, $4, $5, $6, 'user', 0) RETURNING id, name, email, role`,
       [name, email, password, cpf, age, sex]
     );
     res.json({ success: true, user: result.rows[0] });
@@ -76,7 +62,39 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// --- ROTAS DO SISTEMA ---
+// --- ROTAS ADMINISTRATIVAS (NOVO) ---
+
+// 1. Listar Usuários e Créditos
+app.get('/api/admin/users', async (req, res) => {
+    try {
+        await ensureTablesExist();
+        // Garante que a coluna credits existe (migração automática simples)
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS credits INTEGER DEFAULT 0;");
+        
+        const result = await pool.query("SELECT id, name, email, cpf, age, role, credits, block_pre_consulta, block_pre_op FROM users WHERE role != 'admin' ORDER BY name ASC");
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Erro ao listar usuários:", err);
+        res.status(500).json({ error: 'Erro ao buscar usuários' });
+    }
+});
+
+// 2. Recarregar Créditos
+app.post('/api/admin/recharge', async (req, res) => {
+    const { email, amount } = req.body;
+    try {
+        const result = await pool.query(
+            "UPDATE users SET credits = COALESCE(credits, 0) + $1 WHERE email = $2 RETURNING name, credits",
+            [amount, email]
+        );
+        res.json({ success: true, user: result.rows[0] });
+    } catch (err) {
+        console.error("Erro na recarga:", err);
+        res.status(500).json({ error: 'Erro ao recarregar' });
+    }
+});
+
+// --- ROTAS DO SISTEMA (EXISTENTES) ---
 
 app.get('/api/admin/referrals', async (req, res) => {
     try {
@@ -122,8 +140,6 @@ app.get('/api/exams', async (req, res) => {
     }
 });
 
-// <--- NOVO: Rota "Coringa" para servir o Front-end
-// Deve ficar SEMPRE no final, antes do app.listen
 app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -132,11 +148,17 @@ app.get('*', (req, res) => {
 
 // --- FUNÇÃO AUXILIAR ---
 async function ensureTablesExist() {
-    // ... (Mantive a sua função original igual, não precisa alterar)
-    const createUsers = `CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name VARCHAR(150) NOT NULL, email VARCHAR(150) UNIQUE NOT NULL, password_hash VARCHAR(255) NOT NULL, cpf VARCHAR(14) UNIQUE, age INTEGER, sex CHAR(1), role VARCHAR(20) DEFAULT 'user', block_pre_consulta BOOLEAN DEFAULT FALSE, block_pre_op BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`;
+    const createUsers = `CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name VARCHAR(150) NOT NULL, email VARCHAR(150) UNIQUE NOT NULL, password_hash VARCHAR(255) NOT NULL, cpf VARCHAR(14) UNIQUE, age INTEGER, sex CHAR(1), role VARCHAR(20) DEFAULT 'user', block_pre_consulta BOOLEAN DEFAULT FALSE, block_pre_op BOOLEAN DEFAULT FALSE, credits INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`;
     const createReferrals = `CREATE TABLE IF NOT EXISTS referrals (id SERIAL PRIMARY KEY, user_id INTEGER, specialty VARCHAR(100), reason TEXT, status VARCHAR(20) DEFAULT 'pendente', request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`;
     const createExams = `CREATE TABLE IF NOT EXISTS catalog_exams (id SERIAL PRIMARY KEY, slug VARCHAR(50), name VARCHAR(100), category VARCHAR(20), is_active BOOLEAN DEFAULT TRUE);`;
-    try { await pool.query(createUsers); await pool.query(createReferrals); await pool.query(createExams); } catch (e) { console.warn("Aviso tables:", e.message); }
+    
+    try { 
+        await pool.query(createUsers); 
+        await pool.query(createReferrals); 
+        await pool.query(createExams);
+        // Atualização de segurança para garantir coluna credits em tabelas antigas
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS credits INTEGER DEFAULT 0;");
+    } catch (e) { console.warn("Aviso tables:", e.message); }
 }
 
 app.listen(PORT, () => {
