@@ -1,205 +1,182 @@
-const express = require('express');
-const { Pool } = require('pg');
-const cors = require('cors');
-const path = require('path'); 
+// NOME DO ARQUIVO: server.js
 require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { Pool } = require('pg');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { MercadoPagoConfig, Preference } = require('mercadopago');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
+// --- CONFIG ---
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-// Configuração do Banco de Dados
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Fallback para conexão manual (caso não use a string direta)
-if (!process.env.DATABASE_URL) {
-    pool.options = {
-        user: process.env.DB_USER,
-        host: process.env.DB_HOST,
-        database: process.env.DB_NAME,
-        password: process.env.DB_PASSWORD,
-        port: process.env.DB_PORT,
-        ssl: { rejectUnauthorized: false }
-    };
-}
+// Inicializa MP apenas se tiver token configurado
+const mpToken = process.env.MP_ACCESS_TOKEN;
+const client = mpToken ? new MercadoPagoConfig({ accessToken: mpToken }) : null;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
-// --- ROTAS DE AUTENTICAÇÃO ---
+// --- MIDDLEWARE AUTH ---
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.sendStatus(401).json({ error: "Token não fornecido" });
 
-app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    await ensureTablesExist();
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    const user = result.rows[0];
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ error: "Token inválido" });
+        req.user = user;
+        next();
+    });
+};
 
-    if (user && user.password_hash === password) {
-      delete user.password_hash;
-      res.json({ success: true, user });
-    } else {
-      res.status(401).json({ success: false, message: 'Credenciais inválidas' });
+// --- ROTAS ---
+
+// Registro
+app.post('/auth/register', async (req, res) => {
+    const { name, email, password, cpf, age, sex } = req.body;
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = await pool.query(
+            "INSERT INTO users (name, email, password_hash, cpf, age, sex) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, role, credits",
+            [name, email.toLowerCase().trim(), hashedPassword, cpf, age, sex]
+        );
+        res.json(newUser.rows[0]);
+    } catch (err) {
+        if (err.code === '23505') return res.status(400).json({ error: "Email ou CPF já cadastrados." });
+        res.status(500).json({ error: "Erro interno no servidor." });
     }
-  } catch (err) { res.status(500).json({ error: 'Erro no servidor' }); }
 });
 
-app.post('/api/register', async (req, res) => {
-  const { name, email, password, cpf, age, sex } = req.body;
-  try {
-    await ensureTablesExist();
-    const result = await pool.query(
-      `INSERT INTO users (name, email, password_hash, cpf, age, sex, role, credits) 
-       VALUES ($1, $2, $3, $4, $5, $6, 'user', 100) RETURNING id, name, email, role`,
-      [name, email, password, cpf, age, sex]
-    );
-    res.json({ success: true, user: result.rows[0] });
-  } catch (err) {
-    if (err.code === '23505') return res.status(400).json({ success: false, message: 'Usuário já existe.' });
-    res.status(500).json({ error: 'Erro ao registrar' });
-  }
-});
-
-// --- ROTAS ADMINISTRATIVAS ---
-
-// Listar Usuários (com status de bloqueio e créditos)
-app.get('/api/admin/users', async (req, res) => {
+// Login
+app.post('/auth/login', async (req, res) => {
+    const { email, password } = req.body;
     try {
-        await ensureTablesExist();
-        const result = await pool.query("SELECT id, name, email, cpf, age, role, credits, block_pre_consulta, block_pre_op FROM users WHERE role != 'admin' ORDER BY name ASC");
-        res.json(result.rows);
-    } catch (err) { res.status(500).json({ error: 'Erro ao buscar usuários' }); }
-});
+        const result = await pool.query("SELECT * FROM users WHERE email = $1", [email.toLowerCase().trim()]);
+        if (result.rows.length === 0) return res.status(400).json({ error: "Usuário não encontrado." });
 
-// Recarregar Créditos
-app.post('/api/admin/recharge', async (req, res) => {
-    const { email, amount } = req.body;
-    try {
-        const result = await pool.query("UPDATE users SET credits = COALESCE(credits, 0) + $1 WHERE email = $2 RETURNING name, credits", [amount, email]);
-        res.json({ success: true, user: result.rows[0] });
-    } catch (err) { res.status(500).json({ error: 'Erro recarga' }); }
-});
+        const user = result.rows[0];
+        if (await bcrypt.compare(password, user.password_hash)) {
+            // Lógica de Recarga Automática SUS (Simplificada)
+            const today = new Date();
+            const last = new Date(user.last_recharge_date);
+            const diffDays = Math.ceil(Math.abs(today - last) / (1000 * 60 * 60 * 24));
+            let recharged = false;
+            
+            // Regra: > 60 anos (180 dias), <= 60 anos (365 dias)
+            if ((user.age > 60 && diffDays >= 180) || (user.age <= 60 && diffDays >= 365)) {
+                await pool.query("UPDATE users SET credits = 100, last_recharge_date = CURRENT_DATE WHERE id = $1", [user.id]);
+                user.credits = 100;
+                recharged = true;
+            }
 
-// Alternar Bloqueios (Toggles)
-app.post('/api/admin/toggle-block', async (req, res) => {
-    const { email, field, value } = req.body;
-    if (!['block_pre_consulta', 'block_pre_op'].includes(field)) return res.status(400).json({ error: 'Campo inválido' });
-    try {
-        const query = field === 'block_pre_consulta' 
-            ? "UPDATE users SET block_pre_consulta = $1 WHERE email = $2" 
-            : "UPDATE users SET block_pre_op = $1 WHERE email = $2";
-        await pool.query(query, [value, email]);
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: 'Erro block' }); }
-});
-
-// --- ROTAS DO SISTEMA (DADOS) ---
-
-// Cirurgias
-app.get('/api/surgeries', async (req, res) => {
-    try {
-        await ensureTablesExist();
-        const result = await pool.query('SELECT * FROM catalog_surgeries ORDER BY name ASC');
-        res.json(result.rows);
-    } catch (err) { res.status(500).json({ error: 'Erro cirurgias' }); }
-});
-
-app.post('/api/surgeries/toggle', async (req, res) => {
-    const { id, is_active } = req.body;
-    try {
-        await pool.query('UPDATE catalog_surgeries SET is_active = $1 WHERE id = $2', [is_active, id]);
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: 'Erro toggle cirurgia' }); }
-});
-
-// Exames
-app.get('/api/exams', async (req, res) => {
-    try {
-        await ensureTablesExist();
-        // Ordena por nome para ficar bonito na lista
-        const result = await pool.query('SELECT * FROM catalog_exams WHERE is_active = true ORDER BY name ASC');
-        res.json({ lab: result.rows.filter(e => e.category === 'lab'), img: result.rows.filter(e => e.category === 'img') });
-    } catch (err) { res.status(500).json({ error: 'Erro exames' }); }
-});
-
-// Encaminhamentos (AME)
-app.get('/api/admin/referrals', async (req, res) => {
-    try {
-        await ensureTablesExist();
-        const result = await pool.query(`SELECT r.*, u.name as patient_name, u.cpf FROM referrals r LEFT JOIN users u ON r.user_id = u.id ORDER BY r.request_date DESC`);
-        res.json(result.rows);
-    } catch (err) { res.status(500).json({ error: 'Erro referrals' }); }
-});
-
-app.post('/api/referrals', async (req, res) => {
-    const { user_id, specialty, reason } = req.body;
-    try {
-        await ensureTablesExist();
-        const result = await pool.query(`INSERT INTO referrals (user_id, specialty, reason) VALUES ($1, $2, $3) RETURNING *`, [user_id, specialty, reason]);
-        res.json({ success: true, referral: result.rows[0] });
-    } catch (err) { res.status(500).json({ error: 'Erro ao criar encaminhamento' }); }
-});
-
-// Rota Coringa (Frontend)
-app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// --- POPULAÇÃO DO BANCO DE DADOS (SEED) ---
-async function ensureTablesExist() {
-    const createUsers = `CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name VARCHAR(150) NOT NULL, email VARCHAR(150) UNIQUE NOT NULL, password_hash VARCHAR(255) NOT NULL, cpf VARCHAR(14) UNIQUE, age INTEGER, sex CHAR(1), role VARCHAR(20) DEFAULT 'user', block_pre_consulta BOOLEAN DEFAULT FALSE, block_pre_op BOOLEAN DEFAULT FALSE, credits INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`;
-    const createReferrals = `CREATE TABLE IF NOT EXISTS referrals (id SERIAL PRIMARY KEY, user_id INTEGER, specialty VARCHAR(100), reason TEXT, status VARCHAR(20) DEFAULT 'pendente', request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`;
-    const createExams = `CREATE TABLE IF NOT EXISTS catalog_exams (id SERIAL PRIMARY KEY, slug VARCHAR(100), name VARCHAR(100), category VARCHAR(20), is_active BOOLEAN DEFAULT TRUE);`;
-    const createSurgeries = `CREATE TABLE IF NOT EXISTS catalog_surgeries (id SERIAL PRIMARY KEY, name VARCHAR(100), is_active BOOLEAN DEFAULT TRUE);`;
-
-    try { 
-        await pool.query(createUsers); await pool.query(createReferrals); await pool.query(createExams); await pool.query(createSurgeries);
-        // Migrations de segurança
-        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS credits INTEGER DEFAULT 0;");
-        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS block_pre_consulta BOOLEAN DEFAULT FALSE;");
-        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS block_pre_op BOOLEAN DEFAULT FALSE;");
-
-        // 1. INSERIR EXAMES DE LABORATÓRIO (LISTA COMPLETA DA FOTO)
-        const labExams = [
-            'Hemograma Completo', 'Creatinina', 'TSH', 'Parasitológico de Fezes', 'Proteína C Reativa', 
-            'Sorologia HIV 1 e 2', 'Beta HCG (Gravidez)', 'Glicemia em Jejum', 'Ureia', 'T4 Livre', 
-            'Hemoglobina Glicada', 'VHS', 'VDRL (Sífilis)', 'Colesterol Total e Frações', 'TGO (AST)', 
-            'Urina Tipo 1 (EAS)', 'PSA Total', 'Ferritina', 'HbsAg (Hepatite B)', 'Triglicerídeos', 
-            'TGP (ALT)', 'Urocultura', 'Ácido Úrico', 'Vitamina D', 'Anti-HCV (Hepatite C)'
-        ];
-
-        // 2. INSERIR EXAMES DE IMAGEM (LISTA COMPLETA DA FOTO)
-        const imgExams = [
-            'Raio-X de Tórax', 'USG Transvaginal', 'USG de Mamas', 'USG Abdome Total', 
-            'USG Próstata (Via Abdominal)', 'USG Obstétrica', 'Mamografia Bilateral', 
-            'Tomografia de Crânio', 'Raio-X Seios da Face', 'Eletrocardiograma', 
-            'Tomografia de Tórax', 'Ecocardiograma'
-        ];
-
-        // 3. INSERIR CIRURGIAS (LISTA COMPLETA DA FOTO)
-        const surgeries = [
-            'Correção de Catarata', 'Hernioplastia', 'Hemorroidectomia', 'Colecistectomia', 
-            'Laqueadura Tubária', 'Histerectomia Total', 'Outra (Médio Porte)'
-        ];
-
-        // Função auxiliar para inserir apenas se não existir (evita duplicatas)
-        for(let ex of labExams) {
-            const check = await pool.query("SELECT id FROM catalog_exams WHERE name = $1", [ex]);
-            if(check.rowCount === 0) await pool.query("INSERT INTO catalog_exams (name, category, slug) VALUES ($1, 'lab', $1)", [ex]);
+            const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+            res.json({ token, user: { ...user, password_hash: undefined, recharged_message: recharged ? "Sua cota SUS foi renovada!" : null } });
+        } else {
+            res.status(403).json({ error: "Senha incorreta." });
         }
-        for(let ex of imgExams) {
-            const check = await pool.query("SELECT id FROM catalog_exams WHERE name = $1", [ex]);
-            if(check.rowCount === 0) await pool.query("INSERT INTO catalog_exams (name, category, slug) VALUES ($1, 'img', $1)", [ex]);
-        }
-        for(let surg of surgeries) {
-            const check = await pool.query("SELECT id FROM catalog_surgeries WHERE name = $1", [surg]);
-            if(check.rowCount === 0) await pool.query("INSERT INTO catalog_surgeries (name) VALUES ($1)", [surg]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro interno." });
+    }
+});
+
+// IA Segura
+app.post('/ai/generate', authenticateToken, async (req, res) => {
+    const { prompt, cost, isJson } = req.body;
+    
+    // Verificar Créditos
+    const userRes = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
+    if (userRes.rows[0].credits < cost) return res.status(402).json({ error: "Créditos insuficientes." });
+
+    try {
+        const apiKey = process.env.GEMINI_API_KEY;
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON." : prompt }] }] })
+        });
+        
+        const data = await response.json();
+        const txt = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (!txt) throw new Error("IA não retornou texto.");
+
+        let finalResult = txt;
+        if (isJson) {
+            try {
+                finalResult = JSON.parse(txt.replace(/```json/g, '').replace(/```/g, '').trim());
+            } catch (e) {
+                console.error("Erro JSON parse IA", e);
+                // Retorna texto puro em caso de falha no JSON para não quebrar
+            }
         }
 
-    } catch (e) { console.warn("Erro ao popular tabelas:", e.message); }
-}
+        // Debitar
+        const clientDb = await pool.connect();
+        try {
+            await clientDb.query('BEGIN');
+            await clientDb.query("UPDATE users SET credits = credits - $1 WHERE id = $2", [cost, req.user.id]);
+            await clientDb.query("INSERT INTO transactions (user_id, amount, description, type) VALUES ($1, $2, $3, 'usage')", [req.user.id, -cost, 'Uso IA']);
+            await clientDb.query('COMMIT');
+            
+            res.json({ result: finalResult, new_credits: userRes.rows[0].credits - cost });
+        } catch (e) {
+            await clientDb.query('ROLLBACK');
+            throw e;
+        } finally {
+            clientDb.release();
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao processar IA." });
+    }
+});
 
-app.listen(PORT, () => { console.log(`Servidor rodando na porta ${PORT}`); });
+// Pagamento
+app.post('/create_preference', authenticateToken, async (req, res) => {
+    if (!client) return res.status(500).json({ error: "Mercado Pago não configurado no servidor." });
+    
+    try {
+        const { description, price, quantity, creditsToAdd } = req.body;
+        const preference = new Preference(client);
+        const result = await preference.create({
+            body: {
+                items: [{ title: description, unit_price: Number(price), currency_id: "BRL", quantity: Number(quantity) }],
+                back_urls: { success: "https://seusite.com/success", failure: "https://seusite.com/fail", pending: "https://seusite.com/pending" },
+                auto_return: "approved",
+                metadata: { user_id: req.user.id, credits_to_add: creditsToAdd }
+            }
+        });
+        res.json({ id: result.id });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Erro MP" });
+    }
+});
+
+// Recuperar por CPF
+app.post('/auth/recover-cpf', async (req, res) => {
+    const { cpf } = req.body;
+    try {
+        const result = await pool.query("SELECT email FROM users WHERE cpf = $1", [cpf]);
+        if (result.rows.length > 0) {
+            res.json({ found: true, message: `Conta encontrada! Link enviado para ${result.rows[0].email} (Simulado)` });
+        } else {
+            res.status(404).json({ error: "CPF não encontrado." });
+        }
+    } catch (err) {
+        res.status(500).json({ error: "Erro interno." });
+    }
+});
+
+app.get('/', (req, res) => res.send("API Conecta Saúde Online"));
+
+app.listen(port, () => console.log(`Server running on port ${port}`));
