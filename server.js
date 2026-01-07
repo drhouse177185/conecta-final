@@ -114,7 +114,7 @@ app.post('/auth/register', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro ao registrar (Email/CPF duplicado?)" }); }
 });
 
-// IA
+// IA (ROBUSTA)
 app.post('/ai/generate', authenticateToken, async (req, res) => {
     const { prompt, cost, isJson } = req.body;
     const userRes = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
@@ -124,16 +124,41 @@ app.post('/ai/generate', authenticateToken, async (req, res) => {
 
     try {
         const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error("API Key não configurada");
+
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON." : prompt }] }] })
+            body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON válido, sem markdown." : prompt }] }] })
         });
+        
         const data = await response.json();
-        const txt = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if(!txt) throw new Error("Sem resposta da IA");
+        
+        // Log para debug no Render (verifique os logs se o erro persistir)
+        if (data.error) {
+            console.error("Erro API Gemini:", JSON.stringify(data.error));
+            throw new Error(data.error.message || "Erro na API Gemini");
+        }
+
+        const candidate = data.candidates?.[0];
+        const txt = candidate?.content?.parts?.[0]?.text;
+        
+        if (!txt) {
+            console.error("Resposta Gemini Vazia. Data:", JSON.stringify(data));
+            throw new Error("A IA não gerou uma resposta de texto válida.");
+        }
 
         let finalResult = txt;
-        if(isJson) { try { finalResult = JSON.parse(txt.replace(/```json/g, '').replace(/```/g, '').trim()); } catch(e){} }
+        if(isJson) { 
+            try { 
+                // Remove blocos de código ```json ... ``` se houver
+                const cleanTxt = txt.replace(/```json/g, '').replace(/```/g, '').trim();
+                finalResult = JSON.parse(cleanTxt); 
+            } catch(e){
+                console.error("Erro Parse JSON:", txt);
+                // Retorna erro mas com o texto cru para debug no front
+                return res.status(500).json({ error: "Falha ao processar JSON da IA", raw: txt });
+            } 
+        }
 
         if(req.user.role !== 'admin' && cost > 0) {
             await pool.query("UPDATE users SET credits = credits - $1 WHERE id = $2", [cost, req.user.id]);
@@ -141,7 +166,10 @@ app.post('/ai/generate', authenticateToken, async (req, res) => {
         
         const updated = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
         res.json({ result: finalResult, new_credits: updated.rows[0].credits });
-    } catch (err) { res.status(500).json({ error: "Erro IA: " + err.message }); }
+    } catch (err) { 
+        console.error("Erro Servidor IA:", err.message);
+        res.status(500).json({ error: "Erro IA: " + err.message }); 
+    }
 });
 
 // CATCH ALL
