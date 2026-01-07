@@ -1,7 +1,7 @@
 {
   "name": "conecta-saude-backend",
   "version": "1.0.0",
-  "description": "API Backend Profissional para Conecta Saúde",
+  "description": "API e Frontend Conecta Saúde",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
