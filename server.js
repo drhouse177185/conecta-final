@@ -6,32 +6,33 @@ const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const path = require('path');
-const fs = require('fs'); // Módulo de arquivos para diagnóstico
+const fs = require('fs');
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 
-// --- DIAGNÓSTICO INICIAL (CRUCIAL PARA O ERRO) ---
-console.log("=== INICIANDO SERVIDOR ===");
-console.log("Diretório atual (__dirname):", __dirname);
-console.log("Listando arquivos na pasta raiz:");
+// --- DIAGNÓSTICO DE ARQUIVOS (Ajuda a achar o erro no Render) ---
+console.log("=== DIAGNÓSTICO DE INICIALIZAÇÃO ===");
+const publicPath = path.join(__dirname, 'public');
+console.log("Caminho esperado da public:", publicPath);
+
 try {
-    const files = fs.readdirSync(__dirname);
-    files.forEach(file => {
-        console.log(` - ${file}`); // Mostra cada arquivo nos logs do Render
-    });
-    
-    // Verificação específica
-    if (files.includes('index.html')) {
-        console.log("✅ SUCESSO: index.html encontrado!");
+    if (fs.existsSync(publicPath)) {
+        console.log("✅ Pasta 'public' encontrada!");
+        const files = fs.readdirSync(publicPath);
+        console.log("📂 Arquivos dentro da public:", files);
+        
+        if (files.includes('index.html')) {
+            console.log("✅ index.html encontrado dentro de public.");
+        } else {
+            console.error("❌ ERRO: A pasta public existe, mas está vazia ou sem index.html.");
+        }
     } else {
-        console.error("❌ ERRO CRÍTICO: index.html NÃO está nesta pasta.");
-        // Tenta achar variações comuns
-        const htmlFiles = files.filter(f => f.endsWith('.html'));
-        if(htmlFiles.length > 0) console.log("⚠️ Avis: Encontrei outros HTMLs:", htmlFiles);
+        console.error("❌ ERRO CRÍTICO: A pasta 'public' NÃO existe na raiz do projeto.");
+        console.log("📂 Conteúdo da raiz:", fs.readdirSync(__dirname));
     }
 } catch (e) {
-    console.error("Erro ao listar arquivos:", e);
+    console.error("Erro no diagnóstico:", e);
 }
-console.log("============================");
+console.log("========================================");
 
 // --- CONFIGURAÇÃO ---
 const app = express();
@@ -49,9 +50,9 @@ const client = mpToken ? new MercadoPagoConfig({ accessToken: mpToken }) : null;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// --- SERVIR ARQUIVOS ESTÁTICOS (FORMULA MAIS SEGURA) ---
-// Usa __dirname que é o caminho absoluto do próprio script
-app.use(express.static(__dirname));
+// --- SERVIR ARQUIVOS ESTÁTICOS DA PASTA PUBLIC ---
+// Agora apontamos explicitamente para a pasta 'public'
+app.use(express.static(publicPath));
 
 // --- INICIALIZAÇÃO DO BANCO ---
 async function initDB() {
@@ -83,7 +84,6 @@ async function initDB() {
             );
         `);
 
-        // SEED DE USUÁRIOS
         const defaultPassHash = await bcrypt.hash('123456', 10);
         await clientDb.query(`
             INSERT INTO users (name, email, password_hash, role, credits, cpf, age, sex)
@@ -124,7 +124,7 @@ const isAdmin = (req, res, next) => {
     next();
 };
 
-// --- ROTAS (Resumidas para focar no erro de arquivo) ---
+// --- ROTAS (API) ---
 app.post('/auth/login', async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -165,10 +165,13 @@ app.post('/auth/recover-cpf', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro interno" }); }
 });
 
-// Rotas IA e Admin (Mantidas iguais à versão anterior, resumidas aqui para clareza)
 app.post('/ai/generate', authenticateToken, async (req, res) => {
-    // ... lógica de IA igual ...
-    const { prompt, isJson } = req.body;
+    const { prompt, cost, isJson } = req.body;
+    const userRes = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
+    const user = userRes.rows[0];
+
+    if (req.user.role !== 'admin' && user.credits < cost) return res.status(402).json({ error: "Saldo insuficiente." });
+
     try {
         const apiKey = process.env.GEMINI_API_KEY;
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
@@ -178,9 +181,31 @@ app.post('/ai/generate', authenticateToken, async (req, res) => {
         const data = await response.json();
         const txt = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
         let finalResult = txt;
-        if(isJson) { try { finalResult = JSON.parse(txt.replace(/```json/g, '').replace(/```/g, '').trim()); } catch(e){} }
-        res.json({ result: finalResult, new_credits: 100 }); // Simplificado para teste
+        if (isJson) { try { finalResult = JSON.parse(txt.replace(/```json/g, '').replace(/```/g, '').trim()); } catch (e) {} }
+
+        if (req.user.role !== 'admin' && cost > 0) {
+            await pool.query("UPDATE users SET credits = credits - $1 WHERE id = $2", [cost, req.user.id]);
+        }
+        
+        const updated = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
+        res.json({ result: finalResult, new_credits: updated.rows[0].credits });
     } catch (err) { res.status(500).json({ error: "Erro IA" }); }
+});
+
+app.post('/ai/tts', authenticateToken, async (req, res) => {
+    const { text } = req.body;
+    try {
+        const apiKey = process.env.GEMINI_API_KEY;
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: text }] }],
+                generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } } }
+            })
+        });
+        const data = await response.json();
+        res.json({ audioContent: data.candidates[0].content.parts[0].inlineData.data });
+    } catch (err) { res.status(500).json({ error: "Erro TTS" }); }
 });
 
 app.post('/admin/users', authenticateToken, isAdmin, async (req, res) => {
@@ -188,21 +213,51 @@ app.post('/admin/users', authenticateToken, isAdmin, async (req, res) => {
     res.json(result.rows);
 });
 
-// --- ROTA FRONTEND (SAFE GUARD) ---
+app.post('/admin/recharge', authenticateToken, isAdmin, async (req, res) => {
+    await pool.query("UPDATE users SET credits = credits + $1 WHERE email = $2", [req.body.amount, req.body.email]);
+    res.json({ success: true });
+});
+
+app.post('/admin/toggle-block', authenticateToken, isAdmin, async (req, res) => {
+    const { email, feature } = req.body;
+    const user = await pool.query("SELECT blocked_features FROM users WHERE email = $1", [email]);
+    let blocks = user.rows[0].blocked_features || { preConsulta: false, preOp: false };
+    blocks[feature] = !blocks[feature];
+    await pool.query("UPDATE users SET blocked_features = $1 WHERE email = $2", [blocks, email]);
+    res.json({ success: true });
+});
+
+app.post('/auth/claim-bonus', authenticateToken, async (req, res) => {
+    const check = await pool.query("SELECT claimed_free_bonus FROM users WHERE id = $1", [req.user.id]);
+    if (check.rows[0].claimed_free_bonus) return res.status(400).json({ error: "Já resgatado." });
+    await pool.query("UPDATE users SET credits = credits + 50, claimed_free_bonus = TRUE WHERE id = $1", [req.user.id]);
+    const up = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
+    res.json({ success: true, new_credits: up.rows[0].credits });
+});
+
+app.post('/create_preference', authenticateToken, async (req, res) => {
+    if (!client) return res.status(500).json({ error: "MP Off" });
+    const result = await new Preference(client).create({
+        body: {
+            items: [{ title: req.body.description, unit_price: Number(req.body.price), currency_id: "BRL", quantity: 1 }],
+            back_urls: { success: req.headers.origin, failure: req.headers.origin, pending: req.headers.origin },
+            auto_return: "approved"
+        }
+    });
+    res.json({ id: result.id });
+});
+
+// --- ROTA CATCH-ALL PARA A PASTA PUBLIC ---
 app.get('*', (req, res) => {
-    const indexPath = path.join(__dirname, 'index.html');
+    const indexPath = path.join(publicPath, 'index.html');
     
-    // Verifica se o arquivo existe antes de tentar enviar
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
-        // Se não achar, envia uma mensagem HTML simples em vez de travar o servidor
         res.status(404).send(`
-            <h1>Erro: Frontend não encontrado</h1>
-            <p>O servidor está rodando, mas o arquivo <code>index.html</code> não foi encontrado na pasta raiz.</p>
-            <p>Verifique os <strong>Logs do Render</strong> para ver a lista de arquivos disponíveis.</p>
-            <hr>
-            <p>Diretório atual: ${__dirname}</p>
+            <h1>Erro: Arquivo index.html não encontrado</h1>
+            <p>O servidor buscou em: <code>${indexPath}</code></p>
+            <p>Certifique-se de que a pasta <strong>public</strong> existe e contém o <strong>index.html</strong>.</p>
         `);
     }
 });
