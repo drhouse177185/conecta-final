@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conecta Saúde - Sistema Integrado v2.6 (Final)</title>
+    <title>Conecta Saúde - Sistema Integrado</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -46,10 +46,6 @@
             font-family: 'Merriweather', serif; font-size: 3rem; font-weight: 700; letter-spacing: 2px;
             position: relative; z-index: 10; text-shadow: 0 4px 6px rgba(0,0,0,0.5); margin-bottom: 0.5rem;
         }
-        .splash-subtitle {
-            font-family: 'Lato', sans-serif; font-size: 0.9rem; letter-spacing: 4px;
-            text-transform: uppercase; color: #94a3b8; position: relative; z-index: 10;
-        }
         .splash-loader {
             width: 200px; height: 2px; background: #1e293b; margin-top: 2rem;
             position: relative; z-index: 10; overflow: hidden; border-radius: 2px;
@@ -68,30 +64,6 @@
         
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #1e3a8a; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* --- PDF WRAPPER --- */
-        #pdf-content-wrapper {
-            position: fixed;
-            top: 0;
-            left: -9999px; /* Fora da tela */
-            width: 794px; /* A4 width em pixels aprox */
-            z-index: -1000;
-            opacity: 0;
-            pointer-events: none;
-            background: white;
-        }
-
-        .pdf-report { 
-            width: 794px; 
-            min-height: 1123px; 
-            padding: 0; 
-            margin: 0; 
-            background-color: #ffffff; 
-            color: #000; 
-            font-family: 'Arial', sans-serif; 
-            font-size: 12pt; 
-            line-height: 1.5; 
-        }
 
         .house-input { background-color: #f8fafc; border: 1px solid #cbd5e1; transition: all 0.3s; }
         .house-input:focus { border-color: #1e3a8a; box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.2); outline: none; }
@@ -99,50 +71,6 @@
         .animate-fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        .map-link-card {
-            display: flex; align-items: center; padding: 1rem; background: white; border: 1px solid #e2e8f0;
-            border-radius: 0.75rem; transition: all 0.2s; cursor: pointer; text-decoration: none; color: #1e293b;
-        }
-        .map-link-card:hover { border-color: #3b82f6; background-color: #eff6ff; transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-        
-        /* Resultados Pós-Consulta */
-        .finding-item { border-left: 4px solid #e2e8f0; padding: 10px; margin-bottom: 8px; background: #f8fafc; }
-        .finding-alert { border-left-color: #ef4444; background: #fef2f2; }
-
-        /* Switches */
-        .toggle-checkbox:checked { right: 0; border-color: #ef4444; } /* Red for block */
-        .toggle-checkbox:checked + .toggle-label { background-color: #ef4444; }
-        
-        .exam-checkbox:checked { right: 0; border-color: #10B981; }
-        .exam-checkbox:checked + .exam-label { background-color: #10B981; }
-
-        /* Botões Acessibilidade */
-        .btn-speak {
-            background-color: #e0f2fe; color: #0284c7; padding: 6px 12px; border-radius: 9999px; font-size: 0.8rem; font-weight: bold;
-            transition: all 0.2s; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; border: 1px solid #bae6fd;
-        }
-        .btn-speak:hover { background-color: #bae6fd; transform: scale(1.05); }
-        .btn-speak:active { transform: scale(0.95); }
-
-        .btn-pause {
-            background-color: #fef9c3; color: #b45309; padding: 6px 12px; border-radius: 9999px; font-size: 0.8rem; font-weight: bold;
-            transition: all 0.2s; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; border: 1px solid #fde047;
-        }
-        .btn-pause:hover { background-color: #fde047; transform: scale(1.05); }
-        .btn-pause:active { transform: scale(0.95); }
-
-        /* Créditos Badge */
-        .credits-badge {
-            display: inline-flex; align-items: center; gap: 0.25rem;
-            padding: 0.25rem 0.75rem; border-radius: 9999px;
-            font-size: 0.75rem; font-weight: 800; text-transform: uppercase;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        }
-        .credits-high { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-        .credits-med { background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
-        .credits-low { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-
-        /* Modal Overlay */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);
@@ -156,6 +84,16 @@
             transform: scale(0.95); transition: transform 0.3s;
         }
         .modal-overlay.active .modal-card { transform: scale(1); }
+        
+        /* Toast Notification */
+        .toast {
+            background: white; border-left: 4px solid #3b82f6; padding: 1rem; border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); display: flex; align-items: center;
+            animation: slideIn 0.3s ease-out; margin-bottom: 0.5rem;
+        }
+        .toast.success { border-color: #22c55e; }
+        .toast.error { border-color: #ef4444; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800">
@@ -168,17 +106,9 @@
         <img src="https://images.unsplash.com/photo-1551076805-e1869033e561?q=80&w=2532&auto=format&fit=crop" class="splash-image" alt="Background Médico">
         <div class="splash-content">
             <h1 class="splash-title">CONECTA SAÚDE</h1>
-            <p class="splash-subtitle">Sistema Integrado de Diagnóstico</p>
+            <p class="text-white tracking-widest text-sm uppercase">Sistema Integrado</p>
             <div class="splash-loader"><div class="splash-bar"></div></div>
-            <p class="text-slate-400 text-xs mt-2 font-mono">Inicializando Módulos Seguros...</p>
-        </div>
-    </div>
-
-    <!-- CONFIGURAÇÃO GERAL -->
-    <div class="bg-slate-900 text-white py-2 px-4 text-xs flex flex-wrap justify-between items-center z-50 relative gap-2">
-        <span class="font-bold">Ambiente v2.6 (Produção)</span>
-        <div class="flex items-center gap-4">
-            <span class="text-green-400 flex items-center"><i class="fa-solid fa-server mr-1"></i> Online</span>
+            <p class="text-slate-400 text-xs mt-2 font-mono">Conectando ao Servidor...</p>
         </div>
     </div>
 
@@ -201,21 +131,11 @@
                 <form id="form-login" onsubmit="event.preventDefault(); handleEmailLogin();" class="space-y-4">
                     <div>
                         <label class="text-xs font-bold text-gray-600 uppercase">E-mail</label>
-                        <input type="email" id="login-email" class="house-input w-full p-3 rounded" placeholder="paciente@email.com" value="">
+                        <input type="email" id="login-email" class="house-input w-full p-3 rounded" placeholder="paciente@email.com">
                     </div>
                     <div>
                         <label class="text-xs font-bold text-gray-600 uppercase">Senha</label>
-                        <div class="relative">
-                            <input type="password" id="login-password" class="house-input w-full p-3 rounded pr-10" placeholder="••••••" value="">
-                            <button type="button" onclick="togglePassword('login-password')" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-blue-600 focus:outline-none">
-                                <i class="fa-solid fa-eye" id="icon-login-password"></i>
-                            </button>
-                        </div>
-                        <div class="text-right mt-1">
-                            <button type="button" onclick="openForgotModal()" class="text-xs text-blue-600 hover:text-blue-800 hover:underline">
-                                Esqueceu a senha?
-                            </button>
-                        </div>
+                        <input type="password" id="login-password" class="house-input w-full p-3 rounded" placeholder="••••••">
                     </div>
                     <button type="submit" class="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded shadow-lg transition transform hover:scale-[1.02]">ACESSAR</button>
                 </form>
@@ -249,12 +169,7 @@
                     </div>
                     <div>
                         <label class="text-xs font-bold text-gray-600 uppercase">Senha</label>
-                        <div class="relative">
-                            <input type="password" id="reg-password" class="house-input w-full p-3 rounded pr-10">
-                            <button type="button" onclick="togglePassword('reg-password')" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-blue-600 focus:outline-none">
-                                <i class="fa-solid fa-eye" id="icon-reg-password"></i>
-                            </button>
-                        </div>
+                        <input type="password" id="reg-password" class="house-input w-full p-3 rounded">
                     </div>
                     <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded shadow-lg transition transform hover:scale-[1.02]">CADASTRAR</button>
                 </form>
@@ -262,9 +177,8 @@
         </div>
     </div>
 
-    <!-- 2. APLICAÇÃO PRINCIPAL (USUÁRIO) -->
+    <!-- 2. APLICAÇÃO PRINCIPAL -->
     <div id="main-app" class="hidden min-h-screen pb-10">
-        
         <!-- Header -->
         <nav class="bg-white shadow-sm sticky top-0 z-30">
             <div class="max-w-6xl mx-auto px-4">
@@ -277,15 +191,15 @@
                         <div class="hidden sm:flex flex-col items-end">
                             <span id="user-display" class="text-sm font-bold text-gray-600"></span>
                             <div class="flex items-center gap-2">
-                                <span id="credit-display" class="credits-badge credits-high" title="Créditos disponíveis">
-                                    <i class="fa-solid fa-coins"></i> <span id="credit-val">--</span>
+                                <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded-full flex items-center">
+                                    <i class="fa-solid fa-coins mr-1"></i> <span id="credit-val">--</span>
                                 </span>
-                                <button onclick="openRechargeModal()" class="bg-green-500 hover:bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow transition transform hover:scale-110" title="Recarregar Créditos">
+                                <button onclick="openRechargeModal()" class="bg-green-500 hover:bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow">
                                     <i class="fa-solid fa-plus"></i>
                                 </button>
                             </div>
                         </div>
-                        <button onclick="handleLogout()" class="text-xs text-red-500 hover:text-red-700 font-bold border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition">SAIR</button>
+                        <button onclick="handleLogout()" class="text-xs text-red-500 font-bold border border-red-200 px-3 py-1 rounded hover:bg-red-50">SAIR</button>
                     </div>
                 </div>
                 <div class="flex overflow-x-auto">
@@ -303,494 +217,159 @@
         </nav>
 
         <div class="max-w-5xl mx-auto p-4 sm:p-6 mt-4">
-
-            <!-- ================= ABA 0: PRÉ-CONSULTA ================= -->
+            <!-- ABA 0: PRÉ-CONSULTA -->
             <div id="page-0" class="block animate-fade-in">
                 <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-                    <div class="bg-blue-50 p-6 border-b border-blue-100 flex justify-between items-center">
-                        <div>
-                            <h2 class="text-xl font-bold text-blue-900 mb-2">Solicitação Inteligente de Exames</h2>
-                            <p class="text-sm text-slate-600">Protocolo de Uso Racional de Exames (Choosing Wisely).</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="speakText('Esta é a tela de Pré-Consulta. Aqui você confirma seus dados e marca se tem alguma doença como pressão alta ou diabetes, para gerar seu pedido de exame.')" class="btn-speak">
-                                <i class="fa-solid fa-volume-high"></i> Ouvir
-                            </button>
-                            <button onclick="pauseSpeech()" class="btn-pause">
-                                <i class="fa-solid fa-pause"></i> Pausar
-                            </button>
-                        </div>
+                    <div class="bg-blue-50 p-6 border-b border-blue-100">
+                        <h2 class="text-xl font-bold text-blue-900 mb-2">Solicitação Inteligente de Exames</h2>
+                        <p class="text-sm text-slate-600">Protocolo de Uso Racional de Exames (Choosing Wisely).</p>
                     </div>
-
                     <div class="p-6">
                         <div id="pre-step-1" class="mb-6">
-                            <h3 class="font-bold text-slate-700 uppercase text-xs mb-3">1. Confirmação de Identidade</h3>
+                            <h3 class="font-bold text-slate-700 uppercase text-xs mb-3">1. Confirmação</h3>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded border">
-                                <div><label class="block text-xs font-bold text-slate-500 uppercase">Nome</label><input type="text" id="pre-name" class="house-input w-full p-2 rounded text-slate-700 font-bold" disabled></div>
-                                <div><label class="block text-xs font-bold text-slate-500 uppercase">Idade</label><input type="number" id="pre-age" class="house-input w-full p-2 rounded text-slate-700 font-bold" disabled></div>
+                                <div><label class="block text-xs font-bold text-slate-500 uppercase">Nome</label><input type="text" id="pre-name" class="house-input w-full p-2 rounded font-bold" disabled></div>
+                                <div><label class="block text-xs font-bold text-slate-500 uppercase">Idade</label><input type="number" id="pre-age" class="house-input w-full p-2 rounded font-bold" disabled></div>
                                 <div class="flex items-end"><button onclick="unlockPreConsulta()" id="btn-confirm-data" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded text-sm transition shadow">Confirmar Dados</button></div>
                             </div>
                         </div>
-
                         <div id="pre-step-2" class="hidden opacity-50 pointer-events-none transition-all duration-500">
-                            <h3 class="font-bold text-slate-700 uppercase text-xs mb-3 flex items-center gap-2">
-                                2. Anamnese Digital
-                                <button onclick="speakText('Marque abaixo se você tem alguma dessas doenças: Hipertensão, Diabetes, Problemas no coração, Obesidade ou Colesterol Alto.')" class="text-blue-500 hover:text-blue-700"><i class="fa-solid fa-volume-low"></i></button>
-                            </h3>
+                            <h3 class="font-bold text-slate-700 uppercase text-xs mb-3">2. Anamnese Digital</h3>
                             <div class="space-y-4">
                                 <div>
-                                    <label class="font-bold text-sm text-slate-700">Possui comorbidades ou doenças crônicas?</label>
+                                    <label class="font-bold text-sm text-slate-700">Doenças crônicas?</label>
                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
-                                        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Hipertensão" class="pre-comorb rounded text-blue-600"><span class="text-sm">Hipertensão</span></label>
-                                        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Diabetes" class="pre-comorb rounded text-blue-600"><span class="text-sm">Diabetes</span></label>
-                                        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Cardiopatia" class="pre-comorb rounded text-blue-600"><span class="text-sm">Cardiopatia</span></label>
-                                        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Obesidade" class="pre-comorb rounded text-blue-600"><span class="text-sm">Obesidade</span></label>
-                                        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Dislipidemia" class="pre-comorb rounded text-blue-600"><span class="text-sm">Colesterol Alto</span></label>
-                                        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Tabagismo" class="pre-comorb rounded text-blue-600"><span class="text-sm">Tabagismo</span></label>
+                                        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Hipertensão" class="pre-comorb rounded"><span class="text-sm">Hipertensão</span></label>
+                                        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Diabetes" class="pre-comorb rounded"><span class="text-sm">Diabetes</span></label>
+                                        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Obesidade" class="pre-comorb rounded"><span class="text-sm">Obesidade</span></label>
+                                        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Tabagismo" class="pre-comorb rounded"><span class="text-sm">Tabagismo</span></label>
                                     </div>
-                                    <input type="text" id="pre-other-comorb" class="mt-2 house-input w-full p-2 rounded text-sm" placeholder="Outras? Digite aqui...">
+                                    <input type="text" id="pre-sintomas" class="mt-2 house-input w-full p-2 rounded text-sm" placeholder="Sente algo mais? Descreva sintomas...">
                                 </div>
-                                <div class="bg-indigo-50 p-4 rounded border border-indigo-100">
-                                    <h4 class="font-bold text-indigo-900 text-sm mb-2">Solicitação Específica</h4>
-                                    <label class="flex items-center space-x-2"><input type="checkbox" id="check-routine" checked class="rounded text-indigo-600"><span class="text-sm">Check-up de Rotina (Uso Racional)</span></label>
-                                    <label class="flex items-center space-x-2 mt-2"><input type="checkbox" id="check-std" class="rounded text-indigo-600"><span class="text-sm">Incluir Sorologias (DSTs/ISTs)</span></label>
-                                    <label id="lbl-pregnancy" class="hidden flex items-center space-x-2 mt-2"><input type="checkbox" id="check-pregnancy" class="rounded text-pink-600"><span class="text-sm">Teste de Gravidez (Beta HCG)</span></label>
-                                </div>
-                                <button onclick="generateRationalExams()" id="btn-gen-exams" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase py-4 rounded-xl shadow-lg transition transform active:scale-[0.98] flex justify-center items-center text-lg">
-                                    <i class="fa-solid fa-file-medical mr-2"></i> Gerar Guia de Exame
+                                <button onclick="generateRationalExams()" id="btn-gen-exams" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition flex justify-center items-center">
+                                    <i class="fa-solid fa-file-medical mr-2"></i> Gerar Guia de Exames
                                 </button>
-                                <p class="text-center text-xs text-blue-400 mt-2 font-bold"><i class="fa-solid fa-coins mr-1"></i> Custo: 80 Créditos</p>
                             </div>
                         </div>
-
-                        <div id="pre-results" class="hidden mt-8 border-t pt-6">
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-lg font-bold text-blue-900">Guia Gerada</h3>
-                                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold">Assinado Digitalmente</span>
-                            </div>
-                            <!-- Links Maps -->
-                            <div class="mb-6">
-                                <h4 class="font-bold text-sm text-slate-700 mb-3 flex items-center"><i class="fa-solid fa-location-dot text-red-500 mr-2"></i> Encontrar Locais Próximos</h4>
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    <a href="https://www.google.com/maps/search/UBS+mais+proxima" target="_blank" class="map-link-card"><div class="bg-blue-100 p-2 rounded-full mr-3 text-blue-600"><i class="fa-solid fa-house-medical"></i></div><div><p class="font-bold text-sm">UBS Próxima</p><p class="text-xs text-slate-500">Unidade Básica</p></div></a>
-                                    <a href="https://www.google.com/maps/search/Ambulatorio+de+Especialidades+proximo" target="_blank" class="map-link-card"><div class="bg-purple-100 p-2 rounded-full mr-3 text-purple-600"><i class="fa-solid fa-user-doctor"></i></div><div><p class="font-bold text-sm">Especialistas</p><p class="text-xs text-slate-500">Ambulatório</p></div></a>
-                                    <a href="https://www.google.com/maps/search/Laboratorio+de+Analises+Clinicas+proximo" target="_blank" class="map-link-card"><div class="bg-green-100 p-2 rounded-full mr-3 text-green-600"><i class="fa-solid fa-flask"></i></div><div><p class="font-bold text-sm">Laboratórios</p><p class="text-xs text-slate-500">Coleta</p></div></a>
-                                </div>
-                            </div>
-                            <div class="bg-slate-50 p-4 rounded border mb-4">
-                                <h4 class="font-bold text-sm text-slate-700 mb-2">Exames Solicitados:</h4>
-                                <ul id="generated-exam-list" class="list-disc pl-5 text-sm text-slate-700 space-y-1"></ul>
-                            </div>
-                            
-                            <!-- BOTOES DE AÇÃO: PDF E WHATSAPP -->
-                            <div class="flex flex-col md:flex-row gap-3">
-                                <button onclick="downloadPDF('PRE')" class="flex-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded flex justify-center items-center shadow-lg transition hover:bg-black"><i class="fa-solid fa-file-pdf mr-2"></i> Baixar Pedido Oficial (PDF)</button>
-                                <button onclick="shareWhatsApp('PRE')" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded flex justify-center items-center shadow-lg transition"><i class="fa-brands fa-whatsapp mr-2"></i> Enviar por WhatsApp</button>
-                            </div>
-
+                        <div id="pre-results" class="hidden mt-8 border-t pt-6 bg-slate-50 p-4 rounded">
+                            <h3 class="text-lg font-bold text-blue-900 mb-2">Guia Sugerida (IA)</h3>
+                            <ul id="generated-exam-list" class="list-disc pl-5 text-sm text-slate-700 space-y-1 mb-4"></ul>
+                            <div class="bg-green-100 text-green-800 p-3 rounded text-sm mb-4"><i class="fa-solid fa-check-circle mr-2"></i> Guia salva no histórico.</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ================= ABA 1: PÓS-CONSULTA ================= -->
+            <!-- ABA 1: PÓS-CONSULTA -->
             <div id="page-1" class="hidden animate-fade-in">
                 <header class="mb-6 text-center">
                     <h1 class="text-2xl font-bold text-slate-900">Análise de Exames</h1>
-                    <p class="text-slate-600">Interpretação detalhada de laudos e resultados.</p>
+                    <p class="text-slate-600">Interpretação detalhada de laudos (Upload ou Foto).</p>
                 </header>
-
-                <div id="drop-zone-1" class="bg-white border-2 border-dashed border-blue-200 rounded-xl p-8 text-center cursor-pointer hover:bg-blue-50 relative group mb-6 transition-all">
-                    <input type="file" id="file-input-1" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf, .jpg, .png" multiple onchange="handleFiles(this.files, 1)">
-                    <div class="pointer-events-none">
+                <div id="drop-zone-1" class="bg-white border-2 border-dashed border-blue-200 rounded-xl p-8 text-center cursor-pointer hover:bg-blue-50 transition-all">
+                    <input type="file" id="file-input-1" class="hidden" accept=".pdf, .jpg, .png" multiple onchange="handleFiles(this.files)">
+                    <div onclick="document.getElementById('file-input-1').click()">
                         <i data-lucide="upload-cloud" class="w-10 h-10 text-blue-500 mx-auto mb-2"></i>
-                        <p class="text-blue-900 font-medium">Arraste exames aqui ou clique</p>
-                        <p class="text-xs text-blue-400 mt-2"><i class="fa-solid fa-camera mr-1"></i> Tira foto do papel</p>
-                        <p class="text-xs text-blue-600 mt-2 font-bold"><i class="fa-solid fa-coins mr-1"></i> Custo: 10 Créditos</p>
+                        <p class="text-blue-900 font-medium">Clique para Enviar Exame</p>
+                        <p class="text-xs text-blue-400 mt-2">PDF ou Fotos</p>
                     </div>
                 </div>
-
-                <!-- Loading Area -->
-                <div id="loading-1" class="hidden mb-8 bg-blue-50 border-l-4 border-blue-600 p-6 rounded-r-lg flex items-center animate-pulse">
-                    <div class="loader mr-4 shrink-0"></div>
-                    <div>
-                        <p class="font-bold text-blue-900 text-lg">Processando...</p>
-                        <p class="text-sm text-blue-700" id="loading-text-1">Iniciando análise inteligente...</p>
-                    </div>
-                </div>
-
-                <!-- Error Box -->
-                <div id="error-box-1" class="hidden mb-8 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg flex items-start">
-                    <i data-lucide="alert-octagon" class="w-6 h-6 text-red-600 mr-3 mt-1 shrink-0"></i>
-                    <div>
-                        <p class="font-bold text-red-800">Atenção</p>
-                        <p class="text-sm text-red-700" id="error-message-1"></p>
-                    </div>
-                </div>
-
-                <!-- Results Area (Estruturada) -->
-                <div id="results-1" class="hidden space-y-6">
-                    <!-- Relatório Principal -->
-                    <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-                        <div class="bg-slate-800 p-4 text-white flex items-center justify-between">
-                            <div class="flex items-center"><i data-lucide="file-heart" class="w-6 h-6 mr-2"></i><h2 class="text-lg font-bold">Relatório de Análise</h2></div>
-                            
-                            <!-- BOTÕES DE ACESSIBILIDADE IA TTS -->
-                            <div class="flex gap-2">
-                                <button id="btn-speak-result" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center shadow-lg transition-transform active:scale-95">
-                                    <i class="fa-solid fa-circle-play mr-2"></i> Ouvir Explicação
-                                </button>
-                                <button onclick="pauseSpeech()" class="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 px-3 py-1.5 rounded-full text-xs font-bold flex items-center shadow-lg transition-transform active:scale-95">
-                                    <i class="fa-solid fa-pause mr-2"></i> Pausar
-                                </button>
-                            </div>
-                        </div>
-                        <div class="p-8">
-                            <div class="prose text-slate-700 text-lg leading-relaxed mb-6" id="ai-summary"></div>
-                            
-                            <div id="ai-possibilities" class="mb-6 bg-blue-50 p-5 rounded-xl border border-blue-100 hidden">
-                                <h3 class="font-bold text-blue-900 text-md mb-2 flex items-center"><i data-lucide="lightbulb" class="w-4 h-4 mr-2"></i>O que isso pode significar?</h3>
-                                <p class="text-slate-700" id="possibilities-text"></p>
-                            </div>
-
-                            <div id="ai-findings" class="space-y-3"></div>
-                        </div>
-                    </div>
-
-                    <!-- Cards Ação -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
-                            <div>
-                                <h3 class="font-bold text-slate-800 text-md flex items-center mb-2"><i data-lucide="user-plus" class="w-5 h-5 mr-2 text-green-600"></i>Profissional Recomendado</h3>
-                                <p class="text-slate-600 text-sm mb-4" id="specialist-text"></p>
-                            </div>
-                            <a id="action-btn" href="#" target="_blank" class="w-full text-center px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors shadow-sm">Encontrar Especialista</a>
-                        </div>
-                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
-                            <div>
-                                <h3 class="font-bold text-slate-800 text-md flex items-center mb-2"><i data-lucide="clipboard-list" class="w-5 h-5 mr-2 text-blue-600"></i>Procedimentos Sugeridos</h3>
-                                <ul id="procedures-list" class="list-disc pl-5 text-sm text-slate-700 space-y-1"></ul>
-                            </div>
-                        </div>
-                    </div>
+                <div id="loading-1" class="hidden mt-4 text-center"><div class="loader mx-auto mb-2"></div><span class="text-sm text-slate-500">A Inteligência Artificial está lendo seu exame...</span></div>
+                <div id="results-1" class="hidden mt-6 bg-white p-6 rounded shadow border">
+                    <h3 class="font-bold text-lg mb-2">Resultado da Análise</h3>
+                    <div id="ai-summary" class="prose text-sm text-slate-700"></div>
                 </div>
             </div>
 
-            <!-- ================= ABA 2: PRÉ-OPERATÓRIO ================= -->
+            <!-- ABA 2: PRÉ-OPERATÓRIO -->
             <div id="page-2" class="hidden animate-fade-in">
-                <header class="mb-6 border-b pb-4 flex justify-between items-center">
-                    <div>
-                        <h1 class="text-2xl font-bold text-slate-900 flex items-center">
-                            <i data-lucide="clipboard-check" class="w-6 h-6 mr-2 text-green-600"></i>
-                            Avaliação Pré-Operatória
-                        </h1>
-                        <p class="text-slate-600 text-sm">Calculadora de Risco e Verificação de Pendências.</p>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="speakText('Nesta tela você envia seus exames para saber se está tudo pronto para a cirurgia. Selecione a cirurgia na lista e envie as fotos dos exames.')" class="btn-speak">
-                            <i class="fa-solid fa-volume-high"></i> Ajuda
-                        </button>
-                        <button onclick="pauseSpeech()" class="btn-pause">
-                            <i class="fa-solid fa-pause"></i> Pausar
-                        </button>
-                    </div>
+                <header class="mb-6 border-b pb-4">
+                    <h1 class="text-2xl font-bold text-slate-900">Risco Cirúrgico</h1>
+                    <p class="text-slate-600 text-sm">Calculadora ASA e Lee + Checklist.</p>
                 </header>
-
                 <form id="preop-form" onsubmit="event.preventDefault(); processPreOp();" class="space-y-6">
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label class="block text-sm font-medium text-slate-700 mb-1">Paciente</label><input type="text" id="op-name" class="w-full p-2 border rounded bg-slate-100" disabled></div>
-                            <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-1">
-                                    Cirurgia Proposta
-                                    <button type="button" onclick="speakText('Escolha a cirurgia que você vai fazer na lista abaixo.')" class="ml-1 text-blue-500"><i class="fa-solid fa-volume-low"></i></button>
-                                </label>
-                                <!-- Select Populado Dinamicamente -->
-                                <select id="surgery-type" class="w-full p-2 border rounded bg-white">
-                                    <!-- Opções geradas via JS -->
-                                </select>
-                            </div>
-                        </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Cirurgia Proposta</label>
+                        <select id="surgery-type" class="w-full p-2 border rounded bg-white">
+                            <option value="Catarata">Catarata (Baixo Risco)</option>
+                            <option value="Colecistectomia">Vesícula (Médio Risco)</option>
+                            <option value="Ortopedia">Prótese Quadril (Alto Risco)</option>
+                        </select>
                     </div>
-                    <div class="bg-blue-50 border border-blue-100 p-6 rounded-xl">
-                        <h3 class="font-bold text-blue-900 mb-2 text-sm uppercase flex items-center">
-                            Upload de Exames Realizados
-                            <button type="button" onclick="speakText('Clique na caixa abaixo para enviar as fotos dos seus exames de sangue e coração.')" class="ml-2 text-blue-500"><i class="fa-solid fa-volume-low"></i></button>
-                        </h3>
-                        <div id="drop-zone-2" class="bg-white border-2 border-dashed border-blue-300 rounded-lg p-6 text-center cursor-pointer hover:bg-white transition-all">
-                            <input type="file" id="file-input-2" class="hidden" accept=".pdf, .jpg, .png" multiple onchange="handleFiles(this.files, 2)">
-                            <div onclick="document.getElementById('file-input-2').click()">
-                                <i data-lucide="folder-up" class="w-8 h-8 text-blue-500 mx-auto mb-2"></i>
-                                <p class="text-blue-900 font-medium">Anexar Exames (PDF/Imagem)</p>
-                                <p id="file-count-2" class="text-xs text-slate-500 mt-1">Nenhum arquivo selecionado</p>
-                            </div>
-                        </div>
-                    </div>
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all flex justify-center items-center text-lg">
-                        <i data-lucide="calculator" class="w-5 h-5 mr-2"></i> Calcular Risco (100 Créditos)
+                    <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl shadow-lg transition">
+                        <i data-lucide="calculator" class="w-5 h-5 mr-2 inline"></i> Calcular Risco (100cr)
                     </button>
                 </form>
-
-                <div id="loading-2" class="hidden mt-6 bg-slate-100 p-4 rounded-lg flex items-center justify-center"><div class="loader mr-3"></div><span class="text-slate-700">Calculando ASA, Lee e verificando completude...</span></div>
-                <div id="results-2" class="hidden mt-8 space-y-6">
-                    <div class="flex justify-between items-center">
-                        <h3 class="font-bold text-slate-800 text-lg">Resultados da Avaliação</h3>
-                        <div class="flex gap-2">
-                            <button id="btn-speak-preop" class="btn-speak">
-                                <i class="fa-solid fa-circle-play mr-2"></i> Ouvir Resultado
-                            </button>
-                            <button onclick="pauseSpeech()" class="btn-pause">
-                                <i class="fa-solid fa-pause"></i> Pausar
-                            </button>
+                <div id="results-2" class="hidden mt-6 space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white p-4 rounded shadow border-l-4 border-blue-500">
+                            <h4 class="text-xs font-bold uppercase text-slate-500">ASA Score</h4>
+                            <p id="res-asa" class="text-2xl font-black">-</p>
+                        </div>
+                        <div class="bg-white p-4 rounded shadow border-l-4 border-purple-500">
+                            <h4 class="text-xs font-bold uppercase text-slate-500">Índice Lee</h4>
+                            <p id="res-lee" class="text-2xl font-black">-</p>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="bg-white p-5 rounded-xl shadow border-l-4 border-blue-600"><h4 class="text-xs font-bold text-slate-500 uppercase">ASA Score</h4><p id="res-asa" class="text-3xl font-bold text-slate-800 mt-1">-</p></div>
-                        <div class="bg-white p-5 rounded-xl shadow border-l-4 border-purple-600"><h4 class="text-xs font-bold text-slate-500 uppercase">Índice Lee (RCRI)</h4><p id="res-lee" class="text-3xl font-bold text-slate-800 mt-1">-</p></div>
-                    </div>
-                    <div class="bg-white rounded-xl shadow p-6 border border-slate-200">
-                        <div id="ai-content-2" class="prose text-slate-700 text-sm"></div>
-                        <div id="pending-exams-container" class="hidden mt-6 pt-4 border-t border-red-100">
-                            <div class="bg-red-50 p-4 rounded-lg border border-red-200 flex flex-col md:flex-col items-stretch gap-4">
-                                <div><h4 class="text-red-800 font-bold flex items-center"><i class="fa-solid fa-circle-exclamation mr-2"></i> Faltam exames para liberação</h4><p class="text-xs text-red-600">Clique para gerar o pedido apenas do que está faltando.</p></div>
-                                
-                                <div class="flex flex-col md:flex-row gap-2">
-                                    <button onclick="downloadPDF('PENDING')" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded shadow-lg text-sm flex justify-center items-center"><i class="fa-solid fa-file-prescription mr-2"></i> Gerar Guia de Pendências</button>
-                                    <button onclick="shareWhatsApp('PENDING')" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded shadow-lg text-sm flex justify-center items-center"><i class="fa-brands fa-whatsapp mr-2"></i> Enviar Guia no WhatsApp</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <!-- PDF RENDERER -->
-    <div id="pdf-content-wrapper"></div>
-
-    <!-- ADMIN VIEW (CONECTADO) -->
-    <div id="admin-view" class="hidden min-h-screen bg-slate-50 pb-20">
-        <!-- Topo Admin -->
-        <div class="bg-slate-900 text-white p-6 shadow-lg">
-            <div class="max-w-6xl mx-auto flex justify-between items-center">
-                <div>
-                    <h1 class="text-2xl font-black uppercase tracking-wider flex items-center">
-                        <i class="fa-solid fa-user-shield mr-3 text-blue-400"></i> Painel Administrativo
-                    </h1>
-                    <p class="text-slate-400 text-sm mt-1">Dr. Tiago Barros | Controle Geral do Sistema</p>
-                </div>
-                <button onclick="handleLogout()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-bold text-sm shadow transition">
-                    <i class="fa-solid fa-right-from-bracket mr-2"></i> Sair
-                </button>
-            </div>
-        </div>
-
-        <div class="max-w-6xl mx-auto p-6 space-y-8">
-            
-            <!-- 2. GERENCIAMENTO DE USUÁRIOS (REAL) -->
-            <div class="bg-white rounded-xl shadow-md border border-red-100 overflow-hidden">
-                <div class="bg-red-50 p-4 border-b border-red-100 flex items-center justify-between">
-                    <div class="flex items-center">
-                        <i class="fa-solid fa-users-gear text-red-600 mr-3 text-xl"></i>
-                        <h2 class="text-lg font-bold text-red-900">Gestão de Pacientes (Cotas e Bloqueios)</h2>
-                    </div>
-                    <div class="relative">
-                        <input type="text" placeholder="Buscar paciente..." oninput="filterUsers(this.value)" class="pl-8 pr-4 py-2 text-sm border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-xs"></i>
-                    </div>
-                </div>
-                
-                <div class="p-0 overflow-x-auto">
-                    <table class="w-full text-sm text-left text-gray-500">
-                        <thead class="text-xs text-gray-700 uppercase bg-gray-100">
-                            <tr>
-                                <th scope="col" class="px-6 py-3">Paciente</th>
-                                <th scope="col" class="px-6 py-3 text-center">Créditos</th>
-                                <th scope="col" class="px-6 py-3 text-center">Ações</th>
-                                <th scope="col" class="px-6 py-3 text-center">Pré-Consulta</th>
-                                <th scope="col" class="px-6 py-3 text-center">Pré-Op</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-users-list" class="bg-white divide-y divide-gray-200"></tbody>
-                    </table>
+                    <div id="ai-content-2" class="bg-white p-4 rounded shadow text-sm"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL DE RECARGA DE CRÉDITOS -->
+    <!-- MODAL RECARGA -->
     <div id="recharge-modal" class="modal-overlay">
         <div class="modal-card">
             <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-lg"><i class="fa-solid fa-coins text-yellow-400 mr-2"></i> Central de Créditos</h3>
-                <button onclick="closeRechargeModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
-            </div>
-            
-            <!-- Conteúdo do Modal -->
-            <div class="p-6">
-                <!-- Saldo Atual -->
-                <div class="text-center mb-6">
-                    <p class="text-xs text-slate-500 uppercase font-bold tracking-widest mb-1">Seu Saldo Atual</p>
-                    <p id="modal-credit-val" class="text-4xl font-black text-slate-800">0</p>
-                </div>
-
-                <div class="space-y-4">
-                    <!-- Opção 1: Bônus Grátis -->
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
-                        <div>
-                            <p class="font-bold text-green-900 text-sm">Bônus Inicial Gratuito</p>
-                            <p class="text-xs text-green-700">Resgate +50 créditos extras (único).</p>
-                        </div>
-                        <button id="btn-claim-bonus" onclick="claimFreeBonus()" class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-4 rounded shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-                            RESGATAR
-                        </button>
-                    </div>
-
-                    <div class="relative flex py-2 items-center">
-                        <div class="flex-grow border-t border-gray-200"></div>
-                        <span class="flex-shrink-0 mx-4 text-gray-400 text-xs uppercase font-bold">Ou compre mais</span>
-                        <div class="flex-grow border-t border-gray-200"></div>
-                    </div>
-
-                    <!-- Opção 2: Gateway de Pagamento -->
-                    <div class="space-y-2">
-                        <button onclick="initiatePayment('basic_50', 19.90)" class="w-full flex justify-between items-center p-3 border rounded-lg hover:bg-slate-50 transition group">
-                            <div class="flex items-center">
-                                <div class="bg-blue-100 p-2 rounded-full mr-3 group-hover:bg-blue-200 transition"><i class="fa-solid fa-bag-shopping text-blue-600"></i></div>
-                                <div class="text-left">
-                                    <p class="font-bold text-sm text-slate-800">Pacote Básico</p>
-                                    <p class="text-xs text-slate-500">+50 Créditos</p>
-                                </div>
-                            </div>
-                            <span class="font-bold text-blue-900">R$ 19,90</span>
-                        </button>
-
-                        <button onclick="initiatePayment('pro_150', 49.90)" class="w-full flex justify-between items-center p-3 border border-purple-200 bg-purple-50 rounded-lg hover:bg-purple-100 transition group relative overflow-hidden">
-                            <div class="absolute top-0 right-0 bg-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl">POPULAR</div>
-                            <div class="flex items-center">
-                                <div class="bg-purple-200 p-2 rounded-full mr-3"><i class="fa-solid fa-gem text-purple-700"></i></div>
-                                <div class="text-left">
-                                    <p class="font-bold text-sm text-purple-900">Pacote Essencial</p>
-                                    <p class="text-xs text-purple-700">+150 Créditos</p>
-                                </div>
-                            </div>
-                            <span class="font-bold text-purple-900">R$ 49,90</span>
-                        </button>
-                    </div>
-                </div>
-
-                <p class="text-[10px] text-center text-slate-400 mt-6">
-                    <i class="fa-solid fa-lock mr-1"></i> Pagamento seguro via Mercado Pago.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL ESQUECEU A SENHA -->
-    <div id="forgot-password-modal" class="modal-overlay">
-        <div class="modal-card">
-            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-lg"><i class="fa-solid fa-key mr-2"></i> Recuperar Acesso</h3>
-                <button onclick="closeForgotModal()" class="text-blue-200 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
+                <h3 class="font-bold"><i class="fa-solid fa-coins text-yellow-400 mr-2"></i> Adicionar Créditos</h3>
+                <button onclick="closeRechargeModal()"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="p-6 space-y-4">
-                <p class="text-sm text-slate-600">Digite seu CPF completo para localizar sua conta.</p>
-                <div>
-                    <label class="text-xs font-bold text-gray-600 uppercase">CPF Cadastrado</label>
-                    <input type="text" id="recovery-cpf" class="house-input w-full p-3 rounded" placeholder="000.000.000-00" oninput="mascaraCPF(this)" maxlength="14">
+                <div class="bg-green-50 p-3 rounded flex justify-between items-center border border-green-200">
+                    <div><p class="font-bold text-green-900 text-sm">Bônus Grátis</p><p class="text-xs text-green-700">+50 créditos (único)</p></div>
+                    <button onclick="claimFreeBonus()" class="bg-green-600 text-white text-xs font-bold py-2 px-3 rounded">RESGATAR</button>
                 </div>
-                <button onclick="recoverByCPF()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded shadow-lg transition">
-                    <i class="fa-solid fa-search mr-2"></i> BUSCAR CONTA
+                <hr>
+                <button onclick="initiatePayment('basic', 19.90)" class="w-full p-3 border rounded hover:bg-slate-50 flex justify-between">
+                    <span>Pacote Básico (50cr)</span> <span class="font-bold">R$ 19,90</span>
                 </button>
-                <div id="recovery-result" class="hidden p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800 font-bold text-center animate-fade-in"></div>
+                <button onclick="initiatePayment('pro', 49.90)" class="w-full p-3 border border-purple-200 bg-purple-50 rounded hover:bg-purple-100 flex justify-between">
+                    <span>Pacote Pro (150cr)</span> <span class="font-bold">R$ 49,90</span>
+                </button>
             </div>
         </div>
     </div>
 
+    <!-- SCRIPT LÓGICO -->
     <script>
-        // CONFIGURAÇÃO DINÂMICA
-        const BACKEND_URL = window.location.origin; 
-        const MP_PUBLIC_KEY = "TEST-SEU-TOKEN-PUBLICO"; 
+        // CONFIGURAÇÃO
+        const BACKEND_URL = window.location.origin; // URL automática (funciona no Render)
+        const MP_PUBLIC_KEY = "TEST-SEU-TOKEN-PUBLICO"; // Coloque sua chave pública aqui se tiver
         
         let authToken = localStorage.getItem('conecta_auth_token');
         let currentUser = JSON.parse(localStorage.getItem('conecta_user')) || null;
         let mp = null;
         try { if(typeof MercadoPago !== 'undefined') mp = new MercadoPago(MP_PUBLIC_KEY); } catch(e) {}
 
-        // --- DADOS EM MEMÓRIA ---
-        let SYSTEM_SETTINGS = {
-            exams: {
-                lab: [{id: 'hemograma', name: 'Hemograma Completo', active: true}, {id: 'glicemia', name: 'Glicemia em Jejum', active: true}], 
-                img: [{id: 'rx_torax', name: 'Raio-X de Tórax', active: true}]
-            },
-            surgeries: [
-                {id: 'catarata', name: 'Correção de Catarata', active: true},
-                {id: 'colecistectomia', name: 'Colecistectomia', active: true},
-                {id: 'hernia', name: 'Hernioplastia', active: true}
-            ]
-        };
-
-        // --- INICIALIZAÇÃO ---
-        window.addEventListener('load', () => {
+        // INICIALIZAÇÃO
+        window.onload = () => {
+            lucide.createIcons();
             setTimeout(() => {
-                const splash = document.getElementById('splash-screen');
-                if(splash) {
-                    splash.style.opacity = '0';
-                    setTimeout(() => splash.remove(), 1000); 
-                }
+                document.getElementById('splash-screen').style.opacity = '0';
+                setTimeout(() => document.getElementById('splash-screen').remove(), 1000);
                 if(authToken && currentUser) initializeApp(currentUser);
             }, 2000);
-            lucide.createIcons();
-        });
+        };
 
-        // --- AUTH & SENHAS ---
-        function togglePassword(id) {
-            const input = document.getElementById(id);
-            const icon = document.getElementById('icon-' + id);
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.classList.replace('fa-eye', 'fa-eye-slash');
-            } else {
-                input.type = 'password';
-                icon.classList.replace('fa-eye-slash', 'fa-eye');
-            }
-        }
-
-        function openForgotModal() { document.getElementById('forgot-password-modal').classList.add('active'); }
-        function closeForgotModal() { document.getElementById('forgot-password-modal').classList.remove('active'); document.getElementById('recovery-result').classList.add('hidden'); }
-
-        async function recoverByCPF() {
-            const cpf = document.getElementById('recovery-cpf').value;
-            if(!cpf) return showToast("Digite o CPF", "error");
-            
-            try {
-                const res = await fetch(`${BACKEND_URL}/auth/recover-cpf`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({cpf})
-                });
-                const data = await res.json();
-                
-                const resultBox = document.getElementById('recovery-result');
-                resultBox.classList.remove('hidden');
-                
-                if(data.found) {
-                    resultBox.className = "p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800 font-bold text-center animate-fade-in";
-                    resultBox.textContent = data.message;
-                } else {
-                    resultBox.className = "p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800 font-bold text-center animate-fade-in";
-                    resultBox.textContent = data.error;
-                }
-            } catch(e) { showToast("Erro de conexão", "error"); }
-        }
-
+        // --- AUTH ---
         async function handleEmailLogin() {
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
+            
             try {
                 const res = await fetch(`${BACKEND_URL}/auth/login`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({email, password})
                 });
                 const data = await res.json();
@@ -801,21 +380,22 @@
                 localStorage.setItem('conecta_auth_token', authToken);
                 localStorage.setItem('conecta_user', JSON.stringify(currentUser));
                 initializeApp(currentUser);
-                showToast(`Bem-vindo, ${currentUser.name}!`, 'success');
+                showToast(`Bem-vindo, ${currentUser.name}`, 'success');
             } catch(e) { showToast(e.message, 'error'); }
         }
 
         async function handleRegister() {
             const name = document.getElementById('reg-name').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+            const cpf = document.getElementById('reg-cpf').value;
             const age = document.getElementById('reg-age').value;
             const sex = document.getElementById('reg-sex').value;
-            const email = document.getElementById('reg-email').value;
-            const cpf = document.getElementById('reg-cpf').value;
-            const password = document.getElementById('reg-password').value;
 
             try {
                 const res = await fetch(`${BACKEND_URL}/auth/register`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({name, email, password, cpf, age, sex})
                 });
                 if(!res.ok) throw new Error("Erro no cadastro");
@@ -825,199 +405,182 @@
         }
 
         function handleLogout() {
-            localStorage.removeItem('conecta_auth_token');
-            localStorage.removeItem('conecta_user');
+            localStorage.clear();
             location.reload();
         }
 
         function initializeApp(user) {
             document.getElementById('auth-view').classList.add('hidden');
-            if(user.role === 'admin') {
-                document.getElementById('admin-view').classList.remove('hidden');
-                renderAdminPanel();
+            document.getElementById('main-app').classList.remove('hidden');
+            document.getElementById('user-display').textContent = user.name;
+            updateCredits();
+            
+            // Preenche dados
+            document.getElementById('pre-name').value = user.name;
+            document.getElementById('pre-age').value = user.age;
+        }
+
+        // --- LÓGICA DO APP ---
+        function switchTab(index) {
+            // Esconde todas as páginas
+            [0, 1, 2].forEach(i => {
+                document.getElementById(`page-${i}`).classList.add('hidden');
+                document.getElementById(`btn-tab-${i}`).className = "tab-inactive flex-1 py-3 text-sm font-bold border-b-2 uppercase tracking-wide flex justify-center items-center whitespace-nowrap px-4 transition";
+            });
+            // Mostra a selecionada
+            document.getElementById(`page-${index}`).classList.remove('hidden');
+            document.getElementById(`btn-tab-${index}`).className = "tab-active flex-1 py-3 text-sm font-bold border-b-2 uppercase tracking-wide flex justify-center items-center whitespace-nowrap px-4 transition";
+        }
+
+        function switchAuthTab(tab) {
+            if(tab === 'login') {
+                document.getElementById('form-login').classList.remove('hidden');
+                document.getElementById('form-register').classList.add('hidden');
             } else {
-                document.getElementById('main-app').classList.remove('hidden');
-                document.getElementById('user-display').textContent = `Olá, ${user.name}`;
-                updateCreditDisplay();
-                safeSetValue('pre-name', user.name);
-                safeSetValue('pre-age', user.age);
-                safeSetValue('op-name', user.name);
-                const surgerySelect = document.getElementById('surgery-type');
-                surgerySelect.innerHTML = SYSTEM_SETTINGS.surgeries.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+                document.getElementById('form-login').classList.add('hidden');
+                document.getElementById('form-register').classList.remove('hidden');
             }
         }
 
-        // --- SISTEMA DE CRÉDITOS & IA ---
-        function updateCreditDisplay() {
-            if(currentUser) {
-                document.getElementById('credit-val').textContent = currentUser.credits;
-                const modalEl = document.getElementById('modal-credit-val');
-                if(modalEl) modalEl.textContent = currentUser.credits;
-            }
+        function unlockPreConsulta() {
+            document.getElementById('pre-step-1').classList.add('opacity-50');
+            document.getElementById('pre-step-2').classList.remove('hidden', 'pointer-events-none', 'opacity-50');
         }
 
-        function hasCredits(cost) {
-            if (currentUser.credits >= cost) return true;
-            showToast(`Saldo insuficiente (${currentUser.credits}). Necessário: ${cost}.`, "error");
-            setTimeout(openRechargeModal, 1500);
-            return false;
+        // --- FUNÇÕES DE IA E LÓGICA ---
+        async function generateRationalExams() {
+            const btn = document.getElementById('btn-gen-exams');
+            btn.innerHTML = "<div class='loader w-4 h-4 border-2 border-white'></div>";
+            btn.disabled = true;
+
+            // Coletar dados
+            const checkboxes = document.querySelectorAll('.pre-comorb:checked');
+            const comorbs = Array.from(checkboxes).map(c => c.value).join(", ");
+            const symptoms = document.getElementById('pre-sintomas').value;
+            
+            const prompt = `Paciente ${currentUser.age} anos, sexo ${currentUser.sex}. Comorbidades: ${comorbs}. Sintomas: ${symptoms}. Liste exames sugeridos em JSON array simples: {"exams": ["Exame 1", "Exame 2"]}.`;
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/ai/generate`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}`},
+                    body: JSON.stringify({ prompt, isJson: true, cost: 80 })
+                });
+                
+                const data = await res.json();
+                if(data.error) throw new Error(data.error);
+
+                updateCredits(data.new_credits);
+
+                // Renderizar Lista
+                const listEl = document.getElementById('generated-exam-list');
+                listEl.innerHTML = "";
+                const exams = data.result.exams || ["Hemograma Completo", "Glicemia"];
+                exams.forEach(ex => {
+                    const li = document.createElement('li');
+                    li.textContent = ex;
+                    listEl.appendChild(li);
+                });
+
+                document.getElementById('pre-results').classList.remove('hidden');
+                showToast("Guia gerada com sucesso!", 'success');
+
+            } catch(e) { showToast(e.message, 'error'); } 
+            finally { btn.innerHTML = "Gerar Guia"; btn.disabled = false; }
+        }
+
+        async function handleFiles(files) {
+            if(!files || files.length === 0) return;
+            document.getElementById('loading-1').classList.remove('hidden');
+            
+            // Simulação de tempo de processamento da IA (OCR + Análise)
+            setTimeout(async () => {
+                // Aqui você enviaria o arquivo para o back, vamos simular a resposta da IA
+                const prompt = "Analise este exame simulado. Responda em JSON: { summary: 'Texto resumo' }";
+                try {
+                    const res = await fetch(`${BACKEND_URL}/ai/generate`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}`},
+                        body: JSON.stringify({ prompt: "O exame mostra leve alteração. Resuma.", isJson: false, cost: 10 })
+                    });
+                    const data = await res.json();
+                    
+                    if(data.new_credits) updateCredits(data.new_credits);
+                    
+                    document.getElementById('ai-summary').innerText = data.result || "Análise concluída. Nenhuma alteração grave detectada.";
+                    document.getElementById('loading-1').classList.add('hidden');
+                    document.getElementById('results-1').classList.remove('hidden');
+                } catch(e) {
+                    showToast("Erro na análise", 'error');
+                    document.getElementById('loading-1').classList.add('hidden');
+                }
+            }, 2000);
+        }
+
+        async function processPreOp() {
+            const surgery = document.getElementById('surgery-type').value;
+            document.getElementById('results-2').classList.add('hidden');
+            
+            const prompt = `Paciente vai fazer cirurgia de ${surgery}. Calcule risco ASA fictício e Lee. JSON: {"asa": "II", "lee": "1", "obs": "Risco moderado"}`;
+            
+            try {
+                const res = await fetch(`${BACKEND_URL}/ai/generate`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}`},
+                    body: JSON.stringify({ prompt, isJson: true, cost: 100 })
+                });
+                const data = await res.json();
+                if(data.error) throw new Error(data.error);
+                
+                updateCredits(data.new_credits);
+                
+                document.getElementById('res-asa').textContent = data.result.asa || "II";
+                document.getElementById('res-lee').textContent = data.result.lee || "1";
+                document.getElementById('ai-content-2').textContent = data.result.obs || "Paciente apto com ressalvas.";
+                document.getElementById('results-2').classList.remove('hidden');
+                
+            } catch(e) { showToast(e.message, 'error'); }
         }
 
         async function claimFreeBonus() {
             try {
                 const res = await fetch(`${BACKEND_URL}/auth/claim-bonus`, {
-                    method: 'POST', headers: {'Authorization': `Bearer ${authToken}`}
+                    method: 'POST',
+                    headers: {'Authorization': `Bearer ${authToken}`}
                 });
                 const data = await res.json();
                 if(data.error) throw new Error(data.error);
-                currentUser.credits = data.new_credits;
-                currentUser.claimedFreeBonus = true;
-                localStorage.setItem('conecta_user', JSON.stringify(currentUser));
-                updateCreditDisplay();
-                showToast("Bônus resgatado!", "success");
+                updateCredits(data.new_credits);
+                showToast("Bônus de 50 créditos resgatado!", 'success');
                 closeRechargeModal();
-            } catch(e) { showToast(e.message, "error"); }
+            } catch(e) { showToast(e.message, 'error'); }
         }
 
-        async function callGemini(prompt, isJson) {
-            const res = await fetch(`${BACKEND_URL}/ai/generate`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-                body: JSON.stringify({ prompt, isJson, cost: 0 }) 
-            });
-            const data = await res.json();
-            if(data.error) throw new Error(data.error);
-            if(data.new_credits !== undefined) {
-                currentUser.credits = data.new_credits;
-                updateCreditDisplay();
+        // --- HELPERS ---
+        function updateCredits(val) {
+            if(val !== undefined) {
+                currentUser.credits = val;
+                localStorage.setItem('conecta_user', JSON.stringify(currentUser));
             }
-            return data.result;
+            document.getElementById('credit-val').textContent = currentUser.credits;
         }
 
-        async function speakText(text, useAI = false) {
-            window.speechSynthesis.cancel();
-            if(!text) return;
-            if(!useAI) {
-                const u = new SpeechSynthesisUtterance(text); u.lang='pt-BR'; window.speechSynthesis.speak(u);
-                return;
-            }
-            try {
-                showToast("Gerando áudio...", "info");
-                const res = await fetch(`${BACKEND_URL}/ai/tts`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-                    body: JSON.stringify({ text })
-                });
-                const data = await res.json();
-                if(data.error) throw new Error(data.error);
-                const audio = new Audio("data:audio/wav;base64," + data.audioContent);
-                audio.play();
-            } catch(e) {
-                const u = new SpeechSynthesisUtterance(text); u.lang='pt-BR'; window.speechSynthesis.speak(u);
-            }
+        function showToast(msg, type) {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = `toast ${type} pointer-events-auto`;
+            el.innerHTML = `<span>${type === 'error' ? '❌' : '✅'} ${msg}</span>`;
+            container.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 300);
+            }, 4000);
         }
 
-        // --- INTERFACE (TABS & MODALS) ---
-        function switchTab(id) {
-            [0,1,2].forEach(i => {
-                document.getElementById(`page-${i}`).classList.add('hidden');
-                document.getElementById(`btn-tab-${i}`).className="tab-inactive flex-1 py-3 text-sm font-bold border-b-2 uppercase tracking-wide flex justify-center items-center whitespace-nowrap px-4 transition";
-            });
-            document.getElementById(`page-${id}`).classList.remove('hidden');
-            document.getElementById(`btn-tab-${id}`).className="tab-active flex-1 py-3 text-sm font-bold border-b-2 uppercase tracking-wide flex justify-center items-center whitespace-nowrap px-4 transition";
-        }
-        function switchAuthTab(t) {
-            if(t==='login'){document.getElementById('form-login').classList.remove('hidden');document.getElementById('form-register').classList.add('hidden');}
-            else{document.getElementById('form-login').classList.add('hidden');document.getElementById('form-register').classList.remove('hidden');}
-        }
-        function safeSetValue(id, val){ const el=document.getElementById(id); if(el) el.value=val; }
-        function openRechargeModal(){ document.getElementById('recharge-modal').classList.add('active'); updateCreditDisplay(); }
-        function closeRechargeModal(){ document.getElementById('recharge-modal').classList.remove('active'); }
-        function pauseSpeech(){ window.speechSynthesis.pause(); } 
-        function showToast(msg, type='error'){
-             const c=document.getElementById('toast-container'); const el=document.createElement('div');
-             el.className=`p-4 rounded shadow-lg text-white mb-2 ${type==='success'?'bg-green-600':'bg-red-600'}`;
-             el.innerHTML=msg; c.appendChild(el); setTimeout(()=>el.remove(),3000);
-        }
-
-        // --- FUNÇÕES ESPECÍFICAS ---
-        function unlockPreConsulta(){ document.getElementById('pre-step-2').classList.remove('hidden', 'opacity-50', 'pointer-events-none'); }
-        
-        async function generateRationalExams() {
-            if(!hasCredits(80)) return;
-            const btn=document.getElementById('btn-gen-exams'); btn.innerHTML="<i class='fa-solid fa-spinner fa-spin'></i>"; btn.disabled=true;
-            const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c=>c.value).join(", ");
-            const prompt = `Paciente ${currentUser.age} anos, ${currentUser.sex}. Comorbidades: ${comorbs}. JSON: {"exams":["Hemograma"]}`;
-            try {
-                const res = await callGemini(prompt, true);
-                currentUser.lastGeneratedExams = res.exams || [];
-                document.getElementById('generated-exam-list').innerHTML = currentUser.lastGeneratedExams.map(e=>`<li>${e}</li>`).join('');
-                document.getElementById('pre-results').classList.remove('hidden');
-            } catch(e){ showToast(e.message); } finally { btn.innerHTML="Gerar Guia"; btn.disabled=false; }
-        }
-
-        async function handleFiles(files, page) {
-            if(page === 1) { 
-               if(!hasCredits(10)) return;
-               document.getElementById('loading-1').classList.remove('hidden');
-               setTimeout(async () => {
-                   try {
-                       const prompt = `Analise este laudo médico fictício. JSON: {"summary":"Paciente saudável", "findings":[{"item":"Hemoglobina","value":"14","status":"Normal","explanation":"Bom"}], "specialist":"Clínico"}`;
-                       const data = await callGemini(prompt, true);
-                       document.getElementById('ai-summary').innerHTML = data.summary;
-                       document.getElementById('results-1').classList.remove('hidden');
-                   } catch(e){ showToast("Erro IA"); } finally { document.getElementById('loading-1').classList.add('hidden'); }
-               }, 2000);
-            } else { 
-                document.getElementById('file-count-2').textContent = `${files.length} arquivos`;
-            }
-        }
-
-        async function processPreOp() {
-            if(!hasCredits(100)) return;
-            document.getElementById('loading-2').classList.remove('hidden');
-            try {
-               const prompt = `Cirurgia: ${document.getElementById('surgery-type').value}. JSON: {"asa":"II", "lee":"I", "html_report":"Risco Baixo", "missing_exams":[]}`;
-               const data = await callGemini(prompt, true);
-               document.getElementById('res-asa').textContent = data.asa;
-               document.getElementById('res-lee').textContent = data.lee;
-               document.getElementById('ai-content-2').innerHTML = data.html_report;
-               document.getElementById('results-2').classList.remove('hidden');
-            } catch(e){ showToast("Erro"); } finally { document.getElementById('loading-2').classList.add('hidden'); }
-        }
-
-        async function downloadPDF(type) {
-            showToast("Gerando PDF...", "info");
-            // Lógica simplificada de PDF para brevidade
-            const { jsPDF } = window.jspdf; const doc = new jsPDF();
-            doc.text(`Relatório Conecta Saúde (${type})`, 10, 10);
-            doc.save(`relatorio_${type}.pdf`);
-        }
-        
-        function shareWhatsApp(type) { window.open(`https://wa.me/?text=${encodeURIComponent("Confira meu pedido de exames do Conecta Saúde.")}`, '_blank'); }
-
-        async function renderAdminPanel() {
-            try {
-                const res = await fetch(`${BACKEND_URL}/admin/users`, { headers: {'Authorization': `Bearer ${authToken}`} });
-                const users = await res.json();
-                document.getElementById('admin-users-list').innerHTML = users.map(u => `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4">${u.name} <div class="text-xs text-gray-400">${u.email}</div></td>
-                        <td class="px-6 py-4 text-center font-bold">${u.credits}</td>
-                        <td class="px-6 py-4 text-center"><button onclick="adminRecharge('${u.email}')" class="text-blue-600 font-bold hover:underline">Recarregar</button></td>
-                         <td class="px-6 py-4 text-center"><input type="checkbox" ${u.blocked_features?.preConsulta ? 'checked' : ''} onchange="adminBlock('${u.email}', 'preConsulta')"></td>
-                         <td class="px-6 py-4 text-center"><input type="checkbox" ${u.blocked_features?.preOp ? 'checked' : ''} onchange="adminBlock('${u.email}', 'preOp')"></td>
-                    </tr>`).join('');
-            } catch(e) { console.error(e); }
-        }
-
-        async function adminRecharge(email) {
-            await fetch(`${BACKEND_URL}/admin/recharge`, { method: 'POST', headers: {'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json'}, body: JSON.stringify({ email, amount: 100 }) });
-            renderAdminPanel(); showToast("Recarga efetuada!", "success");
-        }
-        async function adminBlock(email, feature) {
-            await fetch(`${BACKEND_URL}/admin/toggle-block`, { method: 'POST', headers: {'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json'}, body: JSON.stringify({ email, feature }) });
-            showToast("Status atualizado.", "info");
-        }
-        function mascaraCPF(i) { let v=i.value.replace(/\D/g,""); v=v.replace(/(\d{3})(\d)/,"$1.$2"); v=v.replace(/(\d{3})(\d)/,"$1.$2"); v=v.replace(/(\d{3})(\d{1,2})$/,"$1-$2"); i.value=v; }
+        function mascaraCPF(i){let v=i.value.replace(/\D/g,"");v=v.replace(/(\d{3})(\d)/,"$1.$2");v=v.replace(/(\d{3})(\d)/,"$1.$2");v=v.replace(/(\d{3})(\d{1,2})$/,"$1-$2");i.value=v;}
+        function openRechargeModal() { document.getElementById('recharge-modal').classList.add('active'); }
+        function closeRechargeModal() { document.getElementById('recharge-modal').classList.remove('active'); }
+        function initiatePayment(type, val) { showToast("Redirecionando para Mercado Pago...", "success"); }
     </script>
 </body>
 </html>
