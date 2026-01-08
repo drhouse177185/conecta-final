@@ -887,31 +887,41 @@ require('dotenv').config()
         };
 
         // --- AUTH & INIT ---
-       async function handleEmailLogin() {
-            const e = document.getElementById('login-email').value;
-            const p = document.getElementById('login-password').value;
-            
-            // Tenta login no Backend Real primeiro
-            try {
-                const res = await fetch(`${BACKEND_URL}/auth/login`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ email: e, password: p })
-                });
-                
-                if(res.ok) {
-                    const data = await res.json();
-                    // Salva o token no usuário
-                    data.user.token = data.token; 
-                    initializeApp(data.user);
-                    showToast(`Bem-vindo, ${data.user.name}!`, 'success');
-                    return;
-                }
-            } catch(err) {
-                console.log("Backend offline ou erro, tentando MockDB...");
-            }
-            
+     async function handleEmailLogin() {
+    const e = document.getElementById('login-email').value;
+    const p = document.getElementById('login-password').value;
+    
+    // Tenta login no Backend Real primeiro
+    try {
+        const res = await fetch(`${BACKEND_URL}/auth/login`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ email: e, password: p })
+        });
+        
+        if(res.ok) {
+            const data = await res.json();
+            // Salva o token no usuário
+            data.user.token = data.token; 
+            initializeApp(data.user);
+            showToast(`Bem-vindo, ${data.user.name}!`, 'success');
+            return;
         }
+    } catch(err) {
+        console.log("Backend offline ou erro, tentando MockDB...");
+    }
+
+    // Fallback para MockDB (Teste local sem backend rodando)
+    // CORREÇÃO: Removido o erro de digitação "hz" que estava aqui antes
+    const user = MockDB.login(e, p);
+    
+    if(user) {
+        initializeApp(user);
+        showToast(`Modo Teste: Bem-vindo, ${user.name}!`, 'info');
+    } else {
+        showToast("Credenciais inválidas.");
+    }
+}
         function handleRegister() {
             const name = document.getElementById('reg-name').value;
             const age = document.getElementById('reg-age').value;
