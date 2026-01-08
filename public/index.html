@@ -887,7 +887,41 @@ require('dotenv').config()
         };
 
         // --- AUTH & INIT ---
-        function handleEmailLogin() {
+        function handleEmailLogin() 
+        async function handleEmailLogin() {
+            const e = document.getElementById('login-email').value;
+            const p = document.getElementById('login-password').value;
+            
+            // Tenta login no Backend Real primeiro
+            try {
+                const res = await fetch(`${BACKEND_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email: e, password: p })
+                });
+                
+                if(res.ok) {
+                    const data = await res.json();
+                    // Salva o token no usuário
+                    data.user.token = data.token; 
+                    initializeApp(data.user);
+                    showToast(`Bem-vindo, ${data.user.name}!`, 'success');
+                    return;
+                }
+            } catch(err) {
+                console.log("Backend offline ou erro, tentando MockDB...");
+            }
+
+            // Fallback para MockDB (Teste local sem backend rodando)
+            const user =hzMockDB.login(e, p);
+            if(user) {
+                initializeApp(user);
+                showToast(`Modo Teste: Bem-vindo, ${user.name}!`, 'info');
+            } else {
+                showToast("Credenciais inválidas.");
+            }
+        }
+        {
             const e = document.getElementById('login-email').value;
             const p = document.getElementById('login-password').value;
             const user = MockDB.login(e, p);
@@ -1737,20 +1771,37 @@ require('dotenv').config()
         }
 
         async function callGemini(prompt, isJson) {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON válido." : prompt }] }] })
+            // Em vez de chamar o Google direto, chamamos o nosso servidor
+            // Se estiver logado, usa o token. Se não (teste local), tenta sem.
+            const token = currentUser && currentUser.token ? currentUser.token : "";
+            
+            const res = await fetch(`${BACKEND_URL}/ai/generate`, {
+                method: 'POST', 
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` // Envia o token para autorizar
+                },
+                body: JSON.stringify({ 
+                    prompt: prompt, 
+                    isJson: isJson,
+                    cost: isJson ? 80 : 10 // Custo baseado no tipo de pedido (Pré-Consulta vs Pós)
+                })
             });
             
+            const data = await res.json();
+
             if(!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                const errMsg = errData.error?.message || "Erro na API Gemini (Verifique a chave/quota).";
-                throw new Error(errMsg);
+                throw new Error(data.error || "Erro ao comunicar com o servidor.");
             }
 
-            const txt = (await res.json()).candidates[0].content.parts[0].text;
-            let jsonStr = txt.replace(/```json/g, '').replace(/```/g, '').trim();
-            return isJson ? JSON.parse(jsonStr) : txt;
+            // Atualiza os créditos na tela se o backend retornar
+            if(data.new_credits !== undefined && currentUser) {
+                currentUser.credits = data.new_credits;
+                updateCreditDisplay();
+            }
+
+            return data.result;
+        }
         }
 
         async function downloadPDF(type) {

@@ -117,58 +117,86 @@ app.post('/auth/register', async (req, res) => {
 // IA (ROBUSTA)
 app.post('/ai/generate', authenticateToken, async (req, res) => {
     const { prompt, cost, isJson } = req.body;
+    
+    // Verifica créditos (Lógica mantida)
     const userRes = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
     const user = userRes.rows[0];
-
     if (req.user.role !== 'admin' && user.credits < cost) return res.status(402).json({ error: "Saldo insuficiente" });
 
     try {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) throw new Error("API Key não configurada");
+        // CORREÇÃO AQUI: Mudado de GEMINI_API_KEY para GOOGLE_API_KEY
+        const apiKey = process.env.GOOGLE_API_KEY; 
+        if (!apiKey) throw new Error("API Key não configurada no servidor (.env)");
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON válido, sem markdown." : prompt }] }] })
         });
         
         const data = await response.json();
         
-        // Log para debug no Render (verifique os logs se o erro persistir)
         if (data.error) {
-            console.error("Erro API Gemini:", JSON.stringify(data.error));
+            console.error("Erro API Google:", JSON.stringify(data.error));
             throw new Error(data.error.message || "Erro na API Gemini");
         }
 
         const candidate = data.candidates?.[0];
         const txt = candidate?.content?.parts?.[0]?.text;
         
-        if (!txt) {
-            console.error("Resposta Gemini Vazia. Data:", JSON.stringify(data));
-            throw new Error("A IA não gerou uma resposta de texto válida.");
-        }
+        if (!txt) throw new Error("A IA não retornou texto.");
 
         let finalResult = txt;
         if(isJson) { 
             try { 
-                // Remove blocos de código ```json ... ``` se houver
                 const cleanTxt = txt.replace(/```json/g, '').replace(/```/g, '').trim();
                 finalResult = JSON.parse(cleanTxt); 
             } catch(e){
                 console.error("Erro Parse JSON:", txt);
-                // Retorna erro mas com o texto cru para debug no front
-                return res.status(500).json({ error: "Falha ao processar JSON da IA", raw: txt });
+                // Retorna o texto cru se falhar o JSON, para não quebrar o front
+                return res.json({ result: { error: "Erro JSON", raw: txt }, new_credits: user.credits });
             } 
         }
 
+        // Desconta créditos
         if(req.user.role !== 'admin' && cost > 0) {
             await pool.query("UPDATE users SET credits = credits - $1 WHERE id = $2", [cost, req.user.id]);
         }
         
         const updated = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
         res.json({ result: finalResult, new_credits: updated.rows[0].credits });
+
     } catch (err) { 
         console.error("Erro Servidor IA:", err.message);
         res.status(500).json({ error: "Erro IA: " + err.message }); 
+    }
+});
+
+// ADICIONE ESTA NOVA ROTA PARA O TTS (Áudio) FUNCIONAR PELO BACKEND
+app.post('/ai/tts', async (req, res) => {
+    try {
+        const { text } = req.body;
+        const apiKey = process.env.GOOGLE_API_KEY;
+        
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: text }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: { voiceConfig: {QH: "Aoede" } }
+                }
+            })
+        });
+
+        const data = await response.json();
+        if(data.error) throw new Error(data.error.message);
+        
+        // Repassa o áudio base64 para o front
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
