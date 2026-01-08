@@ -887,8 +887,7 @@ require('dotenv').config()
         };
 
         // --- AUTH & INIT ---
-        function handleEmailLogin() 
-        async function handleEmailLogin() {
+       async function handleEmailLogin() {
             const e = document.getElementById('login-email').value;
             const p = document.getElementById('login-password').value;
             
@@ -911,7 +910,15 @@ require('dotenv').config()
             } catch(err) {
                 console.log("Backend offline ou erro, tentando MockDB...");
             }
-
+             // Fallback para MockDB (Teste local sem backend rodando)
+            const user =hzMockDB.login(e, p);
+            if(user) {
+                initializeApp(user);
+                showToast(`Modo Teste: Bem-vindo, ${user.name}!`, 'info');
+            } else {
+                showToast("Credenciais inválidas.");
+            }
+    
             // Fallback para MockDB (Teste local sem backend rodando)
             const user =hzMockDB.login(e, p);
             if(user) {
