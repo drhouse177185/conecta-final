@@ -1782,8 +1782,6 @@ require('dotenv').config()
 
             return data.result;
         }
-        }
-
         async function downloadPDF(type) {
             let list = [], title = "";
             if(type==='PRE') { list = currentUser.lastGeneratedExams; title="SOLICITAÇÃO DE EXAMES"; }
