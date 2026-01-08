@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+require('dotenv').config()
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -845,7 +846,7 @@
         });
 
         // DEFINIÇÃO DA CHAVE API (Vazia para ser injetada pelo ambiente)
-        const apiKey = "process.env.GOOGLE_API_KEY"; 
+        const apiKey = "process.env"; 
         let currentUser = null;
         let currentPreOpFiles = [];
         let missingExamsList = [];
