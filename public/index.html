@@ -887,40 +887,56 @@
 
         // --- AUTH & INIT ---
      async function handleEmailLogin() {
-    const e = document.getElementById('login-email').value;
-    const p = document.getElementById('login-password').value;
-    
-    // Tenta login no Backend Real primeiro
-    try {
-        const res = await fetch(`${BACKEND_URL}/auth/login`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email: e, password: p })
-        });
-        
-        if(res.ok) {
-            const data = await res.json();
-            // Salva o token no usuário
-            data.user.token = data.token; 
-            initializeApp(data.user);
-            showToast(`Bem-vindo, ${data.user.name}!`, 'success');
-            return;
-        }
-    } catch(err) {
-        console.log("Backend offline ou erro, tentando MockDB...");
-    }
+            const e = document.getElementById('login-email').value;
+            const p = document.getElementById('login-password').value;
+            const btn = document.querySelector('form#form-login button');
+            
+            // Feedback visual que está carregando (importante para o Render)
+            const originalText = btn.innerText;
+            btn.innerText = "CONECTANDO...";
+            btn.disabled = true;
+            
+            // Tenta login no Backend Real
+            try {
+                // Aumentamos o tempo de espera implícito aguardando o fetch
+                const res = await fetch(`${BACKEND_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email: e, password: p })
+                });
+                
+                if(res.ok) {
+                    const data = await res.json();
+                    // Salva o token CRUCIAL para a IA funcionar
+                    data.user.token = data.token; 
+                    initializeApp(data.user);
+                    showToast(`Bem-vindo, ${data.user.name}!`, 'success');
+                    return;
+                } else {
+                    const err = await res.json();
+                    showToast(err.error || "Erro no login", "error");
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                    return; // Não deixa cair no MockDB se o servidor respondeu erro de senha
+                }
+            } catch(err) {
+                console.log("Erro de conexão:", err);
+                showToast("Servidor acordando... tentando Modo Offline.", "info");
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
 
-    // Fallback para MockDB (Teste local sem backend rodando)
-    // CORREÇÃO: Removido o erro de digitação "hz" que estava aqui antes
-    const user = MockDB.login(e, p);
-    
-    if(user) {
-        initializeApp(user);
-        showToast(`Modo Teste: Bem-vindo, ${user.name}!`, 'info');
-    } else {
-        showToast("Credenciais inválidas.");
-    }
-}
+            // Fallback para MockDB (Só executa se a conexão falhar totalmente)
+            const user = MockDB.login(e, p);
+            if(user) {
+                // Avisa que funcionalidades online (IA) não vão funcionar
+                alert("AVISO: Você entrou no MODO OFFLINE (Teste).\nA Inteligência Artificial NÃO funcionará pois o servidor não respondeu.\n\nTente fazer login novamente em 1 minuto.");
+                initializeApp(user);
+            } else {
+                showToast("Credenciais inválidas.");
+            }
+        }
         function handleRegister() {
             const name = document.getElementById('reg-name').value;
             const age = document.getElementById('reg-age').value;
