@@ -8,8 +8,7 @@ const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 
-// Carrega variáveis (apenas localmente)
-const dotenvResult = require('dotenv').config();
+require('dotenv').config();
 
 console.log("\n=========================================");
 console.log("🔍 INICIANDO SERVIDOR CONECTA SAÚDE");
@@ -18,21 +17,22 @@ console.log("=========================================");
 const app = express();
 const port = process.env.PORT || 3000;
 
+// --- LISTA DE E-MAILS VIP (Não precisam de verificar e-mail) ---
+const VIP_EMAILS = [
+    'drtiago.barros@gmail.com',
+    'kellenbastos20@gmail.com'
+];
+
 app.use(express.static(__dirname));
 app.use(express.json({ limit: '50mb' }));
 app.use(cors());
 
-// Rota Principal
 app.get('/', (req, res) => {
     const indexPath = path.join(__dirname, 'index.html');
-    if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
-    } else {
-        res.status(404).send("Erro: index.html não encontrado.");
-    }
+    if (fs.existsSync(indexPath)) res.sendFile(indexPath);
+    else res.status(404).send("Erro: index.html não encontrado.");
 });
 
-// Configuração do Banco de Dados
 const pool = new Pool({
     user: process.env.DB_USER,
     host: process.env.DB_HOST,
@@ -42,36 +42,22 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// --- CONFIGURAÇÃO DE E-MAIL (CORREÇÃO CRÍTICA) ---
-// Removemos todos os espaços da senha e das variáveis para evitar erro de Auth
-const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
-const smtpPort = Number(process.env.SMTP_PORT) || 587; 
+// Configuração de E-mail
 const smtpUser = (process.env.SMTP_USER || '').trim();
-// AQUI ESTÁ A CORREÇÃO: .replace(/\s+/g, '') remove todos os espaços internos
 const smtpPass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
-
-console.log(`📧 Configurando E-mail:`);
-console.log(`   Host: ${smtpHost}`);
-console.log(`   Porta: ${smtpPort}`);
-console.log(`   Usuário: ${smtpUser}`);
-console.log(`   Senha (Tamanho): ${smtpPass.length} caracteres (Deve ter 16)`);
+const smtpPort = Number(process.env.SMTP_PORT) || 587;
+const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
 
 const transporter = nodemailer.createTransport({
     host: smtpHost,
     port: smtpPort,
-    secure: smtpPort === 465, // False para 587 (TLS)
-    auth: {
-        user: smtpUser,
-        pass: smtpPass
-    },
-    tls: {
-        rejectUnauthorized: false
-    },
-    connectionTimeout: 10000, 
-    greetingTimeout: 10000
+    secure: smtpPort === 465,
+    auth: { user: smtpUser, pass: smtpPass },
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 20000,
+    greetingTimeout: 20000
 });
 
-// Inicialização do Banco
 async function initDB() {
     try {
         if (!process.env.DB_HOST) return;
@@ -96,7 +82,21 @@ async function initDB() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-        console.log("✅ Tabela users verificada.");
+        
+        // --- AUTO-CORREÇÃO VIP ---
+        // Garante que as contas VIP sejam sempre verificadas e Admin se necessário
+        console.log("🌟 Aplicando privilégios VIP...");
+        for (const email of VIP_EMAILS) {
+            await clientDb.query(
+                "UPDATE users SET is_verified = TRUE WHERE email = $1", 
+                [email]
+            );
+        }
+        
+        // Garante que o Dr. Tiago seja Admin
+        await clientDb.query("UPDATE users SET role = 'admin' WHERE email = 'drtiago.barros@gmail.com'");
+
+        console.log("✅ Banco pronto e VIPs liberados.");
         clientDb.release();
     } catch (err) {
         console.error("❌ Erro Banco:", err.message);
@@ -109,80 +109,92 @@ initDB();
 app.post('/auth/register', async (req, res) => {
     const { name, email, password, cpf, age, sex } = req.body;
     
-    if (!email || !password || !name) {
-        return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
-    }
+    if (!email || !password || !name) return res.status(400).json({ error: "Preencha todos os campos." });
+
+    const emailLower = email.toLowerCase().trim();
+    // Verifica se é VIP
+    const isVip = VIP_EMAILS.includes(emailLower);
 
     try {
-        // 1. Verificar duplicação
-        const checkUser = await pool.query("SELECT id FROM users WHERE email = $1 OR cpf = $2", [email, cpf]);
-        if (checkUser.rows.length > 0) {
-            return res.status(400).json({ error: "E-mail ou CPF já cadastrados." });
-        }
+        const checkUser = await pool.query("SELECT id FROM users WHERE email = $1 OR cpf = $2", [emailLower, cpf]);
+        if (checkUser.rows.length > 0) return res.status(400).json({ error: "E-mail ou CPF já cadastrados." });
 
-        // 2. Criar Hash e Token
         const password_hash = await bcrypt.hash(password, 10);
         const verificationToken = crypto.randomBytes(32).toString('hex');
 
-        // 3. Inserir no Banco
+        // Se for VIP, já insere como is_verified = TRUE
         await pool.query(
-            `INSERT INTO users (name, email, password_hash, cpf, age, sex, credits, verification_token, is_verified) 
-             VALUES ($1, $2, $3, $4, $5, $6, 100, $7, false)`,
-            [name, email.toLowerCase().trim(), password_hash, cpf, age, sex, verificationToken]
+            `INSERT INTO users (name, email, password_hash, cpf, age, sex, credits, verification_token, is_verified, role) 
+             VALUES ($1, $2, $3, $4, $5, $6, 100, $7, $8, $9)`,
+            [
+                name, 
+                emailLower, 
+                password_hash, 
+                cpf, 
+                age, 
+                sex, 
+                verificationToken, 
+                isVip ? true : false, // VIPs nascem verificados
+                (emailLower === 'drtiago.barros@gmail.com') ? 'admin' : 'user'
+            ]
         );
 
-        // 4. Enviar E-mail
-        let baseUrl = process.env.APP_URL || `https://${req.get('host')}`;
-        if (baseUrl.includes('google.com')) baseUrl = `https://${req.get('host')}`; 
+        // Se for VIP, não envia e-mail de ativação, apenas responde OK
+        if (isVip) {
+            return res.json({ message: "Conta VIP criada! Pode entrar direto.", vip: true });
+        }
+
+        // Fluxo normal para outros usuários
+        let baseUrl = process.env.APP_URL;
+        if (!baseUrl || baseUrl.includes('google.com')) baseUrl = `https://${req.get('host')}`;
         
         const activationLink = `${baseUrl}/auth/verify/${verificationToken}`;
 
         try {
             await transporter.sendMail({
                 from: `"Conecta Saúde" <${smtpUser}>`,
-                to: email,
+                to: emailLower,
                 subject: 'Ative sua conta - Conecta Saúde',
                 html: `
                     <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4;">
                         <div style="background-color: white; padding: 20px; border-radius: 8px; text-align: center;">
                             <h2 style="color: #1e3a8a;">Bem-vindo(a), ${name}!</h2>
-                            <p>Sua conta foi criada. Clique no botão abaixo para ativar:</p>
-                            <a href="${activationLink}" style="background-color: #16a34a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">ATIVAR CONTA</a>
-                            <p style="font-size: 12px; color: #888; margin-top: 20px;">Se o botão não funcionar, copie: ${activationLink}</p>
+                            <p>Clique abaixo para ativar:</p>
+                            <a href="${activationLink}" style="background-color: #16a34a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">ATIVAR CONTA</a>
                         </div>
                     </div>
                 `
             });
-            res.json({ message: "Cadastro realizado! Verifique seu e-mail." });
+            res.json({ message: "Cadastro realizado! Verifique seu e-mail.", vip: false });
 
         } catch (emailError) {
-            console.error("❌ Falha crítica no SMTP:", emailError);
-            
-            // ROLLBACK: Apaga o usuário para permitir nova tentativa
-            await pool.query("DELETE FROM users WHERE email = $1", [email]);
-            
-            // Mensagem de erro específica para o usuário
-            if (emailError.response && emailError.response.includes('535')) {
-                return res.status(500).json({ error: "Erro de Autenticação: Verifique a Senha de App do Google no servidor." });
-            }
-            
-            return res.status(500).json({ error: "Erro ao enviar e-mail. Tente novamente mais tarde." });
+            console.error("❌ Erro SMTP:", emailError);
+            await pool.query("DELETE FROM users WHERE email = $1", [emailLower]);
+            return res.status(500).json({ error: "Erro ao enviar e-mail. Tente novamente." });
         }
 
     } catch (err) {
-        console.error("Erro no registro:", err);
-        res.status(500).json({ error: "Erro interno no servidor." });
+        console.error("Erro Registro:", err);
+        res.status(500).json({ error: "Erro interno." });
     }
 });
 
 app.post('/auth/login', async (req, res) => {
     const { email, password } = req.body;
+    const emailLower = email.toLowerCase().trim();
+    
     try {
-        const result = await pool.query("SELECT * FROM users WHERE email = $1", [email.toLowerCase().trim()]);
+        const result = await pool.query("SELECT * FROM users WHERE email = $1", [emailLower]);
         if (result.rows.length === 0) return res.status(400).json({ error: "Usuário não encontrado." });
         
         const user = result.rows[0];
-        if (!user.is_verified) return res.status(401).json({ error: "Verifique seu e-mail para ativar a conta." });
+
+        // Lógica de liberação: Se for VIP, passa. Se não, checa is_verified.
+        const isVip = VIP_EMAILS.includes(emailLower);
+        
+        if (!user.is_verified && !isVip) {
+            return res.status(401).json({ error: "Verifique seu e-mail para ativar a conta." });
+        }
 
         if (await bcrypt.compare(password, user.password_hash)) {
             delete user.password_hash;
@@ -197,8 +209,6 @@ app.post('/auth/login', async (req, res) => {
 
 app.post('/auth/recover-password', async (req, res) => {
     const { cpf } = req.body;
-    if (!cpf) return res.status(400).json({ error: "CPF obrigatório." });
-
     try {
         const result = await pool.query("SELECT * FROM users WHERE cpf = $1", [cpf]);
         if (result.rows.length === 0) return res.status(404).json({ error: "CPF não encontrado." });
@@ -209,9 +219,8 @@ app.post('/auth/recover-password', async (req, res) => {
 
         await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [newHash, user.id]);
         res.json({ newPassword });
-
     } catch (err) {
-        res.status(500).json({ error: "Erro ao processar recuperação." });
+        res.status(500).json({ error: "Erro na recuperação." });
     }
 });
 
@@ -222,8 +231,8 @@ app.get('/auth/verify/:token', async (req, res) => {
             "UPDATE users SET is_verified = true, verification_token = NULL WHERE verification_token = $1 RETURNING name",
             [token]
         );
-        if (result.rows.length === 0) return res.send(`<h1>Link Inválido</h1><a href="/">Voltar</a>`);
-        res.send(`<h1>Conta Ativada!</h1><p>Parabéns ${result.rows[0].name}. <a href="/">Fazer Login</a></p>`);
+        if (result.rows.length === 0) return res.send(`<h1>Link Inválido</h1>`);
+        res.send(`<h1>Conta Ativada!</h1><p>Pode fazer login.</p>`);
     } catch (err) {
         res.status(500).send("Erro na ativação.");
     }
@@ -233,21 +242,21 @@ app.post('/ai/generate', async (req, res) => {
     const { prompt, cost, isJson, userId } = req.body;
     const apiKey = process.env.GOOGLE_API_KEY;
 
-    if (!userId) return res.status(401).json({ error: "Faça login." });
-
     try {
         const userRes = await pool.query("SELECT credits, role FROM users WHERE id = $1", [userId]);
+        if (userRes.rows.length === 0) return res.status(404).json({ error: "Login necessário." });
         const user = userRes.rows[0];
+
         if (user.role !== 'admin' && user.credits < cost) return res.status(402).json({ error: "Créditos insuficientes." });
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON." : prompt }] }] })
+            body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda JSON." : prompt }] }] })
         });
 
         const data = await response.json();
-        const txt = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        const txt = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         
         let result = txt;
         if (isJson && txt) {
