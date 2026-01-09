@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conecta Saúde - Acesso Seguro</title>
+    <title>Conecta Saúde - V2.5 Seguro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=Merriweather:ital,wght@0,300;0,700;1,300&display=swap');
-        
+        @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap');
         body { font-family: 'Lato', sans-serif; background-color: #f8fafc; }
         
         /* --- SPLASH SCREEN (Tela de Abertura Escura) --- */
@@ -53,7 +52,7 @@
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 50; }
         .modal-overlay.active { display: flex; }
 
-        /* Loading Spinner (Para ações internas) */
+        /* Loading Spinner */
         #loading-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
         #loading-overlay.active { display: flex; }
         .spinner { width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #3b82f6; animation: spin 1s ease-in-out infinite; }
@@ -62,7 +61,7 @@
 </head>
 <body>
 
-    <!-- 1. SPLASH SCREEN (TELA DE ABERTURA) -->
+    <!-- SPLASH SCREEN -->
     <div id="splash-screen">
         <img src="https://images.unsplash.com/photo-1551076805-e1869033e561?q=80&w=2532&auto=format&fit=crop" class="splash-image" alt="Background Médico">
         <div class="splash-content">
@@ -73,25 +72,23 @@
         </div>
     </div>
 
-    <!-- NOTIFICAÇÕES (TOAST) -->
+    <!-- TOAST -->
     <div id="toast-container" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
 
-    <!-- LOADING INTERNO (Para chamadas de API) -->
+    <!-- LOADING INTERNO -->
     <div id="loading-overlay">
         <div class="spinner mb-4"></div>
         <p class="text-white font-bold text-lg animate-pulse" id="loading-text">Processando...</p>
     </div>
 
-    <!-- TELA DE AUTENTICAÇÃO (LOGIN) - FUNDO ESCURO AGORA -->
+    <!-- LOGIN / REGISTRO (FUNDO ESCURO) -->
     <div id="auth-view" class="min-h-screen flex items-center justify-center p-4 relative bg-slate-900">
-        <!-- Imagem de Fundo com Overlay Escuro -->
         <div class="absolute inset-0 z-0 overflow-hidden">
             <img src="https://images.unsplash.com/photo-1538108149393-fbbd81895907?q=80&w=2000&auto=format&fit=crop" alt="Medical Background" class="w-full h-full object-cover opacity-20 filter grayscale">
             <div class="absolute inset-0 bg-gradient-to-b from-slate-900/90 to-blue-900/90"></div>
         </div>
 
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all hover:scale-[1.01] relative z-10">
-            <!-- Cabeçalho -->
             <div class="bg-blue-900 p-8 text-center text-white relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/medical-icons.png')]"></div>
                 <i class="fa-solid fa-heart-pulse text-5xl mb-3 relative z-10"></i>
@@ -99,14 +96,12 @@
                 <p class="text-blue-200 text-sm relative z-10">Portal do Paciente</p>
             </div>
             
-            <!-- Abas -->
             <div class="flex border-b">
                 <button onclick="switchTab('login')" id="tab-login" class="w-1/2 py-4 font-bold text-blue-900 border-b-4 border-blue-900 bg-blue-50">Entrar</button>
                 <button onclick="switchTab('register')" id="tab-register" class="w-1/2 py-4 text-slate-400 font-medium hover:text-blue-800">Criar Conta</button>
             </div>
 
             <div class="p-8">
-                <!-- Formulário de Login -->
                 <form id="form-login" onsubmit="event.preventDefault(); handleLogin();" class="space-y-4">
                     <div>
                         <label class="text-xs font-bold text-slate-500 uppercase">E-mail</label>
@@ -123,13 +118,11 @@
                         </div>
                     </div>
                     <button type="submit" class="btn-primary shadow-lg shadow-blue-900/30">ACESSAR SISTEMA</button>
-                    
                     <div class="text-center mt-4">
                         <button type="button" onclick="openModal('recover-modal')" class="text-sm text-blue-600 font-bold hover:underline">Esqueceu a senha?</button>
                     </div>
                 </form>
 
-                <!-- Formulário de Registro -->
                 <form id="form-register" onsubmit="event.preventDefault(); handleRegister();" class="space-y-3 hidden">
                     <input type="text" id="reg-name" class="house-input" placeholder="Nome Completo" required>
                     <div class="flex gap-2">
@@ -149,7 +142,40 @@
         </div>
     </div>
 
-    <!-- APP PRINCIPAL (Invisível até logar) -->
+    <!-- Modal Pós-Cadastro -->
+    <div id="activation-modal" class="modal-overlay">
+        <div class="bg-white rounded-xl p-8 w-full max-w-sm shadow-2xl text-center transform transition-all scale-100">
+            <div class="bg-blue-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-envelope-open-text text-3xl text-blue-600"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Verifique seu E-mail</h3>
+            <p class="text-sm text-slate-500 mb-6">Enviamos um link de confirmação. Clique nele para ativar sua conta.</p>
+            <button onclick="closeModal('activation-modal')" class="btn-primary">ENTENDI</button>
+        </div>
+    </div>
+
+    <!-- Modal Recuperação -->
+    <div id="recover-modal" class="modal-overlay">
+        <div class="bg-white rounded-xl p-8 w-full max-w-sm shadow-2xl transform transition-all scale-100">
+            <div class="text-center mb-6">
+                <div class="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-key text-2xl text-blue-600"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-800">Recuperar Acesso</h3>
+            </div>
+            <input type="text" id="recover-cpf" class="house-input text-center font-bold text-lg tracking-widest" placeholder="000.000.000-00" oninput="maskCPF(this)" maxlength="14">
+            <div id="recover-result" class="hidden mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center animate-pulse">
+                <p class="text-xs text-yellow-800 font-bold uppercase mb-1">Sua Nova Senha:</p>
+                <p id="new-pass-display" class="text-2xl font-mono font-black text-slate-800 select-all"></p>
+            </div>
+            <div class="flex gap-2 mt-6">
+                <button onclick="handleRecoverPassword()" class="btn-primary flex-1">GERAR SENHA</button>
+                <button onclick="closeModal('recover-modal')" class="px-4 py-2 rounded-lg font-bold text-slate-500 hover:bg-slate-100">FECHAR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP PRINCIPAL -->
     <div id="main-app" class="hidden min-h-screen flex flex-col">
         <nav class="bg-white shadow-md px-6 py-4 flex justify-between items-center z-40 relative">
             <div class="flex items-center gap-3">
@@ -170,14 +196,12 @@
         </nav>
 
         <main class="flex-1 p-6 max-w-5xl mx-auto w-full">
-            <!-- Área de Boas Vindas -->
             <div class="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-8 text-white shadow-xl mb-8 relative overflow-hidden">
                 <i class="fa-solid fa-user-doctor absolute -right-10 -bottom-10 text-9xl opacity-20 rotate-12"></i>
                 <h1 class="text-3xl font-bold mb-2">Bem-vindo(a) de volta!</h1>
-                <p class="opacity-90 max-w-lg">Sua saúde em dia com o poder da inteligência artificial. Utilize seus créditos para gerar diagnósticos preliminares ou dicas de saúde.</p>
+                <p class="opacity-90 max-w-lg">Sua saúde em dia com o poder da inteligência artificial. Utilize seus créditos para gerar diagnósticos preliminares.</p>
             </div>
 
-            <!-- Card da IA -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <i class="fa-solid fa-robot text-blue-500"></i> Consultar IA Médica
@@ -190,7 +214,6 @@
                     </button>
                 </div>
                 
-                <!-- Resposta da IA -->
                 <div id="ai-result-area" class="mt-6 hidden">
                     <div class="bg-green-50 border border-green-100 rounded-lg p-6">
                         <h4 class="text-green-800 font-bold mb-2 flex items-center gap-2"><i class="fa-solid fa-check-circle"></i> Análise Concluída:</h4>
@@ -201,47 +224,19 @@
         </main>
     </div>
 
-    <!-- MODAL: Recuperar Senha -->
-    <div id="recover-modal" class="modal-overlay">
-        <div class="bg-white rounded-xl p-8 w-full max-w-sm shadow-2xl transform transition-all scale-100">
-            <div class="text-center mb-6">
-                <div class="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fa-solid fa-key text-2xl text-blue-600"></i>
-                </div>
-                <h3 class="text-xl font-bold text-slate-800">Recuperar Acesso</h3>
-                <p class="text-sm text-slate-500">Informe seu CPF para gerar uma nova senha temporária.</p>
-            </div>
-            
-            <input type="text" id="recover-cpf" class="house-input text-center font-bold text-lg tracking-widest" placeholder="000.000.000-00" oninput="maskCPF(this)" maxlength="14">
-            
-            <div id="recover-result" class="hidden mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center animate-pulse">
-                <p class="text-xs text-yellow-800 font-bold uppercase mb-1">Sua Nova Senha:</p>
-                <p id="new-pass-display" class="text-2xl font-mono font-black text-slate-800 select-all"></p>
-            </div>
-
-            <div class="flex gap-2 mt-6">
-                <button onclick="handleRecoverPassword()" class="btn-primary flex-1">GERAR SENHA</button>
-                <button onclick="closeModal('recover-modal')" class="px-4 py-2 rounded-lg font-bold text-slate-500 hover:bg-slate-100">FECHAR</button>
-            </div>
-        </div>
-    </div>
-
     <script>
-        // CONFIGURAÇÃO DE AMBIENTE
+        // Use caminho relativo para evitar erros de CORS ou URL errada
         const API_URL = ""; 
         let currentUser = null;
 
-        // --- LÓGICA DA SPLASH SCREEN ---
         window.addEventListener('load', () => {
-            // A splash screen dura 3 segundos e depois some suavemente
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 splash.style.opacity = '0';
-                setTimeout(() => splash.remove(), 1000); // Remove do DOM após o fade-out
+                setTimeout(() => splash.remove(), 1000);
             }, 3000);
         });
 
-        // --- SISTEMA DE LOADING INTERNO ---
         function showLoading(msg = "Processando...") {
             document.getElementById('loading-text').innerText = msg;
             document.getElementById('loading-overlay').classList.add('active');
@@ -251,8 +246,6 @@
             document.getElementById('loading-overlay').classList.remove('active');
         }
 
-        // --- FUNÇÕES DE API ---
-        
         async function handleLogin() {
             showLoading("Autenticando...");
             const email = document.getElementById('login-email').value;
@@ -282,7 +275,7 @@
         }
 
         async function handleRegister() {
-            showLoading("Criando sua conta segura...");
+            showLoading("Criando conta e enviando e-mail...");
             const payload = {
                 name: document.getElementById('reg-name').value,
                 age: document.getElementById('reg-age').value,
@@ -301,13 +294,13 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    alert("Conta criada! Verifique seu e-mail para ativar.");
+                    openModal('activation-modal');
                     switchTab('login');
                 } else {
                     showToast(data.error);
                 }
             } catch (error) {
-                showToast("Erro ao registrar.");
+                showToast("Erro ao conectar com o servidor.");
             } finally {
                 hideLoading();
             }
@@ -328,7 +321,7 @@
                 if (res.ok) {
                     document.getElementById('recover-result').classList.remove('hidden');
                     document.getElementById('new-pass-display').innerText = data.newPassword;
-                    showToast("Senha gerada! Copie e faça login.", "success");
+                    showToast("Senha gerada!", "success");
                 } else {
                     showToast(data.error);
                 }
@@ -341,21 +334,16 @@
 
         async function generateAI() {
             if (!currentUser) return logout();
-            
             const prompt = document.getElementById('ai-prompt').value;
             if(!prompt.trim()) return showToast("Digite algo para a IA analisar.");
 
             showLoading("IA Analisando Dados...");
-            
             try {
                 const res = await fetch(`${API_URL}/ai/generate`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ 
-                        prompt, 
-                        userId: currentUser.id, 
-                        cost: 10,
-                        isJson: false 
+                        prompt, userId: currentUser.id, cost: 10, isJson: false 
                     })
                 });
                 const data = await res.json();
@@ -363,7 +351,6 @@
                 if (res.ok) {
                     document.getElementById('ai-result-area').classList.remove('hidden');
                     document.getElementById('ai-response-text').innerText = data.result;
-                    // Atualiza créditos visualmente
                     currentUser.credits = data.new_credits;
                     document.getElementById('credit-display').innerText = currentUser.credits;
                 } else {
@@ -376,8 +363,6 @@
             }
         }
 
-        // --- UTILITÁRIOS ---
-
         function enterApp() {
             document.getElementById('auth-view').classList.add('hidden');
             document.getElementById('main-app').classList.remove('hidden');
@@ -385,10 +370,7 @@
             document.getElementById('credit-display').innerText = currentUser.credits;
         }
 
-        function logout() {
-            currentUser = null;
-            location.reload();
-        }
+        function logout() { currentUser = null; location.reload(); }
 
         function switchTab(tab) {
             const isLogin = tab === 'login';
@@ -423,10 +405,7 @@
             const toast = document.createElement('div');
             toast.className = `pointer-events-auto p-4 rounded-lg shadow-lg text-white font-bold transform transition-all translate-x-full animate-slideIn ${type === 'success' ? 'bg-green-600' : 'bg-red-500'}`;
             toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check' : 'fa-circle-exclamation'} mr-2"></i> ${msg}`;
-            
-            // Animação CSS inline
             toast.style.animation = "slideIn 0.3s forwards";
-            
             container.appendChild(toast);
             setTimeout(() => {
                 toast.style.opacity = '0';
@@ -434,13 +413,9 @@
             }, 4000);
         }
 
-        // Estilo de animação dinâmico para os Toasts
         const styleSheet = document.createElement("style");
-        styleSheet.innerText = `
-            @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-        `;
+        styleSheet.innerText = `@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }`;
         document.head.appendChild(styleSheet);
-
     </script>
 </body>
 </html>

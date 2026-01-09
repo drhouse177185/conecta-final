@@ -43,18 +43,20 @@ const pool = new Pool({
 });
 
 // Configuração do E-mail (Gmail) - BLINDADA CONTRA ERROS
-// 1. Limpamos espaços em branco (trim) caso o .env tenha sido copiado errado
+// 1. Removemos TODOS os espaços da senha e das variáveis
 const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
-const smtpPort = Number(process.env.SMTP_PORT) || 587; // 587 é a recomendada para evitar Timeouts
+// Forçamos a porta 587 se não estiver definida, pois a 465 bloqueia muito no Render
+const smtpPort = Number(process.env.SMTP_PORT) || 587; 
 const smtpUser = (process.env.SMTP_USER || '').trim();
-const smtpPass = (process.env.SMTP_PASS || '').trim();
+// IMPORTANTE: Removemos espaços internos da senha (ex: "abc def" vira "abcdef")
+const smtpPass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
 
 console.log(`📧 Configurando E-mail: Host=${smtpHost}, Porta=${smtpPort}, User=${smtpUser ? '***' : 'Faltando'}`);
 
 const transporter = nodemailer.createTransport({
     host: smtpHost,
     port: smtpPort,
-    secure: smtpPort === 465, // True apenas se for 465 (SSL), False para 587 (TLS)
+    secure: smtpPort === 465, // False para 587 (TLS), True para 465 (SSL)
     auth: {
         user: smtpUser,
         pass: smtpPass
@@ -62,7 +64,7 @@ const transporter = nodemailer.createTransport({
     tls: {
         rejectUnauthorized: false
     },
-    // Timeouts para evitar travamento infinito
+    // Timeouts maiores para evitar erros de rede
     connectionTimeout: 10000, 
     greetingTimeout: 10000
 });
@@ -128,7 +130,10 @@ app.post('/auth/register', async (req, res) => {
         );
 
         // 3. Tentar Enviar E-mail (Com rollback em caso de erro)
-        const baseUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, '') : `https://${req.get('host')}`;
+        // Limpa a URL do APP para garantir que é válida
+        let baseUrl = process.env.APP_URL || `https://${req.get('host')}`;
+        if (baseUrl.includes('google.com')) baseUrl = `https://${req.get('host')}`; // Fallback se a env estiver errada
+        
         const activationLink = `${baseUrl}/auth/verify/${verificationToken}`;
 
         try {
@@ -156,7 +161,7 @@ app.post('/auth/register', async (req, res) => {
             await pool.query("DELETE FROM users WHERE email = $1", [email]);
             
             return res.status(500).json({ 
-                error: "Erro de conexão com o Gmail (Timeout). Tente novamente em alguns instantes." 
+                error: "Erro ao conectar com Gmail. Verifique a senha de app ou tente mais tarde." 
             });
         }
 
@@ -186,26 +191,20 @@ app.post('/auth/login', async (req, res) => {
     }
 });
 
-// NOVA ROTA: Recuperação de Senha (Correção do erro 404)
+// NOVA ROTA: Recuperação de Senha
 app.post('/auth/recover-password', async (req, res) => {
     const { cpf } = req.body;
     if (!cpf) return res.status(400).json({ error: "CPF obrigatório." });
 
     try {
-        // Busca usuário pelo CPF
         const result = await pool.query("SELECT * FROM users WHERE cpf = $1", [cpf]);
         if (result.rows.length === 0) return res.status(404).json({ error: "CPF não encontrado." });
 
         const user = result.rows[0];
-        
-        // Gera nova senha aleatória (8 caracteres)
         const newPassword = crypto.randomBytes(4).toString('hex');
         const newHash = await bcrypt.hash(newPassword, 10);
 
-        // Atualiza no banco
         await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [newHash, user.id]);
-
-        // Retorna a senha para o frontend (conforme lógica do seu HTML)
         res.json({ newPassword });
 
     } catch (err) {
