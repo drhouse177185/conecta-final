@@ -4,207 +4,190 @@ const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
-const { MercadoPagoConfig, Preference } = require('mercadopago');
-
-// --- DIAGNÓSTICO E CONFIGURAÇÃO ---
-console.log("=== INICIALIZANDO SERVIDOR ===");
-const publicPath = path.join(__dirname, 'public');
-
-// Se a pasta 'public' não existir (em alguns deploys pode variar), use a raiz
-const staticPath = fs.existsSync(publicPath) ? publicPath : __dirname;
-console.log(`Servindo arquivos estáticos de: ${staticPath}`);
+const nodemailer = require('nodemailer'); // Adicionado para e-mails
+const crypto = require('crypto'); // Para gerar tokens únicos
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// DB
+// Configuração do Banco de Dados
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// MP
-const mpToken = process.env.MP_ACCESS_TOKEN;
-const client = mpToken ? new MercadoPagoConfig({ accessToken: mpToken }) : null;
+// Configuração do Transportador SMTP (E-mail)
+// Nota: Use variáveis de ambiente para estas credenciais
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST, // ex: smtp.gmail.com
+    port: process.env.SMTP_PORT, // ex: 465 ou 587
+    secure: process.env.SMTP_PORT == 465, 
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+    }
+});
 
-// Middlewares
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
-app.use(express.static(staticPath));
+app.use(express.static(__dirname));
 
-// --- INICIALIZAÇÃO DB ---
-async function initDB() {
-    const clientDb = await pool.connect();
-    try {
-        await clientDb.query(`
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                password_hash VARCHAR(255) NOT NULL,
-                cpf VARCHAR(14) UNIQUE,
-                age INTEGER,
-                sex CHAR(1),
-                role VARCHAR(20) DEFAULT 'user',
-                credits INTEGER DEFAULT 100,
-                claimed_free_bonus BOOLEAN DEFAULT FALSE,
-                blocked_features JSONB DEFAULT '{"preConsulta": false, "preOp": false}'::jsonb,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-        // Seed
-        const hash = await bcrypt.hash('123456', 10);
-        await clientDb.query(`
-            INSERT INTO users (name, email, password_hash, role, credits, cpf, age, sex)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT (email) DO NOTHING;
-        `, ['Dr. Tiago Barros', 'drtiago.barros@gmail.com', hash, 'admin', 99999, '000.000.000-01', 35, 'M']);
-        
-        await clientDb.query(`
-            INSERT INTO users (name, email, password_hash, role, credits, cpf, age, sex)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT (email) DO NOTHING;
-        `, ['Kellen Fernandes', 'kellenbastos20@gmail.com', hash, 'user', 100, '250.995.618-37', 45, 'F']);
-        
-        console.log("Banco de dados pronto.");
-    } catch (err) { console.error("Erro DB:", err); } 
-    finally { clientDb.release(); }
-}
-initDB();
+// --- ROTAS DE AUTENTICAÇÃO ---
 
-// --- AUTH MIDDLEWARE ---
-const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.status(401).json({ error: "Token ausente" });
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) return res.status(403).json({ error: "Token inválido" });
-        req.user = user;
-        next();
-    });
-};
-
-// --- ROTAS ---
+// Login (Verifica se está ativado)
 app.post('/auth/login', async (req, res) => {
     const { email, password } = req.body;
     try {
         const result = await pool.query("SELECT * FROM users WHERE email = $1", [email.toLowerCase().trim()]);
-        if (result.rows.length === 0) return res.status(400).json({ error: "Usuário não encontrado" });
+        if (result.rows.length === 0) return res.status(400).json({ error: "E-mail não encontrado." });
+        
         const user = result.rows[0];
-        if (await bcrypt.compare(password, user.password_hash)) {
-            const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+        // Verificar se a conta está ativada
+        if (!user.is_verified) {
+            return res.status(401).json({ error: "Por favor, ative a sua conta através do link enviado para o seu e-mail." });
+        }
+
+        const validPassword = await bcrypt.compare(password, user.password_hash);
+        if (validPassword) {
             delete user.password_hash;
-            res.json({ token, user });
-        } else { res.status(403).json({ error: "Senha incorreta" }); }
-    } catch (err) { res.status(500).json({ error: "Erro interno" }); }
+            delete user.verification_token;
+            res.json({ user });
+        } else {
+            res.status(403).json({ error: "Senha incorreta." });
+        }
+    } catch (err) {
+        res.status(500).json({ error: "Erro no servidor." });
+    }
 });
 
+// Cadastro com Envio de E-mail de Ativação
 app.post('/auth/register', async (req, res) => {
     const { name, email, password, cpf, age, sex } = req.body;
     try {
-        const hash = await bcrypt.hash(password, 10);
-        const newUser = await pool.query(
-            "INSERT INTO users (name, email, password_hash, cpf, age, sex) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, role, credits, blocked_features",
-            [name, email.toLowerCase().trim(), hash, cpf, age, sex]
+        const password_hash = await bcrypt.hash(password, 10);
+        const verificationToken = crypto.randomBytes(32).toString('hex'); // Token de ativação
+
+        const result = await pool.query(
+            `INSERT INTO users (name, email, password_hash, cpf, age, sex, credits, verification_token, is_verified) 
+             VALUES ($1, $2, $3, $4, $5, $6, 100, $7, false) 
+             RETURNING id, name, email`,
+            [name, email.toLowerCase().trim(), password_hash, cpf, age, sex, verificationToken]
         );
-        res.json(newUser.rows[0]);
-    } catch (err) { res.status(500).json({ error: "Erro ao registrar (Email/CPF duplicado?)" }); }
+
+        const newUser = result.rows[0];
+        const activationLink = `${process.env.APP_URL || 'http://localhost:3000'}/auth/verify/${verificationToken}`;
+
+        // Enviar E-mail de Boas-vindas
+        const mailOptions = {
+            from: '"Conecta Saúde" <no-reply@conectasaude.com>',
+            to: email,
+            subject: 'Bem-vindo ao Conecta Saúde - Ative sua conta',
+            html: `
+                <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
+                    <h2 style="color: #1e3a8a; text-align: center;">Olá, ${name}!</h2>
+                    <p>Ficamos muito felizes com o seu cadastro no <strong>Conecta Saúde</strong>.</p>
+                    <p>Para garantir a segurança dos seus dados médicos, precisamos que confirme o seu acesso.</p>
+                    
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin: 0;"><strong>Seus dados para conferência:</strong></p>
+                        <ul style="list-style: none; padding: 0;">
+                            <li>E-mail: ${email}</li>
+                            <li>CPF: ${cpf}</li>
+                        </ul>
+                    </div>
+
+                    <p style="text-align: center; margin-top: 30px;">
+                        <a href="${activationLink}" style="background: #1e3a8a; color: white; padding: 15px 25px; text-decoration: none; font-weight: bold; border-radius: 5px; display: inline-block;">
+                            CLIQUE AQUI PARA ATIVAR CONTA
+                        </a>
+                    </p>
+                    
+                    <p style="font-size: 12px; color: #777; margin-top: 40px; text-align: center;">
+                        Se não reconhece este cadastro, ignore este e-mail.<br>
+                        © 2026 Conecta Saúde - Sistema Integrado.
+                    </p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        res.json({ message: "Cadastro realizado! Verifique o seu e-mail para ativar a conta." });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erro ao cadastrar. Verifique se o e-mail ou CPF já existem." });
+    }
 });
 
-// IA (ROBUSTA)
-app.post('/ai/generate', authenticateToken, async (req, res) => {
-    const { prompt, cost, isJson } = req.body;
-    
-    // Verifica créditos (Lógica mantida)
-    const userRes = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
-    const user = userRes.rows[0];
-    if (req.user.role !== 'admin' && user.credits < cost) return res.status(402).json({ error: "Saldo insuficiente" });
+// Rota de Verificação (Ativação da Conta)
+app.get('/auth/verify/:token', async (req, res) => {
+    const { token } = req.params;
+    try {
+        const result = await pool.query(
+            "UPDATE users SET is_verified = true, verification_token = NULL WHERE verification_token = $1 RETURNING name",
+            [token]
+        );
+
+        if (result.rows.length === 0) {
+            return res.send(`
+                <div style="text-align:center; padding: 50px; font-family: sans-serif;">
+                    <h1 style="color: red;">Link Inválido ou Expirado</h1>
+                    <p>Não conseguimos validar esta conta. Tente fazer o login para solicitar novo link.</p>
+                </div>
+            `);
+        }
+
+        const userName = result.rows[0].name;
+        res.send(`
+            <div style="text-align:center; padding: 50px; font-family: sans-serif;">
+                <h1 style="color: green;">Conta Ativada com Sucesso!</h1>
+                <p>Olá ${userName}, sua conta agora está pronta para uso.</p>
+                <a href="/" style="display:inline-block; margin-top:20px; padding:10px 20px; background:#1e3a8a; color:white; text-decoration:none; border-radius:5px;">IR PARA O LOGIN</a>
+            </div>
+        `);
+    } catch (err) {
+        res.status(500).send("Erro interno ao validar conta.");
+    }
+});
+
+// IA (MANTIDA)
+app.post('/ai/generate', async (req, res) => {
+    const { prompt, cost, isJson, userId } = req.body;
+    const apiKey = process.env.GOOGLE_API_KEY;
+
+    if (!userId) return res.status(401).json({ error: "Utilizador não identificado." });
 
     try {
-        // CORREÇÃO AQUI: Mudado de GEMINI_API_KEY para GOOGLE_API_KEY
-        const apiKey = process.env.GOOGLE_API_KEY; 
-        if (!apiKey) throw new Error("API Key não configurada no servidor (.env)");
+        const userRes = await pool.query("SELECT credits, role FROM users WHERE id = $1", [userId]);
+        const user = userRes.rows[0];
+        
+        if (user.role !== 'admin' && user.credits < cost) return res.status(402).json({ error: "Créditos insuficientes." });
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON válido, sem markdown." : prompt }] }] })
-        });
-        
-        const data = await response.json();
-        
-        if (data.error) {
-            console.error("Erro API Google:", JSON.stringify(data.error));
-            throw new Error(data.error.message || "Erro na API Gemini");
-        }
-
-        const candidate = data.candidates?.[0];
-        const txt = candidate?.content?.parts?.[0]?.text;
-        
-        if (!txt) throw new Error("A IA não retornou texto.");
-
-        let finalResult = txt;
-        if(isJson) { 
-            try { 
-                const cleanTxt = txt.replace(/```json/g, '').replace(/```/g, '').trim();
-                finalResult = JSON.parse(cleanTxt); 
-            } catch(e){
-                console.error("Erro Parse JSON:", txt);
-                // Retorna o texto cru se falhar o JSON, para não quebrar o front
-                return res.json({ result: { error: "Erro JSON", raw: txt }, new_credits: user.credits });
-            } 
-        }
-
-        // Desconta créditos
-        if(req.user.role !== 'admin' && cost > 0) {
-            await pool.query("UPDATE users SET credits = credits - $1 WHERE id = $2", [cost, req.user.id]);
-        }
-        
-        const updated = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
-        res.json({ result: finalResult, new_credits: updated.rows[0].credits });
-
-    } catch (err) { 
-        console.error("Erro Servidor IA:", err.message);
-        res.status(500).json({ error: "Erro IA: " + err.message }); 
-    }
-});
-
-// ADICIONE ESTA NOVA ROTA PARA O TTS (Áudio) FUNCIONAR PELO BACKEND
-app.post('/ai/tts', async (req, res) => {
-    try {
-        const { text } = req.body;
-        const apiKey = process.env.GOOGLE_API_KEY;
-        
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: text }] }],
-                generationConfig: {
-                    responseModalities: ["AUDIO"],
-                    speechConfig: { voiceConfig: {QH: "Aoede" } }
-                }
-            })
+            body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON." : prompt }] }] })
         });
 
         const data = await response.json();
-        if(data.error) throw new Error(data.error.message);
+        const txt = data.candidates?.[0]?.content?.parts?.[0]?.text;
         
-        // Repassa o áudio base64 para o front
-        res.json(data);
+        let result = txt;
+        if (isJson) result = JSON.parse(txt.replace(/```json/g, '').replace(/```/g, '').trim());
+
+        let newCredits = user.credits;
+        if (user.role !== 'admin') {
+            newCredits = user.credits - cost;
+            await pool.query("UPDATE users SET credits = $1 WHERE id = $2", [newCredits, userId]);
+        }
+
+        res.json({ result, new_credits: newCredits });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: "Erro na IA." });
     }
 });
 
-// CATCH ALL
-app.get('*', (req, res) => {
-    const indexPath = path.join(staticPath, 'index.html');
-    if (fs.existsSync(indexPath)) res.sendFile(indexPath);
-    else res.status(404).send("Index não encontrado.");
-});
-
-app.listen(port, () => console.log(`🚀 Rodando na porta ${port}`));
+app.listen(port, () => console.log(`🚀 Sistema Online com Ativação por E-mail na porta ${port}`));

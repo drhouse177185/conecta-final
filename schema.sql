@@ -1,4 +1,4 @@
--- TABELA DE USUÁRIOS
+-- TABELA DE USUÁRIOS ATUALIZADA
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -9,6 +9,11 @@ CREATE TABLE IF NOT EXISTS users (
     sex CHAR(1),
     role VARCHAR(20) DEFAULT 'user',
     credits INTEGER DEFAULT 100,
+    
+    -- Campos para Ativação por E-mail
+    is_verified BOOLEAN DEFAULT FALSE,
+    verification_token VARCHAR(255),
+    
     claimed_free_bonus BOOLEAN DEFAULT FALSE,
     last_recharge_date DATE DEFAULT CURRENT_DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
