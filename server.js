@@ -48,13 +48,14 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// Inicialização do Banco
+// Inicialização do Banco (Cria todas as tabelas do schema.sql)
 async function initDB() {
     try {
         if (!process.env.DB_HOST) return;
         const clientDb = await pool.connect();
         console.log("🗄️  Banco de Dados Conectado!");
 
+        // Tabela de Usuários
         await clientDb.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -73,6 +74,31 @@ async function initDB() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
+
+        // Tabela de Transações (Restaurada)
+        await clientDb.query(`
+            CREATE TABLE IF NOT EXISTS transactions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                amount INTEGER NOT NULL,
+                description VARCHAR(255),
+                type VARCHAR(50),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // Tabela de Registros Médicos (Restaurada)
+        await clientDb.query(`
+            CREATE TABLE IF NOT EXISTS medical_records (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                type VARCHAR(50),
+                content JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        console.log("✅ Todas as tabelas verificadas (users, transactions, medical_records).");
         clientDb.release();
     } catch (err) {
         console.error("❌ Erro Banco:", err.message);
