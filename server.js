@@ -3,47 +3,71 @@ const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
-const path = require('path');
-const fs = require('fs');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
 
-// Carrega as variáveis do arquivo específico config.env
-require('dotenv').config({ path: './config.env' });
+// --- PASSO CRÍTICO: CARREGAMENTO DO .ENV ---
+// Tenta carregar o arquivo .env
+const result = require('dotenv').config();
+
+console.log("=========================================");
+console.log("🔍 DIAGNÓSTICO DE INICIALIZAÇÃO");
+console.log("=========================================");
+
+// 1. Verifica se o dotenv encontrou o arquivo
+if (result.error) {
+    console.log("❌ ERRO CRÍTICO: O arquivo .env NÃO foi encontrado!");
+    console.log("   Verifique se o nome é '.env' e não '.env.txt'");
+    console.log("   Local procurado:", path.resolve(process.cwd(), '.env'));
+} else {
+    console.log("✅ Arquivo .env carregado com sucesso.");
+}
+
+// 2. Verifica as variáveis essenciais
+const dbHost = process.env.DB_HOST;
+const dbUser = process.env.DB_USER;
+console.log(`📊 DB_HOST Lido: ${dbHost ? dbHost : 'INDEFINIDO (Usando localhost)'}`);
+console.log(`👤 DB_USER Lido: ${dbUser ? dbUser : 'INDEFINIDO'}`);
+
+// Se as variáveis estiverem vazias, forçamos o erro para não perder tempo
+if (!dbHost) {
+    console.log("\n⚠️  ATENÇÃO: As variáveis estão vazias. O servidor vai falhar.");
+    console.log("   Pare o servidor (Ctrl+C), corrija o .env e tente de novo.");
+}
+console.log("=========================================\n");
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configuração do Banco de Dados (Otimizado para Render)
+// Configuração do Banco de Dados
 const pool = new Pool({
     user: process.env.DB_USER,
     host: process.env.DB_HOST,
     database: process.env.DB_NAME,
     password: process.env.DB_PASSWORD,
     port: process.env.DB_PORT,
-    // SSL é obrigatório para o Render
-    ssl: {
-        rejectUnauthorized: false
-    }
+    ssl: { rejectUnauthorized: false } // Obrigatório para Render
 });
 
-// Configuração do Transportador SMTP (E-mail)
+// Configuração do E-mail
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    secure: process.env.SMTP_PORT == 465, 
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_PORT == '465', 
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
     }
 });
 
-// Testar Conexão SMTP na inicialização
-transporter.verify((error, success) => {
+transporter.verify((error) => {
     if (error) {
-        console.error("⚠️ Erro na configuração de E-mail (SMTP):", error.message);
+        // Não mostramos erro de e-mail se o .env nem foi carregado, para não confundir
+        if(process.env.SMTP_HOST) console.error("⚠️  Erro E-mail:", error.message);
     } else {
-        console.log("📧 Servidor de e-mail pronto para disparos.");
+        console.log("📧 E-mail pronto.");
     }
 });
 
@@ -51,13 +75,13 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(__dirname));
 
-// --- INICIALIZAÇÃO E AUTO-CORREÇÃO DO BANCO ---
 async function initDB() {
     try {
-        const clientDb = await pool.connect();
-        console.log("🗄️ Conectado ao PostgreSQL no Render. Verificando estrutura...");
+        if (!process.env.DB_HOST) throw new Error("Sem DB_HOST definido no .env");
         
-        // Cria a tabela de usuários se não existir
+        const clientDb = await pool.connect();
+        console.log("🗄️  Conectado ao PostgreSQL (Render) com sucesso!");
+        
         await clientDb.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -76,21 +100,24 @@ async function initDB() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-
-        // Garante que colunas de verificação existam em tabelas antigas
-        await clientDb.query(`
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(255);
-        `);
-
-        console.log("✅ Banco de dados sincronizado e pronto.");
+        console.log("✅ Tabela 'users' verificada/criada.");
         clientDb.release();
     } catch (err) {
-        console.error("❌ Erro crítico ao inicializar banco de dados:", err.message);
+        console.error("❌ Falha no Banco de Dados:", err.message);
     }
 }
 
 initDB();
+
+app.post('/auth/login', async (req, res) => {
+    /* (Mantenha sua lógica de login aqui se já a tiver salvo, 
+        ou use a versão completa dos passos anteriores) */
+    res.status(501).json({error: "Rota em manutenção para teste de conexão"});
+});
+
+app.listen(port, () => {
+    console.log(`🚀 Servidor rodando na porta ${port}`);
+});
 
 // --- ROTAS ---
 
