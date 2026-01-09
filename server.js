@@ -42,21 +42,24 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// Configuração do E-mail (Gmail) - BLINDADA CONTRA ERROS
-// 1. Removemos TODOS os espaços da senha e das variáveis
+// --- CONFIGURAÇÃO DE E-MAIL (CORREÇÃO CRÍTICA) ---
+// Removemos todos os espaços da senha e das variáveis para evitar erro de Auth
 const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
-// Forçamos a porta 587 se não estiver definida, pois a 465 bloqueia muito no Render
 const smtpPort = Number(process.env.SMTP_PORT) || 587; 
 const smtpUser = (process.env.SMTP_USER || '').trim();
-// IMPORTANTE: Removemos espaços internos da senha (ex: "abc def" vira "abcdef")
+// AQUI ESTÁ A CORREÇÃO: .replace(/\s+/g, '') remove todos os espaços internos
 const smtpPass = (process.env.SMTP_PASS || '').replace(/\s+/g, '');
 
-console.log(`📧 Configurando E-mail: Host=${smtpHost}, Porta=${smtpPort}, User=${smtpUser ? '***' : 'Faltando'}`);
+console.log(`📧 Configurando E-mail:`);
+console.log(`   Host: ${smtpHost}`);
+console.log(`   Porta: ${smtpPort}`);
+console.log(`   Usuário: ${smtpUser}`);
+console.log(`   Senha (Tamanho): ${smtpPass.length} caracteres (Deve ter 16)`);
 
 const transporter = nodemailer.createTransport({
     host: smtpHost,
     port: smtpPort,
-    secure: smtpPort === 465, // False para 587 (TLS), True para 465 (SSL)
+    secure: smtpPort === 465, // False para 587 (TLS)
     auth: {
         user: smtpUser,
         pass: smtpPass
@@ -64,7 +67,6 @@ const transporter = nodemailer.createTransport({
     tls: {
         rejectUnauthorized: false
     },
-    // Timeouts maiores para evitar erros de rede
     connectionTimeout: 10000, 
     greetingTimeout: 10000
 });
@@ -102,37 +104,36 @@ async function initDB() {
 }
 initDB();
 
-// --- ROTAS DE AUTENTICAÇÃO ---
+// --- ROTAS ---
 
 app.post('/auth/register', async (req, res) => {
     const { name, email, password, cpf, age, sex } = req.body;
     
-    // Validação básica
     if (!email || !password || !name) {
         return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
     }
 
     try {
-        // 1. Verificar se já existe (Evita erro 500)
+        // 1. Verificar duplicação
         const checkUser = await pool.query("SELECT id FROM users WHERE email = $1 OR cpf = $2", [email, cpf]);
         if (checkUser.rows.length > 0) {
             return res.status(400).json({ error: "E-mail ou CPF já cadastrados." });
         }
 
-        // 2. Criar usuário (Hash e Token)
+        // 2. Criar Hash e Token
         const password_hash = await bcrypt.hash(password, 10);
         const verificationToken = crypto.randomBytes(32).toString('hex');
 
+        // 3. Inserir no Banco
         await pool.query(
             `INSERT INTO users (name, email, password_hash, cpf, age, sex, credits, verification_token, is_verified) 
              VALUES ($1, $2, $3, $4, $5, $6, 100, $7, false)`,
             [name, email.toLowerCase().trim(), password_hash, cpf, age, sex, verificationToken]
         );
 
-        // 3. Tentar Enviar E-mail (Com rollback em caso de erro)
-        // Limpa a URL do APP para garantir que é válida
+        // 4. Enviar E-mail
         let baseUrl = process.env.APP_URL || `https://${req.get('host')}`;
-        if (baseUrl.includes('google.com')) baseUrl = `https://${req.get('host')}`; // Fallback se a env estiver errada
+        if (baseUrl.includes('google.com')) baseUrl = `https://${req.get('host')}`; 
         
         const activationLink = `${baseUrl}/auth/verify/${verificationToken}`;
 
@@ -155,14 +156,17 @@ app.post('/auth/register', async (req, res) => {
             res.json({ message: "Cadastro realizado! Verifique seu e-mail." });
 
         } catch (emailError) {
-            console.error("❌ Falha no envio de e-mail:", emailError);
+            console.error("❌ Falha crítica no SMTP:", emailError);
             
-            // ROLLBACK: Apaga o usuário se o e-mail falhar, para ele poder tentar de novo
+            // ROLLBACK: Apaga o usuário para permitir nova tentativa
             await pool.query("DELETE FROM users WHERE email = $1", [email]);
             
-            return res.status(500).json({ 
-                error: "Erro ao conectar com Gmail. Verifique a senha de app ou tente mais tarde." 
-            });
+            // Mensagem de erro específica para o usuário
+            if (emailError.response && emailError.response.includes('535')) {
+                return res.status(500).json({ error: "Erro de Autenticação: Verifique a Senha de App do Google no servidor." });
+            }
+            
+            return res.status(500).json({ error: "Erro ao enviar e-mail. Tente novamente mais tarde." });
         }
 
     } catch (err) {
@@ -178,7 +182,7 @@ app.post('/auth/login', async (req, res) => {
         if (result.rows.length === 0) return res.status(400).json({ error: "Usuário não encontrado." });
         
         const user = result.rows[0];
-        if (!user.is_verified) return res.status(401).json({ error: "Sua conta ainda não foi ativada. Verifique seu e-mail." });
+        if (!user.is_verified) return res.status(401).json({ error: "Verifique seu e-mail para ativar a conta." });
 
         if (await bcrypt.compare(password, user.password_hash)) {
             delete user.password_hash;
@@ -191,7 +195,6 @@ app.post('/auth/login', async (req, res) => {
     }
 });
 
-// NOVA ROTA: Recuperação de Senha
 app.post('/auth/recover-password', async (req, res) => {
     const { cpf } = req.body;
     if (!cpf) return res.status(400).json({ error: "CPF obrigatório." });
@@ -208,7 +211,6 @@ app.post('/auth/recover-password', async (req, res) => {
         res.json({ newPassword });
 
     } catch (err) {
-        console.error("Erro ao recuperar senha:", err);
         res.status(500).json({ error: "Erro ao processar recuperação." });
     }
 });
@@ -220,21 +222,8 @@ app.get('/auth/verify/:token', async (req, res) => {
             "UPDATE users SET is_verified = true, verification_token = NULL WHERE verification_token = $1 RETURNING name",
             [token]
         );
-        if (result.rows.length === 0) return res.send(`
-            <div style="text-align: center; padding: 50px; font-family: sans-serif;">
-                <h1 style="color: #dc2626;">Link Inválido ou Expirado</h1>
-                <p>Este link já foi usado ou não existe.</p>
-                <a href="/">Voltar ao início</a>
-            </div>
-        `);
-        
-        res.send(`
-            <div style="text-align: center; padding: 50px; font-family: sans-serif;">
-                <h1 style="color: #16a34a;">Conta Ativada com Sucesso!</h1>
-                <p>Parabéns ${result.rows[0].name}, você já pode acessar o sistema.</p>
-                <a href="/" style="background: #1e3a8a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Ir para Login</a>
-            </div>
-        `);
+        if (result.rows.length === 0) return res.send(`<h1>Link Inválido</h1><a href="/">Voltar</a>`);
+        res.send(`<h1>Conta Ativada!</h1><p>Parabéns ${result.rows[0].name}. <a href="/">Fazer Login</a></p>`);
     } catch (err) {
         res.status(500).send("Erro na ativação.");
     }
@@ -244,36 +233,25 @@ app.post('/ai/generate', async (req, res) => {
     const { prompt, cost, isJson, userId } = req.body;
     const apiKey = process.env.GOOGLE_API_KEY;
 
-    if (!userId) return res.status(401).json({ error: "Faça login novamente." });
+    if (!userId) return res.status(401).json({ error: "Faça login." });
 
     try {
         const userRes = await pool.query("SELECT credits, role FROM users WHERE id = $1", [userId]);
-        if(userRes.rows.length === 0) return res.status(404).json({ error: "Usuário não encontrado" });
-        
         const user = userRes.rows[0];
-
-        if (user.role !== 'admin' && user.credits < cost) return res.status(402).json({ error: "Créditos insuficientes. Recarregue sua conta." });
+        if (user.role !== 'admin' && user.credits < cost) return res.status(402).json({ error: "Créditos insuficientes." });
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON puro." : prompt }] }] })
+            body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON." : prompt }] }] })
         });
 
         const data = await response.json();
-        
-        if (data.error) throw new Error(data.error.message);
-        
         const txt = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!txt) throw new Error("A IA não retornou resposta.");
-
+        
         let result = txt;
-        if (isJson) {
-            try { 
-                result = JSON.parse(txt.replace(/```json/g, '').replace(/```/g, '').trim()); 
-            } catch(e) {
-                console.warn("Falha no parse JSON da IA");
-            }
+        if (isJson && txt) {
+            try { result = JSON.parse(txt.replace(/```json/g, '').replace(/```/g, '').trim()); } catch(e){}
         }
 
         let newCredits = user.credits;
@@ -284,8 +262,7 @@ app.post('/ai/generate', async (req, res) => {
 
         res.json({ result, new_credits: newCredits });
     } catch (err) {
-        console.error("Erro IA:", err.message);
-        res.status(500).json({ error: "Erro ao processar IA: " + err.message });
+        res.status(500).json({ error: "Erro na IA." });
     }
 });
 
