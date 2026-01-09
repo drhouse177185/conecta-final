@@ -190,4 +190,34 @@ app.post('/ai/generate', async (req, res) => {
     }
 });
 
+// Rota de TTS (Voz) corrigida
+app.post('/ai/tts', async (req, res) => {
+    try {
+        const { text } = req.body;
+        const apiKey = process.env.GOOGLE_API_KEY;
+        
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: text }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: { 
+                        voiceConfig: { 
+                            prebuiltVoiceConfig: { voiceName: "Aoede" } 
+                        } 
+                    }
+                }
+            })
+        });
+
+        const data = await response.json();
+        if(data.error) throw new Error(data.error.message);
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.listen(port, () => console.log(`🚀 Sistema Online com Ativação por E-mail na porta ${port}`));
