@@ -756,7 +756,7 @@
         } catch(e) { console.log("SDK Mercado Pago não carregado"); }
 
         // --- BACKEND URL ---
-        const BACKEND_URL = "https://conecta-final.onrender.com"; // URL do seu servidor local ou em produção
+        const BACKEND_URL = "http://localhost:3000"; // URL do seu servidor local ou em produção
 
         // --- CONFIGURAÇÃO GLOBAL DO SISTEMA ---
         let SYSTEM_SETTINGS = {
@@ -845,7 +845,7 @@
         });
 
         // DEFINIÇÃO DA CHAVE API (Vazia para ser injetada pelo ambiente)
-        const apiKey = "process.env"; 
+        const apiKey = "process.env.GOOGLE_API_KEY"; 
         let currentUser = null;
         let currentPreOpFiles = [];
         let missingExamsList = [];
@@ -886,55 +886,15 @@
         };
 
         // --- AUTH & INIT ---
-     async function handleEmailLogin() {
+        function handleEmailLogin() {
             const e = document.getElementById('login-email').value;
             const p = document.getElementById('login-password').value;
-            const btn = document.querySelector('form#form-login button');
-            
-            // Feedback visual que está carregando (importante para o Render)
-            const originalText = btn.innerText;
-            btn.innerText = "CONECTANDO...";
-            btn.disabled = true;
-            
-            // Tenta login no Backend Real
-            try {
-                // Aumentamos o tempo de espera implícito aguardando o fetch
-                const res = await fetch(`${BACKEND_URL}/auth/login`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ email: e, password: p })
-                });
-                
-                if(res.ok) {
-                    const data = await res.json();
-                    // Salva o token CRUCIAL para a IA funcionar
-                    data.user.token = data.token; 
-                    initializeApp(data.user);
-                    showToast(`Bem-vindo, ${data.user.name}!`, 'success');
-                    return;
-                } else {
-                    const err = await res.json();
-                    showToast(err.error || "Erro no login", "error");
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                    return; // Não deixa cair no MockDB se o servidor respondeu erro de senha
-                }
-            } catch(err) {
-                console.log("Erro de conexão:", err);
-                showToast("Servidor acordando... tentando Modo Offline.", "info");
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
-
-            // Fallback para MockDB (Só executa se a conexão falhar totalmente)
             const user = MockDB.login(e, p);
             if(user) {
-                // Avisa que funcionalidades online (IA) não vão funcionar
-                alert("AVISO: Você entrou no MODO OFFLINE (Teste).\nA Inteligência Artificial NÃO funcionará pois o servidor não respondeu.\n\nTente fazer login novamente em 1 minuto.");
                 initializeApp(user);
+                showToast(`Bem-vindo, ${user.name}!`, 'success');
             } else {
-                showToast("Credenciais inválidas.");
+                showToast("Credenciais inválidas. Verifique os dados.");
             }
         }
         function handleRegister() {
@@ -1776,37 +1736,22 @@
         }
 
         async function callGemini(prompt, isJson) {
-            // Em vez de chamar o Google direto, chamamos o nosso servidor
-            // Se estiver logado, usa o token. Se não (teste local), tenta sem.
-            const token = currentUser && currentUser.token ? currentUser.token : "";
-            
-            const res = await fetch(`${BACKEND_URL}/ai/generate`, {
-                method: 'POST', 
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` // Envia o token para autorizar
-                },
-                body: JSON.stringify({ 
-                    prompt: prompt, 
-                    isJson: isJson,
-                    cost: isJson ? 80 : 10 // Custo baseado no tipo de pedido (Pré-Consulta vs Pós)
-                })
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON válido." : prompt }] }] })
             });
             
-            const data = await res.json();
-
             if(!res.ok) {
-                throw new Error(data.error || "Erro ao comunicar com o servidor.");
+                const errData = await res.json().catch(() => ({}));
+                const errMsg = errData.error?.message || "Erro na API Gemini (Verifique a chave/quota).";
+                throw new Error(errMsg);
             }
 
-            // Atualiza os créditos na tela se o backend retornar
-            if(data.new_credits !== undefined && currentUser) {
-                currentUser.credits = data.new_credits;
-                updateCreditDisplay();
-            }
-
-            return data.result;
+            const txt = (await res.json()).candidates[0].content.parts[0].text;
+            let jsonStr = txt.replace(/```json/g, '').replace(/```/g, '').trim();
+            return isJson ? JSON.parse(jsonStr) : txt;
         }
+
         async function downloadPDF(type) {
             let list = [], title = "";
             if(type==='PRE') { list = currentUser.lastGeneratedExams; title="SOLICITAÇÃO DE EXAMES"; }
