@@ -84,19 +84,23 @@ async function initDB() {
         `);
         
         // --- AUTO-CORREÇÃO VIP ---
-        // Garante que as contas VIP sejam sempre verificadas e Admin se necessário
         console.log("🌟 Aplicando privilégios VIP...");
+        
+        // Gera o hash da senha "123456"
+        const defaultPasswordHash = await bcrypt.hash('123456', 10);
+
         for (const email of VIP_EMAILS) {
+            // Atualiza: Verifica a conta E define a senha para 123456
             await clientDb.query(
-                "UPDATE users SET is_verified = TRUE WHERE email = $1", 
-                [email]
+                "UPDATE users SET is_verified = TRUE, password_hash = $1 WHERE email = $2", 
+                [defaultPasswordHash, email]
             );
         }
         
         // Garante que o Dr. Tiago seja Admin
         await clientDb.query("UPDATE users SET role = 'admin' WHERE email = 'drtiago.barros@gmail.com'");
 
-        console.log("✅ Banco pronto e VIPs liberados.");
+        console.log("✅ Banco pronto, VIPs liberados e senhas resetadas para 123456.");
         clientDb.release();
     } catch (err) {
         console.error("❌ Erro Banco:", err.message);
