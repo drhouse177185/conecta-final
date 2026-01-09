@@ -42,18 +42,29 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// Configuração do E-mail (Gmail)
+// Configuração do E-mail (Gmail) - BLINDADA CONTRA ERROS
+// 1. Limpamos espaços em branco (trim) caso o .env tenha sido copiado errado
+const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+const smtpPort = Number(process.env.SMTP_PORT) || 587; // 587 é a recomendada para evitar Timeouts
+const smtpUser = (process.env.SMTP_USER || '').trim();
+const smtpPass = (process.env.SMTP_PASS || '').trim();
+
+console.log(`📧 Configurando E-mail: Host=${smtpHost}, Porta=${smtpPort}, User=${smtpUser ? '***' : 'Faltando'}`);
+
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT) || 465,
-    secure: true, // Força SSL para porta 465
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpPort === 465, // True apenas se for 465 (SSL), False para 587 (TLS)
     auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
+        user: smtpUser,
+        pass: smtpPass
     },
     tls: {
-        rejectUnauthorized: false // Ajuda a evitar erros de certificado no Render
-    }
+        rejectUnauthorized: false
+    },
+    // Timeouts para evitar travamento infinito
+    connectionTimeout: 10000, 
+    greetingTimeout: 10000
 });
 
 // Inicialização do Banco
@@ -122,7 +133,7 @@ app.post('/auth/register', async (req, res) => {
 
         try {
             await transporter.sendMail({
-                from: `"Conecta Saúde" <${process.env.SMTP_USER}>`,
+                from: `"Conecta Saúde" <${smtpUser}>`,
                 to: email,
                 subject: 'Ative sua conta - Conecta Saúde',
                 html: `
@@ -145,7 +156,7 @@ app.post('/auth/register', async (req, res) => {
             await pool.query("DELETE FROM users WHERE email = $1", [email]);
             
             return res.status(500).json({ 
-                error: "Erro ao enviar e-mail. Verifique se o endereço está correto ou tente mais tarde. (Usuário não criado)" 
+                error: "Erro de conexão com o Gmail (Timeout). Tente novamente em alguns instantes." 
             });
         }
 
