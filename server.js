@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
 
 // Carrega variáveis (apenas localmente)
 const dotenvResult = require('dotenv').config();
@@ -17,14 +18,18 @@ console.log("=========================================");
 const app = express();
 const port = process.env.PORT || 3000;
 
-// 1. Configuração Estática (Importante para o site aparecer)
 app.use(express.static(__dirname));
 app.use(express.json({ limit: '50mb' }));
 app.use(cors());
 
-// 2. Rota Principal: Entrega o HTML quando acessar o site
+// Rota Principal
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    const indexPath = path.join(__dirname, 'index.html');
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        res.status(404).send("Erro: index.html não encontrado.");
+    }
 });
 
 // Configuração do Banco de Dados
@@ -37,25 +42,27 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// Configuração do E-mail
+// Configuração do E-mail (Gmail)
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_PORT == '465', 
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT) || 465,
+    secure: true, // Força SSL para porta 465
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
+    },
+    tls: {
+        rejectUnauthorized: false // Ajuda a evitar erros de certificado no Render
     }
 });
 
-// Inicialização do Banco (Cria todas as tabelas do schema.sql)
+// Inicialização do Banco
 async function initDB() {
     try {
         if (!process.env.DB_HOST) return;
         const clientDb = await pool.connect();
         console.log("🗄️  Banco de Dados Conectado!");
 
-        // Tabela de Usuários
         await clientDb.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -74,31 +81,7 @@ async function initDB() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-
-        // Tabela de Transações (Restaurada)
-        await clientDb.query(`
-            CREATE TABLE IF NOT EXISTS transactions (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
-                amount INTEGER NOT NULL,
-                description VARCHAR(255),
-                type VARCHAR(50),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
-        // Tabela de Registros Médicos (Restaurada)
-        await clientDb.query(`
-            CREATE TABLE IF NOT EXISTS medical_records (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
-                type VARCHAR(50),
-                content JSONB,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
-        console.log("✅ Todas as tabelas verificadas (users, transactions, medical_records).");
+        console.log("✅ Tabela users verificada.");
         clientDb.release();
     } catch (err) {
         console.error("❌ Erro Banco:", err.message);
@@ -106,11 +89,24 @@ async function initDB() {
 }
 initDB();
 
-// --- ROTAS ---
+// --- ROTAS DE AUTENTICAÇÃO ---
 
 app.post('/auth/register', async (req, res) => {
     const { name, email, password, cpf, age, sex } = req.body;
+    
+    // Validação básica
+    if (!email || !password || !name) {
+        return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
+    }
+
     try {
+        // 1. Verificar se já existe (Evita erro 500)
+        const checkUser = await pool.query("SELECT id FROM users WHERE email = $1 OR cpf = $2", [email, cpf]);
+        if (checkUser.rows.length > 0) {
+            return res.status(400).json({ error: "E-mail ou CPF já cadastrados." });
+        }
+
+        // 2. Criar usuário (Hash e Token)
         const password_hash = await bcrypt.hash(password, 10);
         const verificationToken = crypto.randomBytes(32).toString('hex');
 
@@ -120,21 +116,42 @@ app.post('/auth/register', async (req, res) => {
             [name, email.toLowerCase().trim(), password_hash, cpf, age, sex, verificationToken]
         );
 
-        // Link de ativação limpo
-        const baseUrl = process.env.APP_URL || `https://${req.get('host')}`;
+        // 3. Tentar Enviar E-mail (Com rollback em caso de erro)
+        const baseUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, '') : `https://${req.get('host')}`;
         const activationLink = `${baseUrl}/auth/verify/${verificationToken}`;
 
-        const mailOptions = {
-            from: `"Conecta Saúde" <${process.env.SMTP_USER}>`,
-            to: email,
-            subject: 'Ative sua conta - Conecta Saúde',
-            html: `<h2>Bem-vindo, ${name}!</h2><p>Clique abaixo para ativar sua conta:</p><a href="${activationLink}">ATIVAR CONTA AGORA</a>`
-        };
+        try {
+            await transporter.sendMail({
+                from: `"Conecta Saúde" <${process.env.SMTP_USER}>`,
+                to: email,
+                subject: 'Ative sua conta - Conecta Saúde',
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4;">
+                        <div style="background-color: white; padding: 20px; border-radius: 8px; text-align: center;">
+                            <h2 style="color: #1e3a8a;">Bem-vindo(a), ${name}!</h2>
+                            <p>Sua conta foi criada. Clique no botão abaixo para ativar:</p>
+                            <a href="${activationLink}" style="background-color: #16a34a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">ATIVAR CONTA</a>
+                            <p style="font-size: 12px; color: #888; margin-top: 20px;">Se o botão não funcionar, copie: ${activationLink}</p>
+                        </div>
+                    </div>
+                `
+            });
+            res.json({ message: "Cadastro realizado! Verifique seu e-mail." });
 
-        transporter.sendMail(mailOptions).catch(e => console.error("Erro E-mail:", e.message));
-        res.json({ message: "Verifique seu e-mail." });
+        } catch (emailError) {
+            console.error("❌ Falha no envio de e-mail:", emailError);
+            
+            // ROLLBACK: Apaga o usuário se o e-mail falhar, para ele poder tentar de novo
+            await pool.query("DELETE FROM users WHERE email = $1", [email]);
+            
+            return res.status(500).json({ 
+                error: "Erro ao enviar e-mail. Verifique se o endereço está correto ou tente mais tarde. (Usuário não criado)" 
+            });
+        }
+
     } catch (err) {
-        res.status(500).json({ error: "E-mail ou CPF já cadastrados." });
+        console.error("Erro no registro:", err);
+        res.status(500).json({ error: "Erro interno no servidor." });
     }
 });
 
@@ -145,7 +162,7 @@ app.post('/auth/login', async (req, res) => {
         if (result.rows.length === 0) return res.status(400).json({ error: "Usuário não encontrado." });
         
         const user = result.rows[0];
-        if (!user.is_verified) return res.status(401).json({ error: "Confirme seu e-mail antes de entrar." });
+        if (!user.is_verified) return res.status(401).json({ error: "Sua conta ainda não foi ativada. Verifique seu e-mail." });
 
         if (await bcrypt.compare(password, user.password_hash)) {
             delete user.password_hash;
@@ -158,6 +175,34 @@ app.post('/auth/login', async (req, res) => {
     }
 });
 
+// NOVA ROTA: Recuperação de Senha (Correção do erro 404)
+app.post('/auth/recover-password', async (req, res) => {
+    const { cpf } = req.body;
+    if (!cpf) return res.status(400).json({ error: "CPF obrigatório." });
+
+    try {
+        // Busca usuário pelo CPF
+        const result = await pool.query("SELECT * FROM users WHERE cpf = $1", [cpf]);
+        if (result.rows.length === 0) return res.status(404).json({ error: "CPF não encontrado." });
+
+        const user = result.rows[0];
+        
+        // Gera nova senha aleatória (8 caracteres)
+        const newPassword = crypto.randomBytes(4).toString('hex');
+        const newHash = await bcrypt.hash(newPassword, 10);
+
+        // Atualiza no banco
+        await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [newHash, user.id]);
+
+        // Retorna a senha para o frontend (conforme lógica do seu HTML)
+        res.json({ newPassword });
+
+    } catch (err) {
+        console.error("Erro ao recuperar senha:", err);
+        res.status(500).json({ error: "Erro ao processar recuperação." });
+    }
+});
+
 app.get('/auth/verify/:token', async (req, res) => {
     const { token } = req.params;
     try {
@@ -165,8 +210,21 @@ app.get('/auth/verify/:token', async (req, res) => {
             "UPDATE users SET is_verified = true, verification_token = NULL WHERE verification_token = $1 RETURNING name",
             [token]
         );
-        if (result.rows.length === 0) return res.send("Link inválido ou expirado.");
-        res.send(`<h1>Conta Ativada!</h1><p>Parabéns ${result.rows[0].name}, você já pode fazer login no app.</p><a href="/">Voltar para o Login</a>`);
+        if (result.rows.length === 0) return res.send(`
+            <div style="text-align: center; padding: 50px; font-family: sans-serif;">
+                <h1 style="color: #dc2626;">Link Inválido ou Expirado</h1>
+                <p>Este link já foi usado ou não existe.</p>
+                <a href="/">Voltar ao início</a>
+            </div>
+        `);
+        
+        res.send(`
+            <div style="text-align: center; padding: 50px; font-family: sans-serif;">
+                <h1 style="color: #16a34a;">Conta Ativada com Sucesso!</h1>
+                <p>Parabéns ${result.rows[0].name}, você já pode acessar o sistema.</p>
+                <a href="/" style="background: #1e3a8a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Ir para Login</a>
+            </div>
+        `);
     } catch (err) {
         res.status(500).send("Erro na ativação.");
     }
@@ -176,27 +234,36 @@ app.post('/ai/generate', async (req, res) => {
     const { prompt, cost, isJson, userId } = req.body;
     const apiKey = process.env.GOOGLE_API_KEY;
 
-    if (!userId) return res.status(401).json({ error: "Login necessário." });
+    if (!userId) return res.status(401).json({ error: "Faça login novamente." });
 
     try {
         const userRes = await pool.query("SELECT credits, role FROM users WHERE id = $1", [userId]);
+        if(userRes.rows.length === 0) return res.status(404).json({ error: "Usuário não encontrado" });
+        
         const user = userRes.rows[0];
 
-        if (user.role !== 'admin' && user.credits < cost) return res.status(402).json({ error: "Créditos insuficientes." });
+        if (user.role !== 'admin' && user.credits < cost) return res.status(402).json({ error: "Créditos insuficientes. Recarregue sua conta." });
 
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda JSON puro." : prompt }] }] })
+            body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON puro." : prompt }] }] })
         });
 
         const data = await response.json();
+        
+        if (data.error) throw new Error(data.error.message);
+        
         const txt = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!txt) throw new Error("Sem resposta da IA");
+        if (!txt) throw new Error("A IA não retornou resposta.");
 
         let result = txt;
         if (isJson) {
-            try { result = JSON.parse(txt.replace(/```json/g, '').replace(/```/g, '').trim()); } catch(e){}
+            try { 
+                result = JSON.parse(txt.replace(/```json/g, '').replace(/```/g, '').trim()); 
+            } catch(e) {
+                console.warn("Falha no parse JSON da IA");
+            }
         }
 
         let newCredits = user.credits;
@@ -207,7 +274,8 @@ app.post('/ai/generate', async (req, res) => {
 
         res.json({ result, new_credits: newCredits });
     } catch (err) {
-        res.status(500).json({ error: "Erro na IA." });
+        console.error("Erro IA:", err.message);
+        res.status(500).json({ error: "Erro ao processar IA: " + err.message });
     }
 });
 
