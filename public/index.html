@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conecta Saúde - Sistema Integrado v2.5 (Restaurado)</title>
+    <title>Conecta Saúde - Sistema Integrado v2.5 (Fixed)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -176,7 +176,7 @@
 
     <!-- CONFIGURAÇÃO GERAL -->
     <div class="bg-slate-900 text-white py-2 px-4 text-xs flex flex-wrap justify-between items-center z-50 relative gap-2">
-        <span class="font-bold">Ambiente v2.5 (Produção)</span>
+        <span class="font-bold">Ambiente v2.5 (Seguro)</span>
         <div class="flex items-center gap-4">
             <span class="text-green-400 flex items-center"><i class="fa-solid fa-server mr-1"></i> Online</span>
         </div>
@@ -755,9 +755,8 @@
             }
         } catch(e) { console.log("SDK Mercado Pago não carregado"); }
 
-        // --- BACKEND URL ---
-        // ATUALIZAÇÃO DE CORREÇÃO: Usar string vazia para o mesmo domínio
-        const BACKEND_URL = ""; 
+        // --- BACKEND URL (FORÇADO PARA EVITAR ERRO DE CAMINHO RELATIVO) ---
+        const BACKEND_URL = "http://localhost:3000"; 
 
         // --- CONFIGURAÇÃO GLOBAL DO SISTEMA ---
         let SYSTEM_SETTINGS = {
@@ -897,9 +896,9 @@
             const localUser = MockDB.login(e, p);
             
             if(localUser) {
-                // 2. ATUALIZAÇÃO DE CORREÇÃO: Tenta autenticação REAL no Backend para pegar Token
+                // 2. Tenta autenticação REAL no Backend para pegar Token
                 try {
-                    const res = await fetch('/auth/login', {
+                    const res = await fetch(`${BACKEND_URL}/auth/login`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({ email: e, password: p })
@@ -911,9 +910,11 @@
                         console.log("Token de API obtido com sucesso.");
                     } else {
                         console.warn("Backend login falhou, usando modo offline/mock.");
+                        showToast("Aviso: Servidor desconectado. IA pode falhar.", "info");
                     }
                 } catch (err) {
                     console.warn("Backend inacessível.");
+                    showToast("Aviso: Servidor inacessível. Usando modo offline.", "info");
                 }
 
                 initializeApp(localUser);
@@ -1676,6 +1677,12 @@
             stopSpeech(); // Stop any current audio
             if (!text) return;
 
+            // Fallback imediato para navegador se não tiver servidor
+            if (!serverAuthToken && useAI) {
+                console.warn("Sem servidor, usando voz do navegador.");
+                useAI = false; 
+            }
+
             if (!useAI) {
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'pt-BR';
@@ -1683,20 +1690,15 @@
                 return;
             }
 
-            // ATUALIZAÇÃO DE CORREÇÃO: Usar proxy para TTS também se necessário, mas aqui
-            // o TTS do Google é pago/restrito. Vamos usar fallback seguro.
-            // Para simplicidade, usamos o TTS do navegador se o token não for server-side.
-            // Se tiver server token, poderíamos rotear.
-            
+            // Se tiver servidor, tenta TTS melhorado
             try {
                 if (!serverAuthToken) throw new Error("Sem token para TTS AI");
 
-                // SE houver rota de TTS no backend, usaria fetch('/ai/tts'...)
-                // Como não tem, usamos o navegador por enquanto para garantir estabilidade.
+                // Futura implementação de TTS Server Side aqui
+                // Por enquanto fallback:
                 throw new Error("TTS Backend não implementado ainda.");
 
             } catch (e) {
-                // Fallback to browser TTS (Sempre funciona sem API Key)
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'pt-BR';
                 window.speechSynthesis.speak(utterance);
@@ -1775,12 +1777,11 @@
                     return data.result;
                 } catch (e) {
                     console.error("Falha ao usar Backend AI:", e);
-                    throw new Error("Serviço de IA indisponível. Verifique sua conexão.");
+                    throw new Error("Serviço de IA indisponível. Verifique a conexão com o servidor (npm start).");
                 }
             } else {
                 // Se não temos token, tentamos o método antigo (que provavelmente falhará se a chave for inválida)
-                // Mas avisamos o usuário para relogar.
-                throw new Error("Sessão expirada ou offline. Por favor, faça login novamente para acessar a IA.");
+                throw new Error("Sessão expirada ou Servidor Offline. Faça login novamente.");
             }
         }
 
