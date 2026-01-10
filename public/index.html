@@ -756,7 +756,8 @@
         } catch(e) { console.log("SDK Mercado Pago não carregado"); }
 
         // --- BACKEND URL ---
-        const BACKEND_URL = "http://localhost:3000"; // URL do seu servidor local ou em produção
+        // ATUALIZAÇÃO DE CORREÇÃO: Usar string vazia para o mesmo domínio
+        const BACKEND_URL = ""; 
 
         // --- CONFIGURAÇÃO GLOBAL DO SISTEMA ---
         let SYSTEM_SETTINGS = {
@@ -845,8 +846,10 @@
         });
 
         // DEFINIÇÃO DA CHAVE API (Vazia para ser injetada pelo ambiente)
-        const apiKey = "process.env.GOOGLE_API_KEY"; 
+        // ATUALIZAÇÃO DE CORREÇÃO: Não usar a chave no front-end, usar proxy backend
+        const apiKey = ""; 
         let currentUser = null;
+        let serverAuthToken = null; // TOKEN REAL DO SERVIDOR
         let currentPreOpFiles = [];
         let missingExamsList = [];
         
@@ -886,17 +889,40 @@
         };
 
         // --- AUTH & INIT ---
-        function handleEmailLogin() {
+        async function handleEmailLogin() {
             const e = document.getElementById('login-email').value;
             const p = document.getElementById('login-password').value;
-            const user = MockDB.login(e, p);
-            if(user) {
-                initializeApp(user);
-                showToast(`Bem-vindo, ${user.name}!`, 'success');
+            
+            // 1. Tenta Login Local (Mock) para UX Imediata
+            const localUser = MockDB.login(e, p);
+            
+            if(localUser) {
+                // 2. ATUALIZAÇÃO DE CORREÇÃO: Tenta autenticação REAL no Backend para pegar Token
+                try {
+                    const res = await fetch('/auth/login', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ email: e, password: p })
+                    });
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        serverAuthToken = data.token; // Salva o token real
+                        console.log("Token de API obtido com sucesso.");
+                    } else {
+                        console.warn("Backend login falhou, usando modo offline/mock.");
+                    }
+                } catch (err) {
+                    console.warn("Backend inacessível.");
+                }
+
+                initializeApp(localUser);
+                showToast(`Bem-vindo, ${localUser.name}!`, 'success');
             } else {
                 showToast("Credenciais inválidas. Verifique os dados.");
             }
         }
+
         function handleRegister() {
             const name = document.getElementById('reg-name').value;
             const age = document.getElementById('reg-age').value;
@@ -1657,33 +1683,20 @@
                 return;
             }
 
+            // ATUALIZAÇÃO DE CORREÇÃO: Usar proxy para TTS também se necessário, mas aqui
+            // o TTS do Google é pago/restrito. Vamos usar fallback seguro.
+            // Para simplicidade, usamos o TTS do navegador se o token não for server-side.
+            // Se tiver server token, poderíamos rotear.
+            
             try {
-                showToast("Gerando áudio explicativo...", "info");
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: text }] }],
-                        generationConfig: {
-                            responseModalities: ["AUDIO"],
-                            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } }
-                        }
-                    })
-                });
+                if (!serverAuthToken) throw new Error("Sem token para TTS AI");
 
-                if (!res.ok) throw new Error("Erro TTS API");
+                // SE houver rota de TTS no backend, usaria fetch('/ai/tts'...)
+                // Como não tem, usamos o navegador por enquanto para garantir estabilidade.
+                throw new Error("TTS Backend não implementado ainda.");
 
-                const data = await res.json();
-                const base64Audio = data.candidates[0].content.parts[0].inlineData.data;
-                const audioBytes = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
-                const wavBytes = pcmToWav(audioBytes, 24000); 
-                const blob = new Blob([wavBytes], { type: 'audio/wav' });
-                const audioUrl = URL.createObjectURL(blob);
-                currentAudioObj = new Audio(audioUrl);
-                currentAudioObj.play();
             } catch (e) {
-                console.error(e);
-                // Fallback to browser TTS
+                // Fallback to browser TTS (Sempre funciona sem API Key)
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'pt-BR';
                 window.speechSynthesis.speak(utterance);
@@ -1735,21 +1748,40 @@
             }
         }
 
+        // --- ATUALIZAÇÃO DE CORREÇÃO: PROXY GEMINI VIA BACKEND ---
         async function callGemini(prompt, isJson) {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON válido." : prompt }] }] })
-            });
-            
-            if(!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                const errMsg = errData.error?.message || "Erro na API Gemini (Verifique a chave/quota).";
-                throw new Error(errMsg);
-            }
+            // Se temos um token de autenticação real, usamos o backend
+            if (serverAuthToken) {
+                try {
+                    const res = await fetch(`${BACKEND_URL}/ai/generate`, {
+                        method: 'POST', 
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${serverAuthToken}`
+                        },
+                        body: JSON.stringify({ 
+                            prompt: prompt, 
+                            isJson: isJson,
+                            cost: 0 // Custo já é gerido pelo frontend visualmente
+                        }) 
+                    });
+                    
+                    if(!res.ok) {
+                        const errData = await res.json().catch(() => ({}));
+                        throw new Error(errData.error || "Erro no Servidor de IA");
+                    }
 
-            const txt = (await res.json()).candidates[0].content.parts[0].text;
-            let jsonStr = txt.replace(/```json/g, '').replace(/```/g, '').trim();
-            return isJson ? JSON.parse(jsonStr) : txt;
+                    const data = await res.json();
+                    return data.result;
+                } catch (e) {
+                    console.error("Falha ao usar Backend AI:", e);
+                    throw new Error("Serviço de IA indisponível. Verifique sua conexão.");
+                }
+            } else {
+                // Se não temos token, tentamos o método antigo (que provavelmente falhará se a chave for inválida)
+                // Mas avisamos o usuário para relogar.
+                throw new Error("Sessão expirada ou offline. Por favor, faça login novamente para acessar a IA.");
+            }
         }
 
         async function downloadPDF(type) {
