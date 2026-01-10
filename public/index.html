@@ -755,9 +755,7 @@
             }
         } catch(e) { console.log("SDK Mercado Pago não carregado"); }
 
-        // --- BACKEND URL (FORÇADO PARA EVITAR ERRO DE CAMINHO RELATIVO) ---
-        const BACKEND_URL = "http://localhost:3000"; 
-
+       
         // --- CONFIGURAÇÃO GLOBAL DO SISTEMA ---
         let SYSTEM_SETTINGS = {
             exams: {
@@ -891,9 +889,6 @@
         async function handleEmailLogin() {
             const e = document.getElementById('login-email').value;
             const p = document.getElementById('login-password').value;
-            
-            // 1. Tenta Login Local (Mock) para UX Imediata
-            const localUser = MockDB.login(e, p);
             
             if(localUser) {
                 // 2. Tenta autenticação REAL no Backend para pegar Token
