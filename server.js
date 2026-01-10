@@ -1,3 +1,4 @@
+// NOME DO ARQUIVO: server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -12,7 +13,7 @@ const { MercadoPagoConfig, Preference } = require('mercadopago');
 console.log("=== INICIALIZANDO SERVIDOR ===");
 const publicPath = path.join(__dirname, 'public');
 
-// Se a pasta 'public' não existir (em alguns deploys pode variar), use a raiz como fallback
+// Se a pasta 'public' não existir (em alguns deploys pode variar), use a raiz
 const staticPath = fs.existsSync(publicPath) ? publicPath : __dirname;
 console.log(`Servindo arquivos estáticos de: ${staticPath}`);
 
@@ -36,11 +37,8 @@ app.use(express.static(staticPath));
 
 // --- INICIALIZAÇÃO DB ---
 async function initDB() {
-    let clientDb;
+    const clientDb = await pool.connect();
     try {
-        clientDb = await pool.connect();
-        
-        // Tabela de Usuários
         await clientDb.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -57,22 +55,7 @@ async function initDB() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-
-        // Tabela de Encaminhamentos (Referrals)
-        await clientDb.query(`
-            CREATE TABLE IF NOT EXISTS referrals (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
-                patient_name VARCHAR(255),
-                patient_cpf VARCHAR(20),
-                specialty VARCHAR(100),
-                reason TEXT,
-                status VARCHAR(20) DEFAULT 'pending', 
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
-        // Seed Admin (Dr. Tiago)
+        // Seed
         const hash = await bcrypt.hash('123456', 10);
         await clientDb.query(`
             INSERT INTO users (name, email, password_hash, role, credits, cpf, age, sex)
@@ -80,9 +63,15 @@ async function initDB() {
             ON CONFLICT (email) DO NOTHING;
         `, ['Dr. Tiago Barros', 'drtiago.barros@gmail.com', hash, 'admin', 99999, '000.000.000-01', 35, 'M']);
         
-        console.log("Banco de dados pronto (Users e Referrals).");
+        await clientDb.query(`
+            INSERT INTO users (name, email, password_hash, role, credits, cpf, age, sex)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (email) DO NOTHING;
+        `, ['Kellen Fernandes', 'kellenbastos20@gmail.com', hash, 'user', 100, '250.995.618-37', 45, 'F']);
+        
+        console.log("Banco de dados pronto.");
     } catch (err) { console.error("Erro DB:", err); } 
-    finally { if(clientDb) clientDb.release(); }
+    finally { clientDb.release(); }
 }
 initDB();
 
@@ -91,19 +80,14 @@ const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.status(401).json({ error: "Token ausente" });
-    jwt.verify(token, process.env.JWT_SECRET || 'secret_dev', (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
         if (err) return res.status(403).json({ error: "Token inválido" });
         req.user = user;
         next();
     });
 };
 
-const requireAdmin = (req, res, next) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: "Acesso restrito a administradores" });
-    next();
-};
-
-// --- ROTAS AUTH ---
+// --- ROTAS ---
 app.post('/auth/login', async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -111,7 +95,7 @@ app.post('/auth/login', async (req, res) => {
         if (result.rows.length === 0) return res.status(400).json({ error: "Usuário não encontrado" });
         const user = result.rows[0];
         if (await bcrypt.compare(password, user.password_hash)) {
-            const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET || 'secret_dev', { expiresIn: '24h' });
+            const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
             delete user.password_hash;
             res.json({ token, user });
         } else { res.status(403).json({ error: "Senha incorreta" }); }
@@ -130,29 +114,50 @@ app.post('/auth/register', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "Erro ao registrar (Email/CPF duplicado?)" }); }
 });
 
-// --- ROTAS IA ---
+// IA (ROBUSTA)
 app.post('/ai/generate', authenticateToken, async (req, res) => {
     const { prompt, cost, isJson } = req.body;
-    try {
-        const userRes = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
-        if (req.user.role !== 'admin' && userRes.rows[0].credits < cost) return res.status(402).json({ error: "Saldo insuficiente" });
+    const userRes = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
+    const user = userRes.rows[0];
 
-        const apiKey = process.env.GOOGLE_API_KEY;
+    if (req.user.role !== 'admin' && user.credits < cost) return res.status(402).json({ error: "Saldo insuficiente" });
+
+    try {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error("API Key não configurada");
+
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON válido, sem markdown." : prompt }] }] })
         });
         
         const data = await response.json();
-        const txt = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!txt) throw new Error("A IA não gerou resposta.");
+        
+        // Log para debug no Render (verifique os logs se o erro persistir)
+        if (data.error) {
+            console.error("Erro API Gemini:", JSON.stringify(data.error));
+            throw new Error(data.error.message || "Erro na API Gemini");
+        }
+
+        const candidate = data.candidates?.[0];
+        const txt = candidate?.content?.parts?.[0]?.text;
+        
+        if (!txt) {
+            console.error("Resposta Gemini Vazia. Data:", JSON.stringify(data));
+            throw new Error("A IA não gerou uma resposta de texto válida.");
+        }
 
         let finalResult = txt;
         if(isJson) { 
             try { 
+                // Remove blocos de código ```json ... ``` se houver
                 const cleanTxt = txt.replace(/```json/g, '').replace(/```/g, '').trim();
                 finalResult = JSON.parse(cleanTxt); 
-            } catch(e){ return res.status(500).json({ error: "Falha JSON IA", raw: txt }); } 
+            } catch(e){
+                console.error("Erro Parse JSON:", txt);
+                // Retorna erro mas com o texto cru para debug no front
+                return res.status(500).json({ error: "Falha ao processar JSON da IA", raw: txt });
+            } 
         }
 
         if(req.user.role !== 'admin' && cost > 0) {
@@ -161,78 +166,17 @@ app.post('/ai/generate', authenticateToken, async (req, res) => {
         
         const updated = await pool.query("SELECT credits FROM users WHERE id = $1", [req.user.id]);
         res.json({ result: finalResult, new_credits: updated.rows[0].credits });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// --- ROTAS ENCAMINHAMENTOS (CORE DA NOVA FUNCIONALIDADE) ---
-
-// 1. Criar Encaminhamento (Usuário salva a sugestão da IA)
-app.post('/referrals', authenticateToken, async (req, res) => {
-    const { specialty, reason } = req.body;
-    try {
-        // Busca dados atualizados do usuário para garantir consistência
-        const userRes = await pool.query("SELECT name, cpf FROM users WHERE id = $1", [req.user.id]);
-        const user = userRes.rows[0];
-
-        // Insere na tabela 'referrals'
-        await pool.query(
-            "INSERT INTO referrals (user_id, patient_name, patient_cpf, specialty, reason) VALUES ($1, $2, $3, $4, $5)",
-            [req.user.id, user.name, user.cpf, specialty, reason]
-        );
-        res.json({ success: true, message: "Encaminhamento registrado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao salvar encaminhamento:", err);
-        res.status(500).json({ error: "Erro ao salvar encaminhamento" });
+    } catch (err) { 
+        console.error("Erro Servidor IA:", err.message);
+        res.status(500).json({ error: "Erro IA: " + err.message }); 
     }
-});
-
-// 2. Listar Encaminhamentos (Admin visualiza a fila)
-app.get('/admin/referrals', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const result = await pool.query("SELECT * FROM referrals WHERE status = 'pending' ORDER BY created_at DESC");
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: "Erro ao buscar encaminhamentos" });
-    }
-});
-
-// --- ROTAS ADMIN GERAIS ---
-app.get('/admin/users', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const result = await pool.query("SELECT id, name, email, credits, role, created_at, blocked_features, cpf, age FROM users ORDER BY created_at DESC LIMIT 50");
-        res.json(result.rows);
-    } catch (err) { res.status(500).json({ error: "Erro users" }); }
-});
-
-app.post('/admin/add-credits', authenticateToken, requireAdmin, async (req, res) => {
-    const { userId, amount } = req.body;
-    try {
-        await pool.query("UPDATE users SET credits = credits + $1 WHERE id = $2", [amount, userId]);
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: "Erro add credits" }); }
-});
-
-// --- MP ---
-app.post('/create_preference', authenticateToken, async (req, res) => {
-    const { description, price, quantity } = req.body;
-    try {
-        const preference = new Preference(client);
-        const result = await preference.create({
-            body: {
-                items: [{ title: description, unit_price: Number(price), quantity: Number(quantity), currency_id: 'BRL' }],
-                back_urls: { success: `${req.get('origin')}/`, failure: `${req.get('origin')}/` },
-                auto_return: "approved"
-            }
-        });
-        res.json({ id: result.id });
-    } catch (err) { res.status(500).json({ error: "Erro MP" }); }
 });
 
 // CATCH ALL
 app.get('*', (req, res) => {
     const indexPath = path.join(staticPath, 'index.html');
     if (fs.existsSync(indexPath)) res.sendFile(indexPath);
-    else res.send("Frontend não encontrado.");
+    else res.status(404).send("Index não encontrado.");
 });
 
 app.listen(port, () => console.log(`🚀 Rodando na porta ${port}`));
