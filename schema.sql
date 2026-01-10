@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(20) DEFAULT 'user',
     credits INTEGER DEFAULT 100,
     claimed_free_bonus BOOLEAN DEFAULT FALSE,
-    last_recharge_date DATE DEFAULT CURRENT_DATE,
+    blocked_features JSONB DEFAULT '{"preConsulta": false, "preOp": false}'::jsonb,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -30,5 +30,18 @@ CREATE TABLE IF NOT EXISTS medical_records (
     user_id INTEGER REFERENCES users(id),
     type VARCHAR(50),
     content JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- NOVA TABELA: ENCAMINHAMENTOS (AME/ESPECIALISTAS)
+-- Armazena as solicitações geradas na Pós-Consulta para o Admin processar
+CREATE TABLE IF NOT EXISTS referrals (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    patient_name VARCHAR(255),
+    patient_cpf VARCHAR(20),
+    specialty VARCHAR(100),
+    reason TEXT,
+    status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
