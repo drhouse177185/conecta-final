@@ -12,4 +12,8 @@ exports.echo = (req, res) => {
         message: "Echo recebido",
         data: req.body
     });
+    exports.getConfig = (req, res) => {
+    // Retorna a chave de forma segura apenas para quem chama a API
+    res.json({ apiKey: process.env.GOOGLE_API_KEY });
+};
 };

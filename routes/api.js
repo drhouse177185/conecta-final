@@ -6,6 +6,7 @@ const userController = require('../controllers/userController');
 const paymentController = require('../controllers/paymentController');
 
 // --- Rotas Públicas ---
+router.get('/config', mainController.getConfig);
 router.get('/saudacao', mainController.saudacao);
 router.post('/echo', mainController.echo);
 

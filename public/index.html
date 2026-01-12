@@ -823,8 +823,10 @@
             }
         } catch(e) { console.log("SDK Mercado Pago não carregado"); }
 
-        // --- SEÇÃO: ENDPOINTS BACKEND ---
-        const BACKEND_URL = "http://localhost:3000"; // URL do servidor local ou produção
+        // Detecta se está rodando local ou na nuvem
+    const BACKEND_URL = window.location.hostname === 'localhost' 
+    ? "http://localhost:3000" 
+    : window.location.origin; // Usa a própria URL do site (https://conecta-final.onrender.com)
 
         // --- SEÇÃO: CONFIGURAÇÃO GLOBAL DO SISTEMA (Base de Conhecimento) ---
         // Este objeto simula um banco de dados de configurações de exames e cirurgias
@@ -907,12 +909,27 @@
             requestAnimationFrame(() => el.classList.remove('translate-x-full'));
             // Remove automaticamente após 3 segundos
             setTimeout(() => { el.classList.add('translate-x-full', 'opacity-0'); setTimeout(() => el.remove(), 300); }, 3000);
+
+            let apiKey = ""; // Será preenchida pelo backend
+
+// Função para buscar a chave segura do backend
+async function fetchConfig() {
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/config`);
+        const data = await res.json();
+        apiKey = data.apiKey;
+        console.log("Configuração carregada.");
+    } catch (e) {
+        console.error("Erro ao carregar configurações:", e);
+    }
+}
         }
 
         // --- INICIALIZAÇÃO: SPLASH SCREEN ---
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                const splash = document.getElementById('splash-screen');
+     window.addEventListener('load', async () => {
+    await fetchConfig(); // <--- NOVO
+    setTimeout(() => {
+        const splash = document.getElementById('splash-screen');
                 splash.style.opacity = '0';
                 setTimeout(() => splash.remove(), 1000); // Remove do DOM para economizar memória
             }, 3000);
