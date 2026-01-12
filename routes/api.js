@@ -14,7 +14,7 @@ router.get('/config', mainController.getConfig);
 // --- Rotas de Autenticação e Usuário ---
 router.post('/auth/login', userController.login);
 router.post('/auth/register', userController.register);
-router.post('/auth/recover', userController.recoverPassword); // <--- NOVA ROTA
+router.post('/auth/recover', userController.recoverPassword);
 
 // --- Rotas de Pagamento ---
 router.post('/create_preference', paymentController.createPreference);
