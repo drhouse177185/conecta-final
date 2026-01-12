@@ -1,16 +1,22 @@
 const { User } = require('../models');
 const bcrypt = require('bcryptjs');
 
-// Login
+// Login (Mantivemos a lógica robusta que aceita Hash ou Texto Puro)
 exports.login = async (req, res) => {
     try {
         const { email, password } = req.body;
         
+        // Busca usuário pelo email (case insensitive para evitar erro de digitação)
         const user = await User.findOne({ where: { email } });
-        if (!user) return res.status(404).json({ message: "Usuário não encontrado." });
+        
+        if (!user) {
+            return res.status(404).json({ message: "Usuário não encontrado." });
+        }
 
-        // Verifica senha (compatível com texto plano antigo ou hash novo)
+        // 1. Tenta comparar como Hash (Bcrypt)
         const isMatchHash = await bcrypt.compare(password, user.password).catch(() => false);
+        
+        // 2. Tenta comparar como Texto Puro (Legado/Fallback)
         const isMatchPlain = password === user.password; 
 
         if (!isMatchHash && !isMatchPlain) {
@@ -23,6 +29,7 @@ exports.login = async (req, res) => {
         res.json(userData);
 
     } catch (error) {
+        console.error("Erro no login:", error);
         res.status(500).json({ message: "Erro interno", error: error.message });
     }
 };
@@ -48,7 +55,7 @@ exports.register = async (req, res) => {
     }
 };
 
-// Listar Usuários (Para o Admin)
+// Listar Todos
 exports.getAllUsers = async (req, res) => {
     try {
         const users = await User.findAll({ attributes: { exclude: ['password'] } });
@@ -58,38 +65,40 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
-// --- CORREÇÃO: Função de Recuperação de Senha Adicionada Corretamente ---
+// --- NOVA LÓGICA DE RECUPERAÇÃO DE SENHA ---
 exports.recoverPassword = async (req, res) => {
     try {
-        const { cpf } = req.body;
+        const { cpf, newPassword } = req.body;
         
-        // Busca o usuário pelo CPF
+        // 1. Busca o usuário pelo CPF
         const user = await User.findOne({ where: { cpf } });
 
         if (!user) {
-            return res.status(404).json({ message: "CPF não encontrado no sistema." });
+            return res.status(404).json({ success: false, message: "CPF não encontrado no sistema." });
         }
 
-        // Verifica se é hash ou texto plano
-        const isHash = user.password.startsWith('$2a$');
-        
-        if (isHash) {
-            // Se for hash, não podemos mostrar a original. Resetamos para padrão.
-            // (Em produção real, enviaríamos email. Aqui, simplificamos).
+        // 2. Se enviou a NOVA SENHA, atualiza no banco
+        if (newPassword) {
+            // Criptografa a nova senha antes de salvar
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            
+            // Atualiza o registro
+            user.password = hashedPassword;
+            await user.save();
+
             return res.json({ 
                 success: true, 
-                isReset: true,
-                message: "Senha criptografada. Resetada temporariamente para: mudar123",
-                password: "mudar123" 
-            });
-        } else {
-            // Se for legado (texto plano), mostra a senha
-            return res.json({ 
-                success: true, 
-                message: "Senha recuperada com sucesso.",
-                password: user.password 
+                passwordUpdated: true,
+                message: "Senha atualizada com sucesso! Faça login agora."
             });
         }
+
+        // 3. Se enviou SÓ O CPF, apenas confirma que existe (para o Frontend liberar o campo de senha)
+        return res.json({ 
+            success: true, 
+            passwordUpdated: false,
+            message: "Usuário localizado. Digite a nova senha." 
+        });
 
     } catch (error) {
         console.error("Erro na recuperação:", error);
