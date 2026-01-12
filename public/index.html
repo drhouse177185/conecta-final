@@ -241,31 +241,6 @@
                 <p class="text-blue-200 text-xs">Acesso ao Prontuário Digital</p>
             </div>
             
-            <!-- MODAL DE RECUPERAÇÃO DE SENHA -->
-    <div id="recover-modal" class="modal-overlay">
-        <div class="modal-card bg-white p-6 rounded-lg shadow-xl w-96">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold text-lg text-blue-900">Recuperar Acesso</h3>
-                <button onclick="document.getElementById('recover-modal').classList.remove('active')" class="text-gray-400 hover:text-red-500">
-                    <i class="fa-solid fa-times"></i>
-                </button>
-            </div>
-            <p class="text-sm text-gray-600 mb-4">Digite seu CPF para visualizarmos sua senha de acesso.</p>
-            
-            <form onsubmit="event.preventDefault(); handleRecovery();">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">CPF Cadastrado</label>
-                <input type="text" id="recover-cpf" class="house-input w-full p-3 rounded mb-4" 
-                       placeholder="000.000.000-00" oninput="mascaraCPF(this)" maxlength="14" required>
-                
-                <div id="recover-result" class="hidden bg-green-50 text-green-800 p-3 rounded mb-4 text-center font-bold border border-green-200"></div>
-                
-                <button type="submit" id="btn-recover" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded transition">
-                    BUSCAR SENHA
-                </button>
-            </form>
-        </div>
-    </div>
-
             <!-- Abas de Alternância (Entrar / Criar Conta) -->
             <div class="flex border-b">
                 <button onclick="switchAuthTab('login')" id="tab-login" class="w-1/2 py-3 font-bold text-blue-900 bg-blue-50 border-b-2 border-blue-900">Entrar</button>
@@ -2062,27 +2037,34 @@
         // Inicializa ícones Lucide após carregamento completo
         lucide.createIcons();
       
-// --- FUNÇÕES DE RECUPERAÇÃO DE SENHA (ATUALIZADO) ---
+   // --- FUNÇÕES DE RECUPERAÇÃO DE SENHA (FINAL) ---
         
-        let recoveryStep = 1; // Controla em qual passo estamos
+        let recoveryStep = 1; 
 
         function closeRecoverModal() {
             document.getElementById('recover-modal').classList.remove('active');
-            // Reseta o modal para o estado inicial se o usuário fechar
+            // Reseta o modal ao fechar
             setTimeout(() => {
                 recoveryStep = 1;
                 document.getElementById('rec-step-1').classList.remove('hidden');
                 document.getElementById('rec-step-2').classList.add('hidden');
                 document.getElementById('recover-cpf').disabled = false;
+                
+                // Limpa campos
                 document.getElementById('recover-new-pass').value = "";
-                document.getElementById('btn-recover').textContent = "BUSCAR CONTA";
-                document.getElementById('btn-recover').classList.replace('bg-green-600', 'bg-blue-600');
+                document.getElementById('recover-confirm-pass').value = "";
+                
+                const btn = document.getElementById('btn-recover');
+                btn.textContent = "BUSCAR CONTA";
+                btn.classList.replace('bg-green-600', 'bg-blue-600');
+                btn.disabled = false;
             }, 300);
         }
 
         async function handleRecoveryStep() {
             const cpf = document.getElementById('recover-cpf').value;
             const newPassInput = document.getElementById('recover-new-pass');
+            const confirmPassInput = document.getElementById('recover-confirm-pass');
             const btn = document.getElementById('btn-recover');
             
             if (!cpf || cpf.length < 11) return showToast("Digite um CPF válido.", "error");
@@ -2090,64 +2072,88 @@
             btn.disabled = true;
 
             try {
-                // PASSO 1: Validar CPF
+                // PASSO 1: Validar se o CPF existe
                 if (recoveryStep === 1) {
-                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Buscando...';
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
                     
-                    // Chama backend apenas com CPF
                     const response = await fetch(`${BACKEND_URL}/api/auth/recover`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ cpf: cpf })
+                        body: JSON.stringify({ cpf: cpf }) // Envia só CPF para verificar existência
                     });
                     const data = await response.json();
 
                     if (response.ok && data.success) {
-                        // Sucesso: Muda para Passo 2
+                        // Sucesso: Vai para Passo 2 (Senhas)
                         recoveryStep = 2;
-                        document.getElementById('recover-cpf').disabled = true; // Trava CPF
-                        document.getElementById('rec-step-2').classList.remove('hidden'); // Mostra senha
-                        btn.textContent = "SALVAR NOVA SENHA";
-                        btn.classList.replace('bg-blue-600', 'bg-green-600');
+                        
+                        document.getElementById('recover-cpf').disabled = true; 
+                        document.getElementById('rec-step-2').classList.remove('hidden');
+                        
+                        btn.textContent = "REDEFINIR SENHA"; // Texto alterado conforme pedido
+                        btn.classList.replace('bg-blue-600', 'bg-green-600'); // Fica verde para indicar ação final
+                        btn.disabled = false;
+                        
                         newPassInput.focus();
                     } else {
                         showToast(data.message || "CPF não encontrado.", "error");
+                        btn.innerHTML = "BUSCAR CONTA";
+                        btn.disabled = false;
                     }
                 } 
-                // PASSO 2: Salvar Nova Senha
+                // PASSO 2: Validar Senhas e Salvar
                 else if (recoveryStep === 2) {
                     const newPass = newPassInput.value;
-                    if(!newPass || newPass.length < 3) {
-                        showToast("A senha deve ter pelo menos 3 caracteres.", "error");
+                    const confirmPass = confirmPassInput.value;
+
+                    // Validação Front-end: Campos vazios
+                    if(!newPass || !confirmPass) {
+                        showToast("Preencha os dois campos de senha.", "error");
+                        btn.disabled = false;
+                        return;
+                    }
+
+                    // Validação Front-end: Senhas iguais
+                    if(newPass !== confirmPass) {
+                        showToast("As senhas não coincidem!", "error");
+                        // Efeito visual de erro
+                        newPassInput.classList.add('border-red-500');
+                        confirmPassInput.classList.add('border-red-500');
+                        setTimeout(() => {
+                            newPassInput.classList.remove('border-red-500');
+                            confirmPassInput.classList.remove('border-red-500');
+                        }, 2000);
                         btn.disabled = false;
                         return;
                     }
 
                     btn.innerHTML = '<i class="fa-solid fa-save fa-spin"></i> Salvando...';
 
-                    // Chama backend com CPF + Nova Senha
+                    // Envia para o Backend salvar
                     const response = await fetch(`${BACKEND_URL}/api/auth/recover`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ cpf: cpf, newPassword: newPass })
+                        body: JSON.stringify({ cpf: cpf, newPassword: newPass }) 
                     });
                     const data = await response.json();
 
-                    if (response.ok && data.success && data.passwordUpdated) {
-                        showToast("Senha alterada com sucesso! Faça login.", "success");
+                    if (response.ok && data.success) {
+                        showToast("Senha redefinida com sucesso! Faça login.", "success");
                         closeRecoverModal();
-                        // Opcional: Já preencher o email no login se soubermos, mas aqui deixamos o user logar
+                        // Opcional: preencher o email no login automaticamente aqui se desejar
                     } else {
                         showToast("Erro ao salvar senha.", "error");
+                        btn.textContent = "REDEFINIR SENHA";
+                        btn.disabled = false;
                     }
                 }
 
             } catch (error) {
-                console.error(error);
-                showToast("Erro de conexão com o servidor.", "error");
-            } finally {
-                if(recoveryStep === 1) btn.textContent = "BUSCAR CONTA"; // Restaura texto se falhar
+                console.error("Erro JS:", error);
+                showToast("Erro de conexão.", "error");
                 btn.disabled = false;
+                if(recoveryStep === 1) btn.textContent = "BUSCAR CONTA";
+                else btn.textContent = "REDEFINIR SENHA";
             }
         }
     </script>
