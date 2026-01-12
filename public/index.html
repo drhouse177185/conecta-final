@@ -823,10 +823,35 @@
             }
         } catch(e) { console.log("SDK Mercado Pago não carregado"); }
 
+        // --- CONFIGURAÇÃO: BACKEND E API KEY ---
         // Detecta se está rodando local ou na nuvem
-    const BACKEND_URL = window.location.hostname === 'localhost' 
-    ? "http://localhost:3000" 
-    : window.location.origin; // Usa a própria URL do site (https://conecta-final.onrender.com)
+        const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? "http://localhost:3000" 
+            : window.location.origin; // Usa a própria URL do site (https://conecta-final.onrender.com)
+
+        let apiKey = ""; // Começa vazia e será preenchida pelo backend
+
+        // Função segura para carregar a chave
+        async function loadConfig() {
+            try {
+                console.log("Tentando buscar chave em:", `${BACKEND_URL}/api/config`);
+                const response = await fetch(`${BACKEND_URL}/api/config`);
+                if(response.ok) {
+                    const data = await response.json();
+                    if(data.apiKey) {
+                        apiKey = data.apiKey;
+                        console.log("✅ Chave de API carregada com segurança.");
+                    } else {
+                        console.warn("⚠️ Backend respondeu, mas sem chave.");
+                    }
+                } else {
+                    console.error("❌ Erro no backend:", response.status);
+                }
+            } catch (error) {
+                console.error("❌ Falha de conexão na configuração:", error);
+                // Não mostra alert para não travar a experiência, apenas loga
+            }
+        }
 
         // --- SEÇÃO: CONFIGURAÇÃO GLOBAL DO SISTEMA (Base de Conhecimento) ---
         // Este objeto simula um banco de dados de configurações de exames e cirurgias
@@ -909,34 +934,24 @@
             requestAnimationFrame(() => el.classList.remove('translate-x-full'));
             // Remove automaticamente após 3 segundos
             setTimeout(() => { el.classList.add('translate-x-full', 'opacity-0'); setTimeout(() => el.remove(), 300); }, 3000);
-
-            let apiKey = ""; // Será preenchida pelo backend
-
-// Função para buscar a chave segura do backend
-async function fetchConfig() {
-    try {
-        const res = await fetch(`${BACKEND_URL}/api/config`);
-        const data = await res.json();
-        apiKey = data.apiKey;
-        console.log("Configuração carregada.");
-    } catch (e) {
-        console.error("Erro ao carregar configurações:", e);
-    }
-}
         }
 
-        // --- INICIALIZAÇÃO: SPLASH SCREEN ---
-     window.addEventListener('load', async () => {
-    await fetchConfig(); // <--- NOVO
-    setTimeout(() => {
-        const splash = document.getElementById('splash-screen');
-                splash.style.opacity = '0';
-                setTimeout(() => splash.remove(), 1000); // Remove do DOM para economizar memória
+        // --- INICIALIZAÇÃO DESACOPLADA (CORREÇÃO DO TRAVAMENTO) ---
+        window.addEventListener('load', () => {
+            // 1. Dispara o carregamento da config em paralelo (sem await)
+            loadConfig();
+
+            // 2. Garante que o Splash suma após 3 segundos, INDEPENDENTE da config
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                if(splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(() => splash.remove(), 1000);
+                }
             }, 3000);
         });
 
         // --- VARIÁVEIS DE ESTADO GLOBAL ---
-        const apiKey = ""; // A chave API é injetada em tempo de execução
         let currentUser = null; // Usuário logado
         let currentPreOpFiles = []; // Arquivos temporários para pré-operatório
         let missingExamsList = []; // Lista de exames faltantes calculada pela IA
@@ -1783,7 +1798,17 @@ async function fetchConfig() {
             stopSpeech(); // Stop any current audio
             if (!text) return;
 
-            // Se não exigir IA, usa o browser nativo (grátis/rápido)
+            // Verificação de Segurança ANTES de chamar TTS
+            if (useAI && !apiKey) {
+                // Tenta carregar mais uma vez
+                await loadConfig();
+                if (!apiKey) {
+                   showToast("Chave de API não disponível para voz IA. Usando voz padrão.", "info");
+                   useAI = false; // Fallback
+                }
+            }
+
+            // Se não exigir IA ou falhar chave, usa o browser nativo (grátis/rápido)
             if (!useAI) {
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'pt-BR';
@@ -1873,14 +1898,26 @@ async function fetchConfig() {
 
         // --- CHAMADA GENÉRICA À API GEMINI ---
         async function callGemini(prompt, isJson) {
+            // Verificação de Segurança ANTES de chamar
+            if (!apiKey) {
+                // Tenta carregar mais uma vez caso tenha falhado no boot
+                await loadConfig();
+                if (!apiKey) {
+                    throw new Error("Sistema offline: Chave de API não configurada. Tente recarregar a página.");
+                }
+            }
+
             const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON válido." : prompt }] }] })
             });
             
             if(!res.ok) {
+                // Tratamento específico para erro 403/400
+                if(res.status === 403) throw new Error("Acesso negado (403). Verifique a Chave de API no Backend.");
+                
                 const errData = await res.json().catch(() => ({}));
-                const errMsg = errData.error?.message || "Erro na API Gemini (Verifique a chave/quota).";
+                const errMsg = errData.error?.message || `Erro API Gemini (${res.status})`;
                 throw new Error(errMsg);
             }
 
