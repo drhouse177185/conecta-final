@@ -1,48 +1,46 @@
 const { User } = require('../models');
 const bcrypt = require('bcryptjs');
 
-// Login (Mantivemos a lógica robusta que aceita Hash ou Texto Puro)
+// Login
 exports.login = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        let { email, password } = req.body;
         
-        // Busca usuário pelo email (case insensitive para evitar erro de digitação)
+        if(!email || !password) return res.status(400).json({ message: "Dados incompletos." });
+        email = email.trim(); 
+        password = password.trim();
+
         const user = await User.findOne({ where: { email } });
         
-        if (!user) {
-            return res.status(404).json({ message: "Usuário não encontrado." });
-        }
+        if (!user) return res.status(404).json({ message: "E-mail não encontrado." });
 
-        // 1. Tenta comparar como Hash (Bcrypt)
         const isMatchHash = await bcrypt.compare(password, user.password).catch(() => false);
-        
-        // 2. Tenta comparar como Texto Puro (Legado/Fallback)
         const isMatchPlain = password === user.password; 
 
         if (!isMatchHash && !isMatchPlain) {
             return res.status(401).json({ message: "Senha incorreta." });
         }
 
-        // Retorna o usuário sem a senha
         const userData = user.toJSON();
         delete userData.password;
         res.json(userData);
 
     } catch (error) {
-        console.error("Erro no login:", error);
-        res.status(500).json({ message: "Erro interno", error: error.message });
+        console.error("Erro Login:", error);
+        res.status(500).json({ message: "Erro no servidor", error: error.message });
     }
 };
 
 // Registro
 exports.register = async (req, res) => {
     try {
-        const { name, email, password, cpf, age, sex } = req.body;
+        let { name, email, password, cpf, age, sex } = req.body;
+        email = email.trim();
 
         const existing = await User.findOne({ where: { email } });
         if (existing) return res.status(400).json({ message: "Email já cadastrado." });
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password.trim(), 10);
 
         const newUser = await User.create({
             name, email, password: hashedPassword, cpf, age, sex,
@@ -55,7 +53,6 @@ exports.register = async (req, res) => {
     }
 };
 
-// Listar Todos
 exports.getAllUsers = async (req, res) => {
     try {
         const users = await User.findAll({ attributes: { exclude: ['password'] } });
@@ -65,43 +62,49 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
-// --- NOVA LÓGICA DE RECUPERAÇÃO DE SENHA ---
+// --- CORREÇÃO: Recuperação de Senha com UPDATE Direto ---
 exports.recoverPassword = async (req, res) => {
     try {
         const { cpf, newPassword } = req.body;
+        console.log(`[Recover] Tentativa de reset para CPF: ${cpf}`);
         
-        // 1. Busca o usuário pelo CPF
+        // 1. Busca o usuário
         const user = await User.findOne({ where: { cpf } });
 
         if (!user) {
-            return res.status(404).json({ success: false, message: "CPF não encontrado no sistema." });
+            console.log(`[Recover] Falha: CPF ${cpf} não encontrado.`);
+            return res.status(404).json({ success: false, message: "CPF não encontrado." });
         }
 
-        // 2. Se enviou a NOVA SENHA, atualiza no banco
+        // 2. Se tiver nova senha, força o UPDATE
         if (newPassword) {
-            // Criptografa a nova senha antes de salvar
-            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            console.log(`[Recover] Usuário encontrado (ID: ${user.id}). Gerando hash...`);
             
-            // Atualiza o registro
-            user.password = hashedPassword;
-            await user.save();
+            const cleanPassword = newPassword.trim();
+            const hashedPassword = await bcrypt.hash(cleanPassword, 10);
+            
+            // MUDANÇA AQUI: Usamos User.update em vez de user.save()
+            // Isso garante que o comando SQL UPDATE seja enviado ao PostgreSQL
+            await User.update(
+                { password: hashedPassword },
+                { where: { id: user.id } }
+            );
+            
+            console.log(`[Recover] Sucesso! Senha atualizada no banco.`);
 
             return res.json({ 
                 success: true, 
                 passwordUpdated: true,
-                message: "Senha atualizada com sucesso! Faça login agora."
+                email: user.email, 
+                message: "Senha atualizada com sucesso!"
             });
         }
 
-        // 3. Se enviou SÓ O CPF, apenas confirma que existe (para o Frontend liberar o campo de senha)
-        return res.json({ 
-            success: true, 
-            passwordUpdated: false,
-            message: "Usuário localizado. Digite a nova senha." 
-        });
+        // Apenas validação de CPF (Passo 1 do Frontend)
+        return res.json({ success: true, passwordUpdated: false });
 
     } catch (error) {
-        console.error("Erro na recuperação:", error);
-        res.status(500).json({ message: "Erro no servidor ao recuperar senha." });
+        console.error("Erro Recuperação:", error);
+        res.status(500).json({ message: "Erro no servidor." });
     }
 };
