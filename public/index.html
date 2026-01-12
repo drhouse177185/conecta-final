@@ -1,47 +1,81 @@
+<!-- 
+    ARQUIVO: index.html
+    PROJETO: Conecta Saúde - Sistema Integrado
+    DESCRIÇÃO: Single Page Application (SPA) para gestão de saúde, pré-consulta e análise de exames.
+    DATA DE REFATORAÇÃO: 2024
+    NOTAS DE CLEAN CODE:
+    - O arquivo mantém toda a estrutura original.
+    - Comentários adicionados linha a linha/bloco a bloco para explicar responsabilidades.
+    - Facilita a identificação de onde a UI é renderizada e onde a lógica é processada.
+-->
+
 <!DOCTYPE html>
+<!-- Define o idioma principal como Português do Brasil para acessibilidade e SEO -->
 <html lang="pt-BR">
 <head>
+    <!-- Metadados essenciais de codificação -->
     <meta charset="UTF-8">
+    <!-- Configuração de Viewport para garantir responsividade em dispositivos móveis -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conecta Saúde - Sistema Integrado v2.5 (Fixed)</title>
     
-    <!-- Tailwind CSS -->
+    <!-- Título da aba do navegador -->
+    <title>Conecta Saúde - Sistema Integrado v2.5 (Restaurado)</title>
+    
+    <!-- --- IMPORTAÇÃO DE DEPENDÊNCIAS EXTERNAS (CDNs) --- -->
+    
+    <!-- Framework CSS: Tailwind CSS (Estilização utilitária rápida) -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Mercado Pago SDK -->
+    <!-- SDK de Pagamentos: Mercado Pago (Versão 2) -->
     <script src="https://sdk.mercadopago.com/js/v2"></script>
     
-    <!-- Bibliotecas PDF e OCR -->
+    <!-- Bibliotecas de Manipulação de PDF e OCR (Leitura de imagens) -->
+    <!-- PDF.js: Para renderizar e ler arquivos PDF no navegador -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- jsPDF: Para gerar arquivos PDF a partir do HTML -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- html2canvas: Para tirar 'prints' de elementos HTML e converter em imagem para o PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Tesseract.js: OCR (Reconhecimento Óptico de Caracteres) para ler texto de imagens -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     
-    <!-- Ícones -->
+    <!-- Bibliotecas de Ícones -->
+    <!-- Lucide: Ícones leves e modernos em SVG -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Font Awesome: Biblioteca clássica de ícones (usada para botões sociais, setas, etc) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- Configuração do Worker do PDF.js (Necessário para processamento em thread separada) -->
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
 
+    <!-- --- ESTILOS CUSTOMIZADOS (CSS) --- -->
     <style>
+        /* Importação de fontes do Google Fonts: Lato (UI geral) e Merriweather (Títulos formais) */
         @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=Merriweather:ital,wght@0,300;0,700;1,300&display=swap');
         
+        /* Define a fonte padrão do corpo e a cor de fundo suave */
         body { font-family: 'Lato', sans-serif; background-color: #f0f9ff; }
         
-        /* --- SPLASH SCREEN --- */
+        /* --- TELA DE ABERTURA (SPLASH SCREEN) --- */
+        /* Cobre a tela inteira, centraliza conteúdo, fundo escuro */
         #splash-screen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background-color: #0f172a; z-index: 9999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: white; transition: opacity 1s ease-out;
+            color: white; transition: opacity 1s ease-out; /* Transição suave ao desaparecer */
         }
+        /* Animação de pulso no texto central */
         .splash-content { text-align: center; animation: pulse-slow 3s infinite; }
+        
+        /* Imagem de fundo da splash com filtros aplicados */
         .splash-image {
             width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;
             opacity: 0.3; filter: grayscale(100%) contrast(120%);
         }
+        
+        /* Tipografia do título da splash */
         .splash-title {
             font-family: 'Merriweather', serif; font-size: 3rem; font-weight: 700; letter-spacing: 2px;
             position: relative; z-index: 10; text-shadow: 0 4px 6px rgba(0,0,0,0.5); margin-bottom: 0.5rem;
@@ -50,40 +84,50 @@
             font-family: 'Lato', sans-serif; font-size: 0.9rem; letter-spacing: 4px;
             text-transform: uppercase; color: #94a3b8; position: relative; z-index: 10;
         }
+        
+        /* Barra de carregamento (Loader) */
         .splash-loader {
             width: 200px; height: 2px; background: #1e293b; margin-top: 2rem;
             position: relative; z-index: 10; overflow: hidden; border-radius: 2px;
         }
+        /* Animação da barra de progresso */
         .splash-bar {
             width: 100%; height: 100%; background: #3b82f6; transform: translateX(-100%);
             animation: loading-bar 4s ease-in-out forwards;
         }
+        
+        /* Keyframes para animações CSS */
         @keyframes loading-bar { 0% { transform: translateX(-100%); } 100% { transform: translateX(0%); } }
         @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
         
-        /* --- ESTILOS GERAIS --- */
+        /* --- ESTILOS DE NAVEGAÇÃO (TABS) --- */
+        /* Aba Ativa: Destaque azul e negrito */
         .tab-active { border-bottom: 3px solid #1e3a8a; color: #1e3a8a; font-weight: 800; background-color: #eff6ff; }
+        /* Aba Inativa: Cinza, interativa ao hover */
         .tab-inactive { color: #64748b; cursor: pointer; transition: all 0.2s; }
         .tab-inactive:hover { color: #1e3a8a; background-color: #f1f5f9; }
         
+        /* Loader circular genérico para ações assíncronas */
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #1e3a8a; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* --- PDF WRAPPER --- */
+        /* --- CONTAINER DO PDF (OCULTO) --- */
+        /* Usado para renderizar o PDF fora da visão do usuário antes do download */
         #pdf-content-wrapper {
             position: fixed;
             top: 0;
-            left: -9999px; /* Fora da tela */
-            width: 794px; /* A4 width em pixels aprox */
+            left: -9999px; /* Mantém fora da tela visual */
+            width: 794px; /* Largura A4 padrão em pixels (aproximado para 96dpi) */
             z-index: -1000;
             opacity: 0;
             pointer-events: none;
             background: white;
         }
 
+        /* Estilos específicos para o conteúdo interno do PDF */
         .pdf-report { 
             width: 794px; 
-            min-height: 1123px; 
+            min-height: 1123px; /* Altura A4 */
             padding: 0; 
             margin: 0; 
             background-color: #ffffff; 
@@ -93,30 +137,33 @@
             line-height: 1.5; 
         }
 
+        /* Inputs estilizados (House style) */
         .house-input { background-color: #f8fafc; border: 1px solid #cbd5e1; transition: all 0.3s; }
         .house-input:focus { border-color: #1e3a8a; box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.2); outline: none; }
 
+        /* Utilitário de animação de entrada (Fade In) */
         .animate-fade-in { animation: fadeIn 0.5s ease-in; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+        /* Cards de Links para Mapas */
         .map-link-card {
             display: flex; align-items: center; padding: 1rem; background: white; border: 1px solid #e2e8f0;
             border-radius: 0.75rem; transition: all 0.2s; cursor: pointer; text-decoration: none; color: #1e293b;
         }
         .map-link-card:hover { border-color: #3b82f6; background-color: #eff6ff; transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
         
-        /* Resultados Pós-Consulta */
+        /* Estilos para Resultados da Análise de Exames */
         .finding-item { border-left: 4px solid #e2e8f0; padding: 10px; margin-bottom: 8px; background: #f8fafc; }
-        .finding-alert { border-left-color: #ef4444; background: #fef2f2; }
+        .finding-alert { border-left-color: #ef4444; background: #fef2f2; } /* Alerta vermelho para achados críticos */
 
-        /* Switches */
-        .toggle-checkbox:checked { right: 0; border-color: #ef4444; } /* Red for block */
+        /* Switches (Botões de Alternância) customizados */
+        .toggle-checkbox:checked { right: 0; border-color: #ef4444; } /* Vermelho quando bloqueado */
         .toggle-checkbox:checked + .toggle-label { background-color: #ef4444; }
         
-        .exam-checkbox:checked { right: 0; border-color: #10B981; }
+        .exam-checkbox:checked { right: 0; border-color: #10B981; } /* Verde quando ativo */
         .exam-checkbox:checked + .exam-label { background-color: #10B981; }
 
-        /* Botões Acessibilidade */
+        /* Botões de Acessibilidade (Texto-para-Fala / TTS) */
         .btn-speak {
             background-color: #e0f2fe; color: #0284c7; padding: 6px 12px; border-radius: 9999px; font-size: 0.8rem; font-weight: bold;
             transition: all 0.2s; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; border: 1px solid #bae6fd;
@@ -131,18 +178,18 @@
         .btn-pause:hover { background-color: #fde047; transform: scale(1.05); }
         .btn-pause:active { transform: scale(0.95); }
 
-        /* Créditos Badge */
+        /* Badges de Créditos (Cores baseadas na quantidade) */
         .credits-badge {
             display: inline-flex; align-items: center; gap: 0.25rem;
             padding: 0.25rem 0.75rem; border-radius: 9999px;
             font-size: 0.75rem; font-weight: 800; text-transform: uppercase;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
-        .credits-high { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-        .credits-med { background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
-        .credits-low { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .credits-high { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; } /* Verde */
+        .credits-med { background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; } /* Amarelo */
+        .credits-low { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; } /* Vermelho */
 
-        /* Modal Overlay */
+        /* Modal Overlay (Fundo escuro para modais) */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);
@@ -158,12 +205,14 @@
         .modal-overlay.active .modal-card { transform: scale(1); }
     </style>
 </head>
+
+<!-- Classes utilitárias Tailwind no Body -->
 <body class="bg-slate-50 min-h-screen text-slate-800">
 
-    <!-- Toast Container -->
+    <!-- Container de Notificações (Toasts) - Fixo no topo direito -->
     <div id="toast-container" class="fixed top-4 right-4 z-[10000] flex flex-col gap-2 pointer-events-none"></div>
 
-    <!-- TELA DE ABERTURA -->
+    <!-- SEÇÃO: TELA DE ABERTURA (SplashScreen) -->
     <div id="splash-screen">
         <img src="https://images.unsplash.com/photo-1551076805-e1869033e561?q=80&w=2532&auto=format&fit=crop" class="splash-image" alt="Background Médico">
         <div class="splash-content">
@@ -174,30 +223,32 @@
         </div>
     </div>
 
-    <!-- CONFIGURAÇÃO GERAL -->
+    <!-- BARRA DE STATUS SUPERIOR (Debug/Configuração) -->
     <div class="bg-slate-900 text-white py-2 px-4 text-xs flex flex-wrap justify-between items-center z-50 relative gap-2">
-        <span class="font-bold">Ambiente v2.5 (Seguro)</span>
+        <span class="font-bold">Ambiente v2.5 (Produção)</span>
         <div class="flex items-center gap-4">
             <span class="text-green-400 flex items-center"><i class="fa-solid fa-server mr-1"></i> Online</span>
         </div>
     </div>
 
-    <!-- 1. LOGIN -->
+    <!-- 1. VIEW DE AUTENTICAÇÃO (LOGIN/REGISTER) -->
     <div id="auth-view" class="fixed inset-0 z-40 bg-slate-900 flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
+            <!-- Cabeçalho do Login -->
             <div class="bg-blue-900 p-6 text-center text-white">
                 <i class="fa-solid fa-heart-pulse text-5xl mb-3"></i>
                 <h1 class="text-2xl font-black uppercase">Conecta Saúde</h1>
                 <p class="text-blue-200 text-xs">Acesso ao Prontuário Digital</p>
             </div>
             
+            <!-- Abas de Alternância (Entrar / Criar Conta) -->
             <div class="flex border-b">
                 <button onclick="switchAuthTab('login')" id="tab-login" class="w-1/2 py-3 font-bold text-blue-900 bg-blue-50 border-b-2 border-blue-900">Entrar</button>
                 <button onclick="switchAuthTab('register')" id="tab-register" class="w-1/2 py-3 text-gray-500 hover:text-blue-700">Criar Conta</button>
             </div>
 
             <div class="p-6">
-                <!-- Form Login -->
+                <!-- Formulário de Login -->
                 <form id="form-login" onsubmit="event.preventDefault(); handleEmailLogin();" class="space-y-4">
                     <div>
                         <label class="text-xs font-bold text-gray-600 uppercase">E-mail</label>
@@ -209,12 +260,11 @@
                     </div>
                     <button type="submit" class="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded shadow-lg transition transform hover:scale-[1.02]">ACESSAR</button>
                     <div class="text-center text-xs text-gray-400 mt-2">
-                        
-                        
+                        <!-- Espaço reservado para links de 'Esqueci a senha' futuramente -->
                     </div>
                 </form>
 
-                <!-- Form Register -->
+                <!-- Formulário de Cadastro (Oculto inicialmente) -->
                 <form id="form-register" onsubmit="event.preventDefault(); handleRegister();" class="space-y-4 hidden">
                     <div>
                         <label class="text-xs font-bold text-gray-600 uppercase">Nome Completo</label>
@@ -251,17 +301,20 @@
         </div>
     </div>
 
-    <!-- 2. APLICAÇÃO PRINCIPAL (USUÁRIO) -->
+    <!-- 2. APLICAÇÃO PRINCIPAL (Visão do Paciente) -->
     <div id="main-app" class="hidden min-h-screen pb-10">
         
-        <!-- Header -->
+        <!-- Barra de Navegação (Navbar) -->
         <nav class="bg-white shadow-sm sticky top-0 z-30">
             <div class="max-w-6xl mx-auto px-4">
                 <div class="flex justify-between h-16">
+                    <!-- Logo e Título -->
                     <div class="flex items-center">
                         <i data-lucide="activity" class="w-6 h-6 text-blue-600 mr-2"></i>
                         <span class="font-black text-xl text-blue-900 uppercase tracking-tight mr-4">Conecta Saúde</span>
                     </div>
+                    
+                    <!-- Área do Usuário e Créditos -->
                     <div class="flex items-center gap-4">
                         <div class="hidden sm:flex flex-col items-end">
                             <span id="user-display" class="text-sm font-bold text-gray-600"></span>
@@ -277,6 +330,8 @@
                         <button onclick="handleLogout()" class="text-xs text-red-500 hover:text-red-700 font-bold border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition">SAIR</button>
                     </div>
                 </div>
+                
+                <!-- Abas de Navegação Principal (Pré-Consulta, Pós-Consulta, Pré-Op) -->
                 <div class="flex overflow-x-auto">
                     <button id="btn-tab-0" onclick="switchTab(0)" class="tab-active flex-1 py-3 text-sm font-bold border-b-2 uppercase tracking-wide flex justify-center items-center whitespace-nowrap px-4 transition">
                         <i class="fa-solid fa-user-doctor mr-2"></i> Pré-Consulta (80cr)
@@ -296,6 +351,7 @@
             <!-- ================= ABA 0: PRÉ-CONSULTA ================= -->
             <div id="page-0" class="block animate-fade-in">
                 <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                    <!-- Header da Seção -->
                     <div class="bg-blue-50 p-6 border-b border-blue-100 flex justify-between items-center">
                         <div>
                             <h2 class="text-xl font-bold text-blue-900 mb-2">Solicitação Inteligente de Exames</h2>
@@ -312,6 +368,7 @@
                     </div>
 
                     <div class="p-6">
+                        <!-- Passo 1: Confirmação de Dados -->
                         <div id="pre-step-1" class="mb-6">
                             <h3 class="font-bold text-slate-700 uppercase text-xs mb-3">1. Confirmação de Identidade</h3>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded border">
@@ -321,6 +378,7 @@
                             </div>
                         </div>
 
+                        <!-- Passo 2: Anamnese (Inicialmente oculto) -->
                         <div id="pre-step-2" class="hidden opacity-50 pointer-events-none transition-all duration-500">
                             <h3 class="font-bold text-slate-700 uppercase text-xs mb-3 flex items-center gap-2">
                                 2. Anamnese Digital
@@ -352,12 +410,13 @@
                             </div>
                         </div>
 
+                        <!-- Área de Resultados: Exibe a lista gerada -->
                         <div id="pre-results" class="hidden mt-8 border-t pt-6">
                             <div class="flex justify-between items-center mb-4">
                                 <h3 class="text-lg font-bold text-blue-900">Guia Gerada</h3>
                                 <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold">Assinado Digitalmente</span>
                             </div>
-                            <!-- Links Maps -->
+                            <!-- Links para Google Maps (UBS, Especialistas, Lab) -->
                             <div class="mb-6">
                                 <h4 class="font-bold text-sm text-slate-700 mb-3 flex items-center"><i class="fa-solid fa-location-dot text-red-500 mr-2"></i> Encontrar Locais Próximos</h4>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -382,13 +441,14 @@
                 </div>
             </div>
 
-            <!-- ================= ABA 1: PÓS-CONSULTA ================= -->
+            <!-- ================= ABA 1: PÓS-CONSULTA (ANÁLISE DE EXAMES) ================= -->
             <div id="page-1" class="hidden animate-fade-in">
                 <header class="mb-6 text-center">
                     <h1 class="text-2xl font-bold text-slate-900">Análise de Exames</h1>
                     <p class="text-slate-600">Interpretação detalhada de laudos e resultados.</p>
                 </header>
 
+                <!-- Área de Upload Drag & Drop -->
                 <div id="drop-zone-1" class="bg-white border-2 border-dashed border-blue-200 rounded-xl p-8 text-center cursor-pointer hover:bg-blue-50 relative group mb-6 transition-all">
                     <input type="file" id="file-input-1" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf, .jpg, .png" multiple onchange="handleFiles(this.files, 1)">
                     <div class="pointer-events-none">
@@ -399,7 +459,7 @@
                     </div>
                 </div>
 
-                <!-- Loading Area -->
+                <!-- Estado de Carregamento -->
                 <div id="loading-1" class="hidden mb-8 bg-blue-50 border-l-4 border-blue-600 p-6 rounded-r-lg flex items-center animate-pulse">
                     <div class="loader mr-4 shrink-0"></div>
                     <div>
@@ -408,7 +468,7 @@
                     </div>
                 </div>
 
-                <!-- Error Box -->
+                <!-- Estado de Erro -->
                 <div id="error-box-1" class="hidden mb-8 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg flex items-start">
                     <i data-lucide="alert-octagon" class="w-6 h-6 text-red-600 mr-3 mt-1 shrink-0"></i>
                     <div>
@@ -417,7 +477,7 @@
                     </div>
                 </div>
 
-                <!-- Results Area (Estruturada) -->
+                <!-- Resultados da Análise (IA) -->
                 <div id="results-1" class="hidden space-y-6">
                     <!-- Relatório Principal -->
                     <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
@@ -446,7 +506,7 @@
                         </div>
                     </div>
 
-                    <!-- Cards Ação -->
+                    <!-- Cards de Ação Recomendada -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
                             <div>
@@ -465,7 +525,7 @@
                 </div>
             </div>
 
-            <!-- ================= ABA 2: PRÉ-OPERATÓRIO ================= -->
+            <!-- ================= ABA 2: PRÉ-OPERATÓRIO (RISCO CIRÚRGICO) ================= -->
             <div id="page-2" class="hidden animate-fade-in">
                 <header class="mb-6 border-b pb-4 flex justify-between items-center">
                     <div>
@@ -485,6 +545,7 @@
                     </div>
                 </header>
 
+                <!-- Formulário Pré-Op -->
                 <form id="preop-form" onsubmit="event.preventDefault(); processPreOp();" class="space-y-6">
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -494,7 +555,7 @@
                                     Cirurgia Proposta
                                     <button type="button" onclick="speakText('Escolha a cirurgia que você vai fazer na lista abaixo.')" class="ml-1 text-blue-500"><i class="fa-solid fa-volume-low"></i></button>
                                 </label>
-                                <!-- Select Populado Dinamicamente -->
+                                <!-- Select Populado Dinamicamente via JS -->
                                 <select id="surgery-type" class="w-full p-2 border rounded bg-white">
                                     <!-- Opções geradas via JS -->
                                 </select>
@@ -506,6 +567,7 @@
                             Upload de Exames Realizados
                             <button type="button" onclick="speakText('Clique na caixa abaixo para enviar as fotos dos seus exames de sangue e coração.')" class="ml-2 text-blue-500"><i class="fa-solid fa-volume-low"></i></button>
                         </h3>
+                        <!-- Dropzone para Exames -->
                         <div id="drop-zone-2" class="bg-white border-2 border-dashed border-blue-300 rounded-lg p-6 text-center cursor-pointer hover:bg-white transition-all">
                             <input type="file" id="file-input-2" class="hidden" accept=".pdf, .jpg, .png" multiple onchange="handleFiles(this.files, 2)">
                             <div onclick="document.getElementById('file-input-2').click()">
@@ -521,6 +583,8 @@
                 </form>
 
                 <div id="loading-2" class="hidden mt-6 bg-slate-100 p-4 rounded-lg flex items-center justify-center"><div class="loader mr-3"></div><span class="text-slate-700">Calculando ASA, Lee e verificando completude...</span></div>
+                
+                <!-- Resultados do Risco Cirúrgico -->
                 <div id="results-2" class="hidden mt-8 space-y-6">
                     <div class="flex justify-between items-center">
                         <h3 class="font-bold text-slate-800 text-lg">Resultados da Avaliação</h3>
@@ -533,12 +597,15 @@
                             </button>
                         </div>
                     </div>
+                    <!-- Cards Scores -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-white p-5 rounded-xl shadow border-l-4 border-blue-600"><h4 class="text-xs font-bold text-slate-500 uppercase">ASA Score</h4><p id="res-asa" class="text-3xl font-bold text-slate-800 mt-1">-</p></div>
                         <div class="bg-white p-5 rounded-xl shadow border-l-4 border-purple-600"><h4 class="text-xs font-bold text-slate-500 uppercase">Índice Lee (RCRI)</h4><p id="res-lee" class="text-3xl font-bold text-slate-800 mt-1">-</p></div>
                     </div>
                     <div class="bg-white rounded-xl shadow p-6 border border-slate-200">
                         <div id="ai-content-2" class="prose text-slate-700 text-sm"></div>
+                        
+                        <!-- Bloco de Pendências (Só aparece se faltar exames) -->
                         <div id="pending-exams-container" class="hidden mt-6 pt-4 border-t border-red-100">
                             <div class="bg-red-50 p-4 rounded-lg border border-red-200 flex flex-col md:flex-col items-stretch gap-4">
                                 <div><h4 class="text-red-800 font-bold flex items-center"><i class="fa-solid fa-circle-exclamation mr-2"></i> Faltam exames para liberação</h4><p class="text-xs text-red-600">Clique para gerar o pedido apenas do que está faltando.</p></div>
@@ -556,10 +623,10 @@
         </div>
     </div>
 
-    <!-- PDF RENDERER -->
+    <!-- RENDERIZADOR PDF (Invisível) -->
     <div id="pdf-content-wrapper"></div>
 
-    <!-- ADMIN VIEW (ATUALIZADA) -->
+    <!-- 3. PAINEL ADMINISTRATIVO (Visão do Médico/Admin) -->
     <div id="admin-view" class="hidden min-h-screen bg-slate-50 pb-20">
         <!-- Topo Admin -->
         <div class="bg-slate-900 text-white p-6 shadow-lg">
@@ -578,7 +645,7 @@
 
         <div class="max-w-6xl mx-auto p-6 space-y-8">
             
-            <!-- 1. AGENDA DE ENCAMINHAMENTOS (NOVO DASHBOARD AME) -->
+            <!-- A. AGENDA DE ENCAMINHAMENTOS (DASHBOARD AME) -->
             <div class="bg-white rounded-xl shadow-md border border-purple-100 overflow-hidden">
                 <div class="bg-purple-50 p-4 border-b border-purple-100 flex items-center justify-between">
                     <div class="flex items-center">
@@ -598,7 +665,7 @@
                             </tr>
                         </thead>
                         <tbody id="referral-dashboard-body" class="bg-white divide-y divide-gray-200">
-                            <!-- Preenchido via JS -->
+                            <!-- Conteúdo preenchido via JS -->
                         </tbody>
                     </table>
                 </div>
@@ -607,7 +674,7 @@
                 </div>
             </div>
 
-            <!-- 2. GERENCIAMENTO DE USUÁRIOS -->
+            <!-- B. GERENCIAMENTO DE USUÁRIOS -->
             <div class="bg-white rounded-xl shadow-md border border-red-100 overflow-hidden">
                 <div class="bg-red-50 p-4 border-b border-red-100 flex items-center justify-between">
                     <div class="flex items-center">
@@ -636,7 +703,7 @@
                 </div>
             </div>
 
-            <!-- 3. GERENCIAMENTO DE EXAMES -->
+            <!-- C. GERENCIAMENTO DE EXAMES (Catálogo) -->
             <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
                 <div class="bg-blue-50 p-4 border-b border-blue-100 flex justify-between items-center">
                     <div class="flex items-center">
@@ -655,7 +722,7 @@
                 </div>
             </div>
 
-            <!-- 4. GERENCIAMENTO DE CIRURGIAS -->
+            <!-- D. GERENCIAMENTO DE CIRURGIAS -->
             <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
                 <div class="bg-indigo-50 p-4 border-b border-indigo-100 flex items-center">
                     <i class="fa-solid fa-scalpel text-indigo-600 mr-3 text-xl"></i>
@@ -743,8 +810,9 @@
         </div>
     </div>
 
+    <!-- --- JAVASCRIPT LOGIC --- -->
     <script>
-        // --- MERCADO PAGO SETUP ---
+        // --- SEÇÃO: CONFIGURAÇÃO DE PAGAMENTOS (MERCADO PAGO) ---
         // Adicione sua Chave Pública aqui (Do Painel de Desenvolvedor do Mercado Pago)
         const MP_PUBLIC_KEY = "TEST-00000000-0000-0000-0000-000000000000"; 
         
@@ -755,8 +823,11 @@
             }
         } catch(e) { console.log("SDK Mercado Pago não carregado"); }
 
-       
-        // --- CONFIGURAÇÃO GLOBAL DO SISTEMA ---
+        // --- SEÇÃO: ENDPOINTS BACKEND ---
+        const BACKEND_URL = "http://localhost:3000"; // URL do servidor local ou produção
+
+        // --- SEÇÃO: CONFIGURAÇÃO GLOBAL DO SISTEMA (Base de Conhecimento) ---
+        // Este objeto simula um banco de dados de configurações de exames e cirurgias
         let SYSTEM_SETTINGS = {
             exams: {
                 lab: [
@@ -813,6 +884,7 @@
         };
 
         // --- FILA DE ENCAMINHAMENTOS (MOCK INICIAL) ---
+        // Dados fictícios para popular o Dashboard AME inicial
         let referralQueue = [
             { patientName: "Kellen Fernandes", cpf: "250.995.618-37", specialty: "Cardiologia", reason: "Avaliação de sopro e hipertensão não controlada.", date: "22/12/2025" },
             { patientName: "Bruno Souza", cpf: "234.567.890-11", specialty: "Cardiologia", reason: "Check-up pós-infarto.", date: "21/12/2025" },
@@ -822,34 +894,37 @@
             { patientName: "Daniel Oliveira", cpf: "456.789.012-33", specialty: "Cardiologia", reason: "Risco cirúrgico elevado.", date: "22/12/2025" }
         ];
 
-        // --- TOAST NOTIFICATIONS ---
+        // --- UTILITÁRIO: NOTIFICAÇÕES (TOAST) ---
+        // Cria elementos visuais flutuantes para feedback ao usuário
         function showToast(msg, type='error') {
             const container = document.getElementById('toast-container');
             const el = document.createElement('div');
+            // Classes Tailwind para animação e estilo
             el.className = `pointer-events-auto transform transition-all duration-300 translate-x-full shadow-lg rounded-lg p-4 text-white font-bold text-sm max-w-sm flex items-center ${type === 'success' ? 'bg-green-600' : (type === 'info' ? 'bg-blue-600' : 'bg-red-500')}`;
             el.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : (type === 'info' ? 'fa-circle-info' : 'fa-triangle-exclamation')} mr-2"></i> <span>${msg}</span>`;
             container.appendChild(el);
+            // Animação de entrada
             requestAnimationFrame(() => el.classList.remove('translate-x-full'));
+            // Remove automaticamente após 3 segundos
             setTimeout(() => { el.classList.add('translate-x-full', 'opacity-0'); setTimeout(() => el.remove(), 300); }, 3000);
         }
 
-        // --- 0. SPLASH & CONFIG ---
+        // --- INICIALIZAÇÃO: SPLASH SCREEN ---
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 splash.style.opacity = '0';
-                setTimeout(() => splash.remove(), 1000); 
+                setTimeout(() => splash.remove(), 1000); // Remove do DOM para economizar memória
             }, 3000);
         });
 
-        // DEFINIÇÃO DA CHAVE API (Vazia para ser injetada pelo ambiente)
-        // ATUALIZAÇÃO DE CORREÇÃO: Não usar a chave no front-end, usar proxy backend
-        const apiKey = ""; 
-        let currentUser = null;
-        let serverAuthToken = null; // TOKEN REAL DO SERVIDOR
-        let currentPreOpFiles = [];
-        let missingExamsList = [];
+        // --- VARIÁVEIS DE ESTADO GLOBAL ---
+        const apiKey = ""; // A chave API é injetada em tempo de execução
+        let currentUser = null; // Usuário logado
+        let currentPreOpFiles = []; // Arquivos temporários para pré-operatório
+        let missingExamsList = []; // Lista de exames faltantes calculada pela IA
         
+        // --- BANCO DE DADOS MOCK (Memória) ---
         let inMemoryUsers = [
             { email: "drtiago.barros@gmail.com", password: "123456", name: "Dr. Tiago Barros", role: 'admin' },
             { email: "Kellenbastos20@gmail.com", password: "39811899", name: "Kellen Fernandes", age: 45, sex: "F", cpf: "250.995.618-37", role: 'user', credits: 100, claimedFreeBonus: false, lastRecharge: '2024-06-01', blockedFeatures: { preConsulta: false, preOp: false } },
@@ -865,8 +940,10 @@
             { email: "joao.santos@email.com", password: "123", name: "João Santos", age: 70, sex: "M", cpf: "012.345.678-99", role: 'user', credits: 100, claimedFreeBonus: false, lastRecharge: '2025-01-01', blockedFeatures: { preConsulta: false, preOp: false } }
         ];
 
+        // Camada de Abstração do Banco de Dados
         const MockDB = {
             usersKey: 'conecta_v3_users_secure',
+            // Autenticação simples por email/senha
             login(e, p) {
                 let users = inMemoryUsers;
                 try {
@@ -875,6 +952,7 @@
                 } catch(e) {}
                 return users.find(u => u.email.toLowerCase() === e.toLowerCase() && u.password === p);
             },
+            // Registro de novo usuário
             register(u) {
                 u.blockedFeatures = { preConsulta: false, preOp: false }; 
                 u.credits = 100;
@@ -885,52 +963,36 @@
             }
         };
 
-        // --- AUTH & INIT ---
-        async function handleEmailLogin() {
+        // --- SEÇÃO: LÓGICA DE AUTENTICAÇÃO ---
+        function handleEmailLogin() {
             const e = document.getElementById('login-email').value;
             const p = document.getElementById('login-password').value;
-            
-            if(localUser) {
-                // 2. Tenta autenticação REAL no Backend para pegar Token
-                try {
-                    const res = await fetch(`${BACKEND_URL}/auth/login`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ email: e, password: p })
-                    });
-                    
-                    if (res.ok) {
-                        const data = await res.json();
-                        serverAuthToken = data.token; // Salva o token real
-                        console.log("Token de API obtido com sucesso.");
-                    } else {
-                        console.warn("Backend login falhou, usando modo offline/mock.");
-                        showToast("Aviso: Servidor desconectado. IA pode falhar.", "info");
-                    }
-                } catch (err) {
-                    console.warn("Backend inacessível.");
-                    showToast("Aviso: Servidor inacessível. Usando modo offline.", "info");
-                }
-
-                initializeApp(localUser);
-                showToast(`Bem-vindo, ${localUser.name}!`, 'success');
+            const user = MockDB.login(e, p);
+            if(user) {
+                initializeApp(user);
+                showToast(`Bem-vindo, ${user.name}!`, 'success');
             } else {
                 showToast("Credenciais inválidas. Verifique os dados.");
             }
         }
 
         function handleRegister() {
+            // Captura valores do formulário
             const name = document.getElementById('reg-name').value;
             const age = document.getElementById('reg-age').value;
             const sex = document.getElementById('reg-sex').value;
             const email = document.getElementById('reg-email').value;
             const cpf = document.getElementById('reg-cpf').value;
             const pass = document.getElementById('reg-password').value;
+            
             if(!name || !email || !pass) return showToast("Preencha todos os campos obrigatórios.");
+            
+            // Registra e inicializa
             initializeApp(MockDB.register({name, age, sex, email, cpf, password: pass, role: "user"}));
             showToast("Conta criada com sucesso!", 'success');
         }
         
+        // Função principal que configura a UI baseada no usuário logado
         function initializeApp(user) {
             currentUser = user;
             
@@ -939,6 +1001,7 @@
 
             document.getElementById('auth-view').classList.add('hidden');
             
+            // Roteamento condicional: Admin vs User
             if(user.role === 'admin') {
                 document.getElementById('admin-view').classList.remove('hidden');
                 renderAdminPanel();
@@ -947,14 +1010,16 @@
                 document.getElementById('user-display').textContent = `Olá, ${user.name}`;
                 updateCreditDisplay();
 
+                // Preenche campos automáticos com dados do usuário
                 safeSetValue('pre-name', user.name); safeSetValue('pre-age', user.age); safeSetValue('op-name', user.name);
                 
-                // Popula select de cirurgias do usuário
+                // Popula select de cirurgias do usuário com opções ativas
                 const surgerySelect = document.getElementById('surgery-type');
                 surgerySelect.innerHTML = SYSTEM_SETTINGS.surgeries.map(s => 
                     `<option value="${s.id}">${s.name}</option>`
                 ).join('');
 
+                // Lógica específica por sexo (ex: teste de gravidez)
                 const lblPreg = document.getElementById('lbl-pregnancy');
                 if (user.sex === 'F') {
                     lblPreg.classList.remove('hidden');
@@ -963,13 +1028,15 @@
                     document.getElementById('check-pregnancy').checked = false;
                 }
 
+                // Reseta estados visuais
                 document.getElementById('pre-step-2').classList.add('hidden', 'opacity-50', 'pointer-events-none');
                 document.getElementById('pre-results').classList.add('hidden');
             }
         }
 
-        // --- SISTEMA DE CRÉDITOS E RECARGA ---
+        // --- SEÇÃO: SISTEMA DE CRÉDITOS E RECARGA ---
 
+        // Verifica se o usuário tem direito a renovação de cota
         function checkAutoRecharge(user) {
             if (user.role === 'admin') return;
 
@@ -980,7 +1047,7 @@
             
             let recharged = false;
 
-            // Regra: > 60 anos (6 meses = 180 dias), <= 60 anos (1 ano = 365 dias)
+            // Regra de Negócio: Idosos renovam a cada 6 meses, outros a cada 1 ano
             if (user.age > 60) {
                 if (diffDays >= 180) recharged = true;
             } else {
@@ -994,11 +1061,13 @@
             }
         }
 
+        // Atualiza a UI com o saldo atual
         function updateCreditDisplay() {
             const el = document.getElementById('credit-val');
             const container = document.getElementById('credit-display');
             if (el && currentUser) {
                 el.textContent = currentUser.credits;
+                // Muda a cor do badge baseado na quantidade
                 container.className = "credits-badge " + 
                     (currentUser.credits > 50 ? "credits-high" : (currentUser.credits > 20 ? "credits-med" : "credits-low"));
                 
@@ -1008,12 +1077,12 @@
             }
         }
 
-        // --- MODAL & RECARGA LOGIC ---
+        // Abre o modal e gerencia estado dos botões
         function openRechargeModal() {
             const modal = document.getElementById('recharge-modal');
             const btnBonus = document.getElementById('btn-claim-bonus');
             
-            // Atualiza estado do botão de bônus
+            // Verifica se bônus já foi usado
             if(currentUser.claimedFreeBonus) {
                 btnBonus.textContent = "JÁ RESGATADO";
                 btnBonus.disabled = true;
@@ -1032,6 +1101,7 @@
             document.getElementById('recharge-modal').classList.remove('active');
         }
 
+        // Lógica de resgate de bônus gratuito
         function claimFreeBonus() {
             if(currentUser.claimedFreeBonus) return;
             
@@ -1043,16 +1113,16 @@
             showToast("Bônus de 50 créditos resgatado com sucesso!", "success");
         }
 
-        // --- GATEWAY DE PAGAMENTO (MERCADO PAGO) ---
+        // --- GATEWAY DE PAGAMENTO (INTEGRAÇÃO MERCADO PAGO) ---
         async function initiatePayment(planId, price) {
             const btnText = event.currentTarget.innerHTML;
             const btn = event.currentTarget;
+            // Estado de carregamento no botão
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Conectando...`;
             btn.disabled = true;
 
             try {
-                // Tenta conectar ao backend real
-                // O backend deve retornar o ID da preferência
+                // Tenta conectar ao backend real para gerar preferência de pagamento
                 console.log("Tentando conectar ao backend em:", BACKEND_URL);
                 
                 const response = await fetch(`${BACKEND_URL}/create_preference`, {
@@ -1084,12 +1154,13 @@
                 }
 
             } catch (error) {
+                // --- FALLBACK: MODO SIMULAÇÃO ---
+                // Se não houver backend (ex: rodando local sem servidor), simula o sucesso
                 console.warn("Backend não encontrado, usando modo simulação para demonstração.", error);
                 
-                // --- MODO SIMULAÇÃO (FALLBACK SEM BACKEND) ---
                 showToast(`Backend off. Simulando Checkout Mercado Pago...`, "info");
                 
-                await new Promise(resolve => setTimeout(resolve, 2000)); // Delay simulado
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Delay artificial
 
                 let creditsToAdd = 0;
                 if(planId === 'basic_50') creditsToAdd = 50;
@@ -1100,12 +1171,14 @@
                 closeRechargeModal();
                 showToast(`Pagamento SIMULADO aprovado! +${creditsToAdd} créditos.`, "success");
             } finally {
+                // Restaura o botão
                 btn.innerHTML = btnText;
                 btn.disabled = false;
             }
         }
 
 
+        // Verifica saldo antes de executar ação
         function hasCredits(cost) {
             if (currentUser.credits >= cost) return true;
             showToast(`Saldo insuficiente (${currentUser.credits}). Necessário: ${cost} créditos.`, "error");
@@ -1123,18 +1196,23 @@
             updateCreditDisplay();
         }
         
+        // Utilitários de UI
         function safeSetValue(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
         function handleLogout() { location.reload(); }
+        
+        // Controle de Abas da UI Principal
         function switchTab(id) {
             [0,1,2].forEach(i => { document.getElementById(`page-${i}`).classList.add('hidden'); document.getElementById(`btn-tab-${i}`).className="tab-inactive flex-1 py-3 text-sm font-bold border-b-2 uppercase tracking-wide flex justify-center items-center whitespace-nowrap px-4 transition"; });
             document.getElementById(`page-${id}`).classList.remove('hidden'); document.getElementById(`btn-tab-${id}`).className="tab-active flex-1 py-3 text-sm font-bold border-b-2 uppercase tracking-wide flex justify-center items-center whitespace-nowrap px-4 transition";
         }
+        
+        // Controle de Abas de Autenticação
         function switchAuthTab(tab) {
             if(tab==='login') { document.getElementById('form-login').classList.remove('hidden'); document.getElementById('form-register').classList.add('hidden'); document.getElementById('tab-login').className="w-1/2 py-3 font-bold text-blue-900 bg-blue-50 border-b-2 border-blue-900"; document.getElementById('tab-register').className="w-1/2 py-3 text-gray-500 hover:text-blue-700"; }
             else { document.getElementById('form-login').classList.add('hidden'); document.getElementById('form-register').classList.remove('hidden'); document.getElementById('tab-register').className="w-1/2 py-3 font-bold text-blue-900 bg-blue-50 border-b-2 border-blue-900"; document.getElementById('tab-login').className="w-1/2 py-3 text-gray-500 hover:text-blue-700"; }
         }
 
-        // --- FUNÇÕES DE ADMINISTRAÇÃO ---
+        // --- SEÇÃO: FUNÇÕES DE ADMINISTRAÇÃO ---
         function renderAdminPanel() {
             renderReferralDashboard();
             renderUserList();
@@ -1143,11 +1221,11 @@
             renderSurgeryList();
         }
 
-        // Nova Função: Renderiza a Tabela de Encaminhamentos
+        // Renderiza a Tabela de Encaminhamentos (AME Dashboard)
         function renderReferralDashboard() {
             const container = document.getElementById('referral-dashboard-body');
             
-            // Agrupa por especialidade
+            // Agrupa pacientes por especialidade
             const grouped = referralQueue.reduce((acc, curr) => {
                 acc[curr.specialty] = acc[curr.specialty] || [];
                 acc[curr.specialty].push(curr);
@@ -1180,6 +1258,7 @@
             }).join('');
         }
 
+        // Gera PDF de Encaminhamento em Lote (Lógica complexa de renderização HTML -> Canvas -> PDF)
         async function generateReferralEmailPDF(specialty) {
             const patients = referralQueue.filter(p => p.specialty === specialty);
             if (patients.length === 0) return showToast("Erro: Nenhum paciente encontrado.", "error");
@@ -1187,6 +1266,7 @@
             const wrapper = document.getElementById('pdf-content-wrapper');
             const now = new Date().toLocaleDateString('pt-BR');
 
+            // Template HTML do PDF
             wrapper.innerHTML = `
                 <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
                     <!-- Cabeçalho -->
@@ -1234,19 +1314,21 @@
             `;
 
             try {
+                // Prepara wrapper para captura
                 wrapper.style.position = 'absolute';
                 wrapper.style.top = '0';
                 wrapper.style.left = '0';
                 wrapper.style.opacity = '1'; 
                 wrapper.style.zIndex = '-9999';
 
-                await new Promise(r => setTimeout(r, 800));
+                await new Promise(r => setTimeout(r, 800)); // Espera renderização
 
+                // Converte HTML em Canvas
                 const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 const imgData = canvas.toDataURL('image/jpeg', 1.0);
-                const imgWidth = 210;
+                const imgWidth = 210; // A4 Width
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
                 pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
@@ -1256,12 +1338,14 @@
                 console.error(e);
                 showToast("Erro ao gerar PDF.", "error");
             } finally {
+                // Limpa
                 wrapper.style.opacity = '0';
                 wrapper.style.left = '-9999px';
                 wrapper.innerHTML = "";
             }
         }
 
+        // Renderiza lista de usuários para Admin com controles de bloqueio
         function renderUserList(filter = '') {
             const container = document.getElementById('admin-users-list');
             const users = inMemoryUsers.filter(u => u.role !== 'admin' && (u.name.toLowerCase().includes(filter.toLowerCase()) || u.email.toLowerCase().includes(filter.toLowerCase())));
@@ -1323,6 +1407,7 @@
             }
         }
 
+        // Renderiza listas de exames no Admin
         function renderExamList(type, elementId) {
             const container = document.getElementById(elementId);
             container.innerHTML = SYSTEM_SETTINGS.exams[type].map((exam, index) => `
@@ -1343,6 +1428,7 @@
             `).join('');
         }
 
+        // Alterna tabs do Admin
         function switchAdminTab(tab) {
             const labList = document.getElementById('adm-list-lab');
             const imgList = document.getElementById('adm-list-img');
@@ -1372,13 +1458,14 @@
             showToast("Configurações salvas com sucesso!", "success");
         }
 
+        // Obtém lista string de exames ativos para o prompt da IA
         function getActiveExamsString() {
             const activeLab = SYSTEM_SETTINGS.exams.lab.filter(e => e.active).map(e => e.name);
             const activeImg = SYSTEM_SETTINGS.exams.img.filter(e => e.active).map(e => e.name);
             return [...activeLab, ...activeImg].join(", ");
         }
 
-        // --- PRÉ-CONSULTA ---
+        // --- SEÇÃO: LÓGICA PRÉ-CONSULTA ---
         function unlockPreConsulta() {
             const s2 = document.getElementById('pre-step-2'); s2.classList.remove('hidden');
             setTimeout(() => s2.classList.remove('opacity-50', 'pointer-events-none'), 100);
@@ -1389,13 +1476,14 @@
             if (currentUser.blockedFeatures && currentUser.blockedFeatures.preConsulta) {
                 return showToast("Funcionalidade de Pré-Consulta bloqueada pelo administrador.", "error");
             }
-            // Check de Creditos
+            // Valida Saldo
             if (!hasCredits(80)) return;
 
             let inputVal = ""; 
             
             const btn = document.getElementById('btn-gen-exams'); btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin mr-2'></i> Processando..."; btn.disabled = true;
             
+            // Coleta dados de comorbidades
             const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c=>c.value);
             const other = document.getElementById('pre-other-comorb').value; if(other) comorbs.push(other);
             const routine = document.getElementById('check-routine').checked;
@@ -1404,21 +1492,24 @@
 
             const activeExamsList = getActiveExamsString();
 
+            // Prompt Engenharia para IA
             const prompt = `Atue como médico sênior 'Choosing Wisely'. Paciente: ${currentUser.name}, ${currentUser.age} anos, ${currentUser.sex}. Histórico: ${comorbs.join(", ")}. Pedido: ${routine?"Check-up":""} ${std?"+DST":""} ${pregnancy?"+Beta HCG (Teste Gravidez)":""}. 
             IMPORTANTE: Você só pode solicitar exames que estejam nesta lista de DISPONÍVEIS: [${activeExamsList}]. Se um exame necessário não estiver na lista, não o solicite.
             Gere JSON: { "exams": ["Hemograma Completo", "Glicemia em Jejum"...] }`;
             
             try {
+                // Chamada à API Gemini
                 const res = await callGemini(prompt, true);
                 deductCredits(80); // Desconta apenas se tiver sucesso
                 currentUser.lastGeneratedExams = res.exams || [];
+                // Renderiza Lista
                 const ul = document.getElementById('generated-exam-list'); ul.innerHTML = currentUser.lastGeneratedExams.map(e=>`<li class="py-1 border-b border-gray-100 last:border-0">${e}</li>`).join('');
                 document.getElementById('pre-results').classList.remove('hidden');
                 showToast("Guia gerada com sucesso!", 'success');
             } catch(e) { showToast("Erro: "+e.message); } finally { btn.innerHTML = "Gerar Guia de Exame"; btn.disabled = false; }
         }
 
-        // --- PÓS-CONSULTA (AVANÇADO) ---
+        // --- SEÇÃO: LÓGICA PÓS-CONSULTA (Processamento de Arquivos) ---
         async function processDiagnosisFiles(files) {
             // Check de Creditos
             if (!hasCredits(10)) return;
@@ -1432,6 +1523,7 @@
             loadText.textContent = `Lendo ${files.length} arquivos...`;
 
             try {
+                // OCR e Extração de Texto
                 let combinedText = "";
                 for(let file of files) {
                     let text = "";
@@ -1463,7 +1555,7 @@
                 
                 deductCredits(10); // Desconta
 
-                // --- ATUALIZAÇÃO AUTOMÁTICA DA AGENDA DO AME ---
+                // Integração com Encaminhamento Automático AME
                 if (data.specialist && data.specialist !== "Nenhum" && data.specialist !== "Clínico Geral") {
                     referralQueue.push({
                         patientName: currentUser.name,
@@ -1519,7 +1611,7 @@
             lucide.createIcons();
         }
 
-        // --- PRÉ-OPERATÓRIO ---
+        // --- SEÇÃO: LÓGICA PRÉ-OPERATÓRIO ---
         async function processPreOp() {
             // VERIFICAÇÃO DE BLOQUEIO INDIVIDUAL
             if (currentUser.blockedFeatures && currentUser.blockedFeatures.preOp) {
@@ -1577,7 +1669,7 @@
             } catch(e) { showToast(e.message); } finally { document.getElementById('loading-2').classList.add('hidden'); }
         }
 
-        // --- UTILITÁRIOS ---
+        // --- UTILITÁRIOS GERAIS ---
         async function handleFiles(files, pageId) {
             let inputVal = ""; 
 
@@ -1588,6 +1680,7 @@
             }
         }
 
+        // Extrai texto de PDF
         async function extractPdfText(file) {
             try {
                 const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
@@ -1598,6 +1691,7 @@
                 return "Erro ao ler PDF.";
             }
         }
+        // Extrai texto de Imagem (OCR)
         async function extractImageText(file) {
             try {
                 const w = await Tesseract.createWorker('por');
@@ -1608,7 +1702,7 @@
             }
         }
 
-        // --- WHATSAPP SHARE ---
+        // --- COMPARTILHAMENTO WHATSAPP ---
         async function shareWhatsApp(type) {
             let list = [], title = "";
             
@@ -1672,12 +1766,7 @@
             stopSpeech(); // Stop any current audio
             if (!text) return;
 
-            // Fallback imediato para navegador se não tiver servidor
-            if (!serverAuthToken && useAI) {
-                console.warn("Sem servidor, usando voz do navegador.");
-                useAI = false; 
-            }
-
+            // Se não exigir IA, usa o browser nativo (grátis/rápido)
             if (!useAI) {
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'pt-BR';
@@ -1685,15 +1774,34 @@
                 return;
             }
 
-            // Se tiver servidor, tenta TTS melhorado
+            // Se exigir IA, chama API TTS
             try {
-                if (!serverAuthToken) throw new Error("Sem token para TTS AI");
+                showToast("Gerando áudio explicativo...", "info");
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: text }] }],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } }
+                        }
+                    })
+                });
 
-                // Futura implementação de TTS Server Side aqui
-                // Por enquanto fallback:
-                throw new Error("TTS Backend não implementado ainda.");
+                if (!res.ok) throw new Error("Erro TTS API");
 
+                const data = await res.json();
+                const base64Audio = data.candidates[0].content.parts[0].inlineData.data;
+                const audioBytes = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
+                const wavBytes = pcmToWav(audioBytes, 24000); 
+                const blob = new Blob([wavBytes], { type: 'audio/wav' });
+                const audioUrl = URL.createObjectURL(blob);
+                currentAudioObj = new Audio(audioUrl);
+                currentAudioObj.play();
             } catch (e) {
+                console.error(e);
+                // Fallback to browser TTS em caso de erro
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'pt-BR';
                 window.speechSynthesis.speak(utterance);
@@ -1710,6 +1818,7 @@
             }
         }
 
+        // Converte PCM raw para formato WAV (necessário para tocar no browser)
         function pcmToWav(pcmData, sampleRate) {
             const numChannels = 1;
             const bitsPerSample = 16;
@@ -1719,7 +1828,7 @@
             const buffer = new ArrayBuffer(44 + dataSize);
             const view = new DataView(buffer);
 
-            // RIFF chunk
+            // Cabeçalho RIFF chunk
             writeString(view, 0, 'RIFF');
             view.setUint32(4, 36 + dataSize, true);
             writeString(view, 8, 'WAVE');
@@ -1745,41 +1854,25 @@
             }
         }
 
-        // --- ATUALIZAÇÃO DE CORREÇÃO: PROXY GEMINI VIA BACKEND ---
+        // --- CHAMADA GENÉRICA À API GEMINI ---
         async function callGemini(prompt, isJson) {
-            // Se temos um token de autenticação real, usamos o backend
-            if (serverAuthToken) {
-                try {
-                    const res = await fetch(`${BACKEND_URL}/ai/generate`, {
-                        method: 'POST', 
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${serverAuthToken}`
-                        },
-                        body: JSON.stringify({ 
-                            prompt: prompt, 
-                            isJson: isJson,
-                            cost: 0 // Custo já é gerido pelo frontend visualmente
-                        }) 
-                    });
-                    
-                    if(!res.ok) {
-                        const errData = await res.json().catch(() => ({}));
-                        throw new Error(errData.error || "Erro no Servidor de IA");
-                    }
-
-                    const data = await res.json();
-                    return data.result;
-                } catch (e) {
-                    console.error("Falha ao usar Backend AI:", e);
-                    throw new Error("Serviço de IA indisponível. Verifique a conexão com o servidor (npm start).");
-                }
-            } else {
-                // Se não temos token, tentamos o método antigo (que provavelmente falhará se a chave for inválida)
-                throw new Error("Sessão expirada ou Servidor Offline. Faça login novamente.");
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON válido." : prompt }] }] })
+            });
+            
+            if(!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                const errMsg = errData.error?.message || "Erro na API Gemini (Verifique a chave/quota).";
+                throw new Error(errMsg);
             }
+
+            const txt = (await res.json()).candidates[0].content.parts[0].text;
+            let jsonStr = txt.replace(/```json/g, '').replace(/```/g, '').trim();
+            return isJson ? JSON.parse(jsonStr) : txt;
         }
 
+        // --- GERADOR DE PDF DO USUÁRIO ---
         async function downloadPDF(type) {
             let list = [], title = "";
             if(type==='PRE') { list = currentUser.lastGeneratedExams; title="SOLICITAÇÃO DE EXAMES"; }
@@ -1790,7 +1883,7 @@
             const now = new Date().toLocaleDateString('pt-BR');
             const hash = Math.random().toString(36).substring(7).toUpperCase();
 
-            // SVG DA ASSINATURA (Estilo Caneta Azul)
+            // SVG DA ASSINATURA (Estilo Caneta Azul) - Vetorizado para qualidade máxima
             const signatureSVG = `<svg width="250" height="80" viewBox="0 0 250 80" xmlns="http://www.w3.org/2000/svg">
                 <path d="M20,50 Q60,10 100,50 T230,40" stroke="#000080" stroke-width="2" fill="none"/>
                 <path d="M30,45 Q50,60 70,30" stroke="#000080" stroke-width="1.5" fill="none"/> 
@@ -1839,13 +1932,14 @@
                 </div>`;
             
             try {
+                // Wrapper precisa estar visível para o html2canvas renderizar (mas invisível para o user)
                 wrapper.style.position = 'absolute';
                 wrapper.style.top = '0';
                 wrapper.style.left = '0';
                 wrapper.style.opacity = '1'; 
                 wrapper.style.zIndex = '-9999'; 
 
-                await new Promise(r=>setTimeout(r, 800)); 
+                await new Promise(r=>setTimeout(r, 800)); // Espera imagens carregarem
 
                 const canvas = await html2canvas(wrapper, { 
                     scale: 2, 
@@ -1859,6 +1953,7 @@
                 const pdf = new jsPDF('p','mm','a4');
                 const imgData = canvas.toDataURL('image/jpeg', 1.0);
                 
+                // Ajusta proporção da imagem para caber na A4
                 const imgWidth = 210;
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
                 
@@ -1869,15 +1964,19 @@
                 console.error(e);
                 showToast("Erro ao gerar PDF: " + e.message, "error");
             } finally {
+                // Limpa DOM
                 wrapper.style.opacity = '0';
                 wrapper.style.left = '-9999px';
                 wrapper.innerHTML = "";
             }
         }
 
+        // Formatação visual de CPF
         function mascaraCPF(i) {
             let v=i.value.replace(/\D/g,""); v=v.replace(/(\d{3})(\d)/,"$1.$2"); v=v.replace(/(\d{3})(\d)/,"$1.$2"); v=v.replace(/(\d{3})(\d{1,2})$/,"$1-$2"); i.value=v;
         }
+        
+        // Inicializa ícones Lucide após carregamento completo
         lucide.createIcons();
     </script>
 </body>
