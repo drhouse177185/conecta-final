@@ -241,6 +241,31 @@
                 <p class="text-blue-200 text-xs">Acesso ao Prontuário Digital</p>
             </div>
             
+            <!-- MODAL DE RECUPERAÇÃO DE SENHA -->
+    <div id="recover-modal" class="modal-overlay">
+        <div class="modal-card bg-white p-6 rounded-lg shadow-xl w-96">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg text-blue-900">Recuperar Acesso</h3>
+                <button onclick="document.getElementById('recover-modal').classList.remove('active')" class="text-gray-400 hover:text-red-500">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <p class="text-sm text-gray-600 mb-4">Digite seu CPF para visualizarmos sua senha de acesso.</p>
+            
+            <form onsubmit="event.preventDefault(); handleRecovery();">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">CPF Cadastrado</label>
+                <input type="text" id="recover-cpf" class="house-input w-full p-3 rounded mb-4" 
+                       placeholder="000.000.000-00" oninput="mascaraCPF(this)" maxlength="14" required>
+                
+                <div id="recover-result" class="hidden bg-green-50 text-green-800 p-3 rounded mb-4 text-center font-bold border border-green-200"></div>
+                
+                <button type="submit" id="btn-recover" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded transition">
+                    BUSCAR SENHA
+                </button>
+            </form>
+        </div>
+    </div>
+
             <!-- Abas de Alternância (Entrar / Criar Conta) -->
             <div class="flex border-b">
                 <button onclick="switchAuthTab('login')" id="tab-login" class="w-1/2 py-3 font-bold text-blue-900 bg-blue-50 border-b-2 border-blue-900">Entrar</button>
@@ -260,7 +285,11 @@
                     </div>
                     <button type="submit" class="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded shadow-lg transition transform hover:scale-[1.02]">ACESSAR</button>
                     <div class="text-center text-xs text-gray-400 mt-2">
-                        <!-- Espaço reservado para links de 'Esqueci a senha' futuramente -->
+                        <div class="text-center mt-3">
+    <button type="button" onclick="document.getElementById('recover-modal').classList.add('active')" class="text-xs text-blue-500 hover:text-blue-800 font-bold underline">
+        Esqueci minha senha
+    </button>
+</div>
                     </div>
                 </form>
 
@@ -2032,6 +2061,44 @@
         
         // Inicializa ícones Lucide após carregamento completo
         lucide.createIcons();
+      
+// --- FUNÇÃO DE RECUPERAÇÃO DE SENHA ---
+        async function handleRecovery() {
+            const cpf = document.getElementById('recover-cpf').value;
+            const btn = document.getElementById('btn-recover');
+            const resultBox = document.getElementById('recover-result');
+            
+            if (!cpf || cpf.length < 11) return showToast("Digite um CPF válido.", "error");
+
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Buscando...';
+            btn.disabled = true;
+            resultBox.classList.add('hidden');
+
+            try {
+                // Chama a rota que criamos no backend
+                const response = await fetch(`${BACKEND_URL}/api/auth/recover`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cpf: cpf })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    resultBox.textContent = data.message || `Sua senha é: ${data.password}`;
+                    resultBox.classList.remove('hidden');
+                    showToast("Senha encontrada!", "success");
+                } else {
+                    showToast(data.message || "CPF não encontrado.", "error");
+                }
+            } catch (error) {
+                console.error(error);
+                showToast("Erro de conexão com o servidor.", "error");
+            } finally {
+                btn.innerHTML = 'BUSCAR SENHA';
+                btn.disabled = false;
+            }
+        }
     </script>
 </body>
 </html>

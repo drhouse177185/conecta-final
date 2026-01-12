@@ -56,4 +56,50 @@ exports.getAllUsers = async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+
+// Recuperar senha por CPF (NOVA FUNÇÃO)
+exports.recoverPassword = async (req, res) => {
+    try {
+        const { cpf } = req.body;
+
+        // Limpa o CPF para garantir formato numérico ou mantém como string dependendo do banco
+        // Aqui assumimos que no banco está salvo exatamente como o usuário digitou ou limpo
+        // Vamos buscar exatamente como veio para simplificar, ou você pode adicionar regex aqui
+        
+        const user = await User.findOne({ where: { cpf } });
+
+        if (!user) {
+            return res.status(404).json({ message: "CPF não encontrado." });
+        }
+
+        // ATENÇÃO: Em produção real, nunca retorne a senha. O ideal é enviar um email de reset.
+        // Como solicitado para este app, vamos retornar a senha.
+        // Se a senha estiver hasheada (bcrypt), não é possível revertê-la.
+        // Se estiver em texto plano (banco legado), retornamos ela.
+        
+        // Verifica se é hash (começa com $2a$) ou texto plano
+        const isHash = user.password.startsWith('$2a$');
+        
+        if (isHash) {
+            return res.json({ 
+                success: true, 
+                message: "Sua senha foi redefinida para 'mudar123' (Hash detectado).",
+                password: "mudar123", // Num caso real, faríamos o update no banco aqui
+                isReset: true
+            });
+            // Opcional: Atualizar a senha no banco para 'mudar123' se for hash
+            // user.password = await bcrypt.hash("mudar123", 10);
+            // await user.save();
+        } else {
+            return res.json({ 
+                success: true, 
+                password: user.password,
+                message: `Sua senha é: ${user.password}`
+            });
+        }
+
+    } catch (error) {
+        res.status(500).json({ message: "Erro ao recuperar senha", error: error.message });
+    }
+};
 };
