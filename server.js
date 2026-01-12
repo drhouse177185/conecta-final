@@ -1,7 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const db = require('./models'); // Importa a conexão com o banco
+const path = require('path'); // --- ALTERAÇÃO: Importar módulo 'path'
+const db = require('./models'); 
 const apiRoutes = require('./routes/api');
 require('dotenv').config();
 
@@ -9,34 +10,35 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- Middlewares ---
-app.use(cors()); // Permite que seu frontend acesse este backend
+app.use(cors()); 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Log de requisições para facilitar o debug
+// --- ALTERAÇÃO: Servir arquivos estáticos (Frontend) ---
+// Diz ao Express que a pasta 'public' contém arquivos que podem ser acessados diretamente (HTML, CSS, Imagens)
+app.use(express.static(path.join(__dirname, 'public')));
+
 app.use((req, res, next) => {
     console.log(`[LOG] ${req.method} ${req.url}`);
     next();
 });
 
-// --- Rotas ---
+// --- Rotas da API ---
 app.use('/api', apiRoutes);
 
-// Rota raiz para teste rápido
 app.get('/', (req, res) => {
-    res.send('✅ Backend Conecta Saúde está ONLINE!');
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Rota de compatibilidade para criação de pagamento (caso chame na raiz)
+// Rota de compatibilidade MP
 app.post('/create_preference', require('./controllers/paymentController').createPreference);
 
 // --- Inicialização ---
-// O comando 'alter: true' ajusta as tabelas se necessário, sem apagar dados
 db.sync().then(() => {
     app.listen(PORT, () => {
         console.log(`\n🚀 Servidor rodando na porta ${PORT}`);
-        console.log(`📡 Conectado ao banco: ${process.env.DB_HOST}`);
+        console.log(`🌍 Frontend disponível em: http://localhost:${PORT}`);
     });
 }).catch(err => {
     console.error('❌ Falha ao iniciar servidor:', err);
-})
+});
