@@ -1,4 +1,4 @@
-const { User } = require('../models');
+const { User, sequelize } = require('../models'); // IMPORTANTE: Adicionei sequelize aqui
 const bcrypt = require('bcryptjs');
 
 // Login
@@ -8,16 +8,28 @@ exports.login = async (req, res) => {
         
         if(!email || !password) return res.status(400).json({ message: "Dados incompletos." });
         email = email.trim(); 
-        password = password.trim();
+        
+        // Log para debug
+        console.log(`[LOGIN] Tentativa para: ${email}`);
 
         const user = await User.findOne({ where: { email } });
         
-        if (!user) return res.status(404).json({ message: "E-mail não encontrado." });
+        if (!user) {
+            console.log(`[LOGIN] Email não encontrado.`);
+            return res.status(404).json({ message: "E-mail não encontrado." });
+        }
+
+        console.log(`[LOGIN] Usuário encontrado. ID: ${user.id} | Senha no Banco (Hash/Plain): ${user.password.substring(0, 10)}...`);
 
         const isMatchHash = await bcrypt.compare(password, user.password).catch(() => false);
         const isMatchPlain = password === user.password; 
 
-        if (!isMatchHash && !isMatchPlain) {
+        if (isMatchHash) {
+            console.log(`[LOGIN] Sucesso via HASH.`);
+        } else if (isMatchPlain) {
+            console.log(`[LOGIN] Sucesso via TEXTO PURO.`);
+        } else {
+            console.log(`[LOGIN] Falha: Senha incorreta.`);
             return res.status(401).json({ message: "Senha incorreta." });
         }
 
@@ -62,49 +74,52 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
-// --- CORREÇÃO: Recuperação de Senha com UPDATE Direto ---
+// --- CORREÇÃO: Recuperação via RAW SQL (Nuclear) ---
 exports.recoverPassword = async (req, res) => {
     try {
         const { cpf, newPassword } = req.body;
-        console.log(`[Recover] Tentativa de reset para CPF: ${cpf}`);
+        console.log(`[RECOVER] Iniciando para CPF: ${cpf}`);
         
-        // 1. Busca o usuário
+        // 1. Busca o usuário pelo modelo padrão
         const user = await User.findOne({ where: { cpf } });
 
         if (!user) {
-            console.log(`[Recover] Falha: CPF ${cpf} não encontrado.`);
             return res.status(404).json({ success: false, message: "CPF não encontrado." });
         }
 
-        // 2. Se tiver nova senha, força o UPDATE
+        // 2. Se tiver nova senha, força o UPDATE VIA SQL PURO
         if (newPassword) {
-            console.log(`[Recover] Usuário encontrado (ID: ${user.id}). Gerando hash...`);
+            console.log(`[RECOVER] Usuário ID: ${user.id} encontrado. Gerando hash...`);
             
             const cleanPassword = newPassword.trim();
             const hashedPassword = await bcrypt.hash(cleanPassword, 10);
             
-            // MUDANÇA AQUI: Usamos User.update em vez de user.save()
-            // Isso garante que o comando SQL UPDATE seja enviado ao PostgreSQL
-            await User.update(
-                { password: hashedPassword },
-                { where: { id: user.id } }
+            // AQUI ESTÁ A MÁGICA: SQL DIRETÃO
+            // Ignora timestamps, hooks e validações do Sequelize. Apenas altera a string.
+            await sequelize.query(
+                `UPDATE users SET password = :pass WHERE id = :id`,
+                {
+                    replacements: { 
+                        pass: hashedPassword, 
+                        id: user.id 
+                    },
+                    type: sequelize.QueryTypes.UPDATE
+                }
             );
             
-            console.log(`[Recover] Sucesso! Senha atualizada no banco.`);
+            console.log(`[RECOVER] SQL EXECUTADO COM SUCESSO PARA ID: ${user.id}`);
 
             return res.json({ 
                 success: true, 
                 passwordUpdated: true,
-                email: user.email, 
                 message: "Senha atualizada com sucesso!"
             });
         }
 
-        // Apenas validação de CPF (Passo 1 do Frontend)
         return res.json({ success: true, passwordUpdated: false });
 
     } catch (error) {
-        console.error("Erro Recuperação:", error);
-        res.status(500).json({ message: "Erro no servidor." });
+        console.error("[RECOVER] Erro Fatal:", error);
+        res.status(500).json({ message: "Erro no servidor ao salvar senha." });
     }
 };
