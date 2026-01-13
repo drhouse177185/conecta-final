@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conecta Saúde - Sistema Integrado v2.5</title>
+    
+    <!-- CDNs -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Config PDF.js -->
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    
+    <!-- CSS Local -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+    
+    <!-- Container de Notificações -->
+    <div id="toast-container" class="fixed top-4 right-4 z-[10000] flex flex-col gap-2 pointer-events-none"></div>
+    
+    <!-- Splash Screen -->
+    <div id="splash-screen">
+        <img src="https://images.unsplash.com/photo-1551076805-e1869033e561?q=80&w=2532&auto=format&fit=crop" class="splash-image" alt="Background Médico">
+        <div class="splash-content">
+            <h1 class="splash-title">CONECTA SAÚDE</h1>
+            <p class="splash-subtitle">Sistema Integrado de Diagnóstico</p>
+            <div class="splash-loader"><div class="splash-bar"></div></div>
+            <p class="text-slate-400 text-xs mt-2 font-mono">Inicializando sistema...</p>
+        </div>
+    </div>
+    
+    <!-- Barra de Status -->
+    <div class="bg-slate-900 text-white py-2 px-4 text-xs flex flex-wrap justify-between items-center z-50 relative gap-2">
+        <span class="font-bold">Ambiente v2.5 (Produção)</span>
+        <div class="flex items-center gap-4">
+            <span class="text-green-400 flex items-center"><i class="fa-solid fa-server mr-1"></i> Online</span>
+        </div>
+    </div>
+    
+    <!-- View de Autenticação -->
+    <div id="auth-view" class="fixed inset-0 z-40 bg-slate-900 flex items-center justify-center p-4">
+        <!-- Conteúdo mantido igual -->
+    </div>
+    
+    <!-- Aplicação Principal -->
+    <div id="main-app" class="hidden min-h-screen pb-10">
+        <!-- Conteúdo mantido igual -->
+    </div>
+    
+    <!-- Painel Administrativo -->
+    <div id="admin-view" class="hidden min-h-screen bg-slate-50 pb-20">
+        <!-- Conteúdo mantido igual -->
+    </div>
+    
+    <!-- Modal de Recarga -->
+    <div id="recharge-modal" class="modal-overlay">
+        <!-- Conteúdo mantido igual -->
+    </div>
+    
+    <!-- Modal de Recuperação -->
+    <div id="recover-modal" class="modal-overlay">
+        <!-- Conteúdo mantido igual -->
+    </div>
+    
+    <!-- Renderizador PDF -->
+    <div id="pdf-content-wrapper"></div>
+    
+    <!-- JavaScript Local (carregar na ordem correta) -->
+    <script src="js/config.js"></script>
+    <script src="js/logger.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/credits.js"></script>
+    <script src="js/tts.js"></script>
+    <script src="js/pdf.js"></script>
+    <script src="js/pre-consulta.js"></script>
+    <script src="js/pos-consulta.js"></script>
+    <script src="js/pre-op.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/main.js"></script>
+    
+    <!-- Inicialização -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            Logger.info('Sistema', 'Inicializando Conecta Saúde v2.5');
+            initializeSystem();
+        });
+    </script>
+</body>
+</html>
