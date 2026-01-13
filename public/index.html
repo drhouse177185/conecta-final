@@ -1040,29 +1040,127 @@
             }
         };
 
-        // --- SEÇÃO: LÓGICA DE AUTENTICAÇÃO ---
-        function handleEmailLogin() {
+    // --- FUNÇÕES DE LOGIN ---
+        async function handleEmailLogin() {
             const e = document.getElementById('login-email').value;
             const p = document.getElementById('login-password').value;
-            const user = MockDB.login(e, p);
-            if(user) {
-                initializeApp(user);
-                showToast(`Bem-vindo, ${user.name}!`, 'success');
+            const btn = document.querySelector('#form-login button[type="submit"]');
+            
+            // Feedback visual de carregamento
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ACESSANDO...';
+            btn.disabled = true;
+            
+            try {
+                // Tenta login direto na API (Backend Real)
+                console.log("Tentando login no backend:", BACKEND_URL);
+                const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email: e, password: p })
+                });
+                
+                const data = await res.json();
+                
+                if(res.ok) {
+                    showToast(`Bem-vindo de volta, ${data.name}!`, 'success');
+                    
+                    // Salva sessão (opcional, mas bom para UX)
+                    localStorage.setItem('conecta_user', JSON.stringify(data));
+                    
+                    // Inicializa a UI
+                    initializeApp(data);
+                } else {
+                    console.warn("Login falhou:", data);
+                    showToast(data.message || "Erro de login.", 'error');
+                }
+            } catch(err) { 
+                console.error("Erro fatal no login:", err);
+                showToast("Erro de conexão com o servidor.", 'error'); 
+            } finally {
+                // Restaura botão
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        
+        // Função principal que configura a UI baseada no usuário logado
+        function initializeApp(user) {
+            currentUser = user;
+            
+            // Lógica de Recarga Automática (SUS Racional)
+            if(user.role !== 'admin') checkAutoRecharge(user);
+
+            document.getElementById('auth-view').classList.add('hidden');
+            
+            // Roteamento condicional: Admin vs User
+            if(user.role === 'admin') {
+                document.getElementById('admin-view').classList.remove('hidden');
+                renderAdminPanel();
             } else {
-                showToast("Credenciais inválidas. Verifique os dados.");
+                document.getElementById('main-app').classList.remove('hidden');
+                document.getElementById('user-display').textContent = `Olá, ${user.name}`;
+                updateCreditDisplay();
+
+                // Preenche campos automáticos com dados do usuário
+                safeSetValue('pre-name', user.name); safeSetValue('pre-age', user.age); safeSetValue('op-name', user.name);
+                
+                // Popula select de cirurgias
+                const surgerySelect = document.getElementById('surgery-type');
+                if(surgerySelect && SYSTEM_SETTINGS && SYSTEM_SETTINGS.surgeries) {
+                    surgerySelect.innerHTML = SYSTEM_SETTINGS.surgeries.map(s => 
+                        `<option value="${s.id}">${s.name}</option>`
+                    ).join('');
+                }
+
+                // Lógica específica por sexo
+                const lblPreg = document.getElementById('lbl-pregnancy');
+                if(lblPreg) {
+                    if (user.sex === 'F') {
+                        lblPreg.classList.remove('hidden');
+                    } else {
+                        lblPreg.classList.add('hidden');
+                        const checkPreg = document.getElementById('check-pregnancy');
+                        if(checkPreg) checkPreg.checked = false;
+                    }
+                }
+
+                // Reseta estados visuais
+                const s2 = document.getElementById('pre-step-2');
+                if(s2) s2.classList.add('hidden', 'opacity-50', 'pointer-events-none');
+                
+                const preRes = document.getElementById('pre-results');
+                if(preRes) preRes.classList.add('hidden');
             }
         }
 
-        function handleRegister() {
-            // Captura valores do formulário
+        async function handleRegister() {
             const name = document.getElementById('reg-name').value;
             const age = document.getElementById('reg-age').value;
             const sex = document.getElementById('reg-sex').value;
             const email = document.getElementById('reg-email').value;
             const cpf = document.getElementById('reg-cpf').value;
             const pass = document.getElementById('reg-password').value;
-            
-            if(!name || !email || !pass) return showToast("Preencha todos os campos obrigatórios.");
+
+            if(!name || !email || !pass) return showToast("Preencha os campos obrigatórios.", "error");
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name, age, sex, email, cpf, password: pass })
+                });
+                const data = await res.json();
+
+                if(res.ok) {
+                    showToast("Conta criada! Faça login.", "success");
+                    switchAuthTab('login');
+                } else {
+                    showToast(data.message || "Erro ao registrar.", "error");
+                }
+            } catch(e) {
+                showToast("Erro de conexão.", "error");
+            }
+        }
             
             // Registra e inicializa
             initializeApp(MockDB.register({name, age, sex, email, cpf, password: pass, role: "user"}));
