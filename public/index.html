@@ -3,10 +3,7 @@
     PROJETO: Conecta Saúde - Sistema Integrado
     DESCRIÇÃO: Single Page Application (SPA) para gestão de saúde, pré-consulta e análise de exames.
     DATA DE REFATORAÇÃO: 2024
-    NOTAS DE CLEAN CODE:
-    - O arquivo mantém toda a estrutura original.
-    - Comentários adicionados linha a linha/bloco a bloco para explicar responsabilidades.
-    - Facilita a identificação de onde a UI é renderizada e onde a lógica é processada.
+    STATUS: CORRIGIDO (Syntax Error removido)
 -->
 
 <!DOCTYPE html>
@@ -2142,6 +2139,16 @@
             v=v.replace(/(\d{3})(\d{1,2})$/,"$1-$2"); 
             i.value=v;
         }
-        
-        // Inicializa ícones Lucide após carregamento completo
-        lucide.createIcons();
+
+        // INICIALIZAÇÃO SEGURA DO SCRIPT
+        window.addEventListener('DOMContentLoaded', () => {
+            // Inicializa ícones Lucide após carregamento completo
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            } else {
+                console.warn('Lucide icons not loaded');
+            }
+        });
+    </script>
+</body>
+</html>
