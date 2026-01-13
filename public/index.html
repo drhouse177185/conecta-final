@@ -1132,12 +1132,14 @@
                 const s2 = document.getElementById('pre-step-2');
                 if(s2) s2.classList.add('hidden', 'opacity-50', 'pointer-events-none');
                 
-            const preRes = document.getElementById('pre-results');
+             const preRes = document.getElementById('pre-results');
                 if(preRes) preRes.classList.add('hidden');
-            } // <--- ADICIONE ESTA CHAVE (fecha o else)
-        } // <--- ADICIONE ESTA CHAVE (fecha a função initializeApp)
+            } // <--- Fechamento do 'else' (se houver um if/else aberto antes)
+        } // <--- Fechamento OBRIGATÓRIO da função initializeApp
 
+        // Agora a handleRegister começa no escopo correto!
         async function handleRegister() {
+            const name = document.getElementById('reg-name').value;
             const name = document.getElementById('reg-name').value;
             const age = document.getElementById('reg-age').value;
             const sex = document.getElementById('reg-sex').value;
