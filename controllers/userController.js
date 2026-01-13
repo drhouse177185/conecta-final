@@ -11,7 +11,6 @@ exports.login = async (req, res) => {
         
         console.log(`[LOGIN] Tentativa para: ${email}`);
 
-        // Busca usuário
         const user = await User.findOne({ where: { email } });
         
         if (!user) {
@@ -19,9 +18,8 @@ exports.login = async (req, res) => {
             return res.status(404).json({ message: "E-mail não encontrado." });
         }
 
-        console.log(`[LOGIN] Usuário encontrado. ID: ${user.id} | Email: ${user.email}`);
+        console.log(`[LOGIN] Usuário encontrado (ID: ${user.id}).`);
 
-        // Verifica senha
         const isMatchHash = await bcrypt.compare(password, user.password).catch(() => false);
         const isMatchPlain = password === user.password; 
 
@@ -30,7 +28,7 @@ exports.login = async (req, res) => {
         } else if (isMatchPlain) {
             console.log(`[LOGIN] Sucesso via TEXTO PURO.`);
         } else {
-            console.log(`[LOGIN] Falha: Senha incorreta. Comparação falhou para hash e plain.`);
+            console.log(`[LOGIN] Falha: Senha incorreta.`);
             return res.status(401).json({ message: "Senha incorreta." });
         }
 
@@ -75,47 +73,63 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
-// --- CORREÇÃO: Recuperação via EMAIL (Para evitar confusão de IDs) ---
+// --- RECUPERAÇÃO BLINDADA COM VERIFICAÇÃO ---
 exports.recoverPassword = async (req, res) => {
     try {
         const { cpf, newPassword } = req.body;
-        console.log(`[RECOVER] Iniciando para CPF: ${cpf}`);
         
-        // 1. Busca o usuário
+        // 1. Busca Usuário
         const user = await User.findOne({ where: { cpf } });
 
         if (!user) {
             return res.status(404).json({ success: false, message: "CPF não encontrado." });
         }
 
-        // 2. Se tiver nova senha, força o UPDATE VIA SQL PURO USANDO EMAIL
+        // 2. Fluxo de Atualização
         if (newPassword) {
-            console.log(`[RECOVER] Usuário encontrado: ${user.email} (ID: ${user.id}). Gerando hash...`);
+            console.log(`[RECOVER] Iniciando atualização para: ${user.email}`);
             
             const cleanPassword = newPassword.trim();
             const hashedPassword = await bcrypt.hash(cleanPassword, 10);
             
-            // MUDANÇA CRÍTICA: Atualiza onde o EMAIL é igual, não o ID.
-            // Isso garante que estamos atualizando exatamente a conta que o Sequelize encontrou.
-            await sequelize.query(
-                `UPDATE users SET password = :pass WHERE email = :email`,
+            // TENTATIVA 1: SQL Puro com Aspas (Mais seguro para Postgres) e retorno de Metadata
+            // Usamos "users" e "password" entre aspas duplas para forçar o reconhecimento das colunas
+            const [results, metadata] = await sequelize.query(
+                `UPDATE "users" SET "password" = :pass WHERE "email" = :email`,
                 {
                     replacements: { 
                         pass: hashedPassword, 
                         email: user.email 
-                    },
-                    type: sequelize.QueryTypes.UPDATE
+                    }
                 }
             );
             
-            console.log(`[RECOVER] SQL UPDATE executado para EMAIL: ${user.email}`);
+            // Verifica se alguma linha foi realmente afetada
+            // No Sequelize com Postgres, metadata.rowCount diz quantas linhas mudaram
+            const affected = metadata.rowCount;
+            console.log(`[RECOVER] Linhas afetadas no banco: ${affected}`);
 
-            return res.json({ 
-                success: true, 
-                passwordUpdated: true,
-                email: user.email, // Retorna email para o front preencher o login
-                message: "Senha atualizada com sucesso!"
-            });
+            if (affected === 0) {
+                console.error("[RECOVER] ERRO CRÍTICO: Banco retornou 0 alterações. Email pode estar divergente.");
+                return res.status(500).json({ message: "Erro: Banco de dados não confirmou a alteração." });
+            }
+
+            // PROVA REAL: Busca o usuário de novo para ver se a senha mudou mesmo
+            const checkUser = await User.findOne({ where: { id: user.id } });
+            const isSavedCorrectly = checkUser.password === hashedPassword;
+            
+            if(isSavedCorrectly) {
+                console.log("[RECOVER] ✅ SUCESSO TOTAL: Senha verificada no banco.");
+                return res.json({ 
+                    success: true, 
+                    passwordUpdated: true,
+                    email: user.email, 
+                    message: "Senha atualizada com sucesso!"
+                });
+            } else {
+                console.error("[RECOVER] ❌ ALERTA: Update rodou mas leitura retornou senha antiga.");
+                return res.status(500).json({ message: "Erro de consistência no banco." });
+            }
         }
 
         return res.json({ success: true, passwordUpdated: false });
