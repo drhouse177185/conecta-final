@@ -1,4 +1,4 @@
-const { User, sequelize } = require('../models'); // IMPORTANTE: Adicionei sequelize aqui
+const { User, sequelize } = require('../models');
 const bcrypt = require('bcryptjs');
 
 // Login
@@ -9,9 +9,9 @@ exports.login = async (req, res) => {
         if(!email || !password) return res.status(400).json({ message: "Dados incompletos." });
         email = email.trim(); 
         
-        // Log para debug
         console.log(`[LOGIN] Tentativa para: ${email}`);
 
+        // Busca usuário
         const user = await User.findOne({ where: { email } });
         
         if (!user) {
@@ -19,8 +19,9 @@ exports.login = async (req, res) => {
             return res.status(404).json({ message: "E-mail não encontrado." });
         }
 
-        console.log(`[LOGIN] Usuário encontrado. ID: ${user.id} | Senha no Banco (Hash/Plain): ${user.password.substring(0, 10)}...`);
+        console.log(`[LOGIN] Usuário encontrado. ID: ${user.id} | Email: ${user.email}`);
 
+        // Verifica senha
         const isMatchHash = await bcrypt.compare(password, user.password).catch(() => false);
         const isMatchPlain = password === user.password; 
 
@@ -29,7 +30,7 @@ exports.login = async (req, res) => {
         } else if (isMatchPlain) {
             console.log(`[LOGIN] Sucesso via TEXTO PURO.`);
         } else {
-            console.log(`[LOGIN] Falha: Senha incorreta.`);
+            console.log(`[LOGIN] Falha: Senha incorreta. Comparação falhou para hash e plain.`);
             return res.status(401).json({ message: "Senha incorreta." });
         }
 
@@ -74,44 +75,45 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
-// --- CORREÇÃO: Recuperação via RAW SQL (Nuclear) ---
+// --- CORREÇÃO: Recuperação via EMAIL (Para evitar confusão de IDs) ---
 exports.recoverPassword = async (req, res) => {
     try {
         const { cpf, newPassword } = req.body;
         console.log(`[RECOVER] Iniciando para CPF: ${cpf}`);
         
-        // 1. Busca o usuário pelo modelo padrão
+        // 1. Busca o usuário
         const user = await User.findOne({ where: { cpf } });
 
         if (!user) {
             return res.status(404).json({ success: false, message: "CPF não encontrado." });
         }
 
-        // 2. Se tiver nova senha, força o UPDATE VIA SQL PURO
+        // 2. Se tiver nova senha, força o UPDATE VIA SQL PURO USANDO EMAIL
         if (newPassword) {
-            console.log(`[RECOVER] Usuário ID: ${user.id} encontrado. Gerando hash...`);
+            console.log(`[RECOVER] Usuário encontrado: ${user.email} (ID: ${user.id}). Gerando hash...`);
             
             const cleanPassword = newPassword.trim();
             const hashedPassword = await bcrypt.hash(cleanPassword, 10);
             
-            // AQUI ESTÁ A MÁGICA: SQL DIRETÃO
-            // Ignora timestamps, hooks e validações do Sequelize. Apenas altera a string.
+            // MUDANÇA CRÍTICA: Atualiza onde o EMAIL é igual, não o ID.
+            // Isso garante que estamos atualizando exatamente a conta que o Sequelize encontrou.
             await sequelize.query(
-                `UPDATE users SET password = :pass WHERE id = :id`,
+                `UPDATE users SET password = :pass WHERE email = :email`,
                 {
                     replacements: { 
                         pass: hashedPassword, 
-                        id: user.id 
+                        email: user.email 
                     },
                     type: sequelize.QueryTypes.UPDATE
                 }
             );
             
-            console.log(`[RECOVER] SQL EXECUTADO COM SUCESSO PARA ID: ${user.id}`);
+            console.log(`[RECOVER] SQL UPDATE executado para EMAIL: ${user.email}`);
 
             return res.json({ 
                 success: true, 
                 passwordUpdated: true,
+                email: user.email, // Retorna email para o front preencher o login
                 message: "Senha atualizada com sucesso!"
             });
         }
