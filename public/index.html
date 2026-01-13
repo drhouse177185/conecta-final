@@ -178,7 +178,7 @@
         .btn-pause:hover { background-color: #fde047; transform: scale(1.05); }
         .btn-pause:active { transform: scale(0.95); }
 
-        /* Badges de Créditos (Cores baseadas na quantidade) */
+        /* Badges de Créditos (Cores baseadas na quantidade) -->
         .credits-badge {
             display: inline-flex; align-items: center; gap: 0.25rem;
             padding: 0.25rem 0.75rem; border-radius: 9999px;
@@ -853,8 +853,6 @@
         </div>
     </div>
 
-    <div id="pdf-content-wrapper"></div>
-
     <!-- --- JAVASCRIPT LOGIC --- -->
     <script>
         // --- SEÇÃO: CONFIGURAÇÃO DE PAGAMENTOS (MERCADO PAGO) ---
@@ -1040,49 +1038,6 @@
             }
         };
 
-    // --- FUNÇÕES DE LOGIN ---
-        async function handleEmailLogin() {
-            const e = document.getElementById('login-email').value;
-            const p = document.getElementById('login-password').value;
-            const btn = document.querySelector('#form-login button[type="submit"]');
-            
-            // Feedback visual de carregamento
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ACESSANDO...';
-            btn.disabled = true;
-            
-            try {
-                // Tenta login direto na API (Backend Real)
-                console.log("Tentando login no backend:", BACKEND_URL);
-                const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ email: e, password: p })
-                });
-                
-                const data = await res.json();
-                
-                if(res.ok) {
-                    showToast(`Bem-vindo de volta, ${data.name}!`, 'success');
-                    
-                    // Salva sessão (opcional, mas bom para UX)
-                    localStorage.setItem('conecta_user', JSON.stringify(data));
-                    
-                    // Inicializa a UI
-                    initializeApp(data);
-                } else {
-                    console.warn("Login falhou:", data);
-                    showToast(data.message || "Erro de login.", 'error');
-                }
-            } catch(err) { 
-                console.error("Erro fatal no login:", err);
-                showToast("Erro de conexão com o servidor.", 'error'); 
-            } finally {
-                // Restaura botão
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        
         // Função principal que configura a UI baseada no usuário logado
         function initializeApp(user) {
             currentUser = user;
@@ -1133,6 +1088,50 @@
             }
         }
 
+        // --- FUNÇÕES DE LOGIN ---
+        async function handleEmailLogin() {
+            const e = document.getElementById('login-email').value;
+            const p = document.getElementById('login-password').value;
+            const btn = document.querySelector('#form-login button[type="submit"]');
+            
+            // Feedback visual de carregamento
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ACESSANDO...';
+            btn.disabled = true;
+            
+            try {
+                // Tenta login direto na API (Backend Real)
+                console.log("Tentando login no backend:", BACKEND_URL);
+                const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email: e, password: p })
+                });
+                
+                const data = await res.json();
+                
+                if(res.ok) {
+                    showToast(`Bem-vindo de volta, ${data.name}!`, 'success');
+                    
+                    // Salva sessão (opcional, mas bom para UX)
+                    localStorage.setItem('conecta_user', JSON.stringify(data));
+                    
+                    // Inicializa a UI
+                    initializeApp(data);
+                } else {
+                    console.warn("Login falhou:", data);
+                    showToast(data.message || "Erro de login.", 'error');
+                }
+            } catch(err) { 
+                console.error("Erro fatal no login:", err);
+                showToast("Erro de conexão com o servidor.", 'error'); 
+            } finally {
+                // Restaura botão
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
         async function handleRegister() {
             const name = document.getElementById('reg-name').value;
             const age = document.getElementById('reg-age').value;
@@ -1161,54 +1160,7 @@
                 showToast("Erro de conexão.", "error");
             }
         }
-            
-            // Registra e inicializa
-            initializeApp(MockDB.register({name, age, sex, email, cpf, password: pass, role: "user"}));
-            showToast("Conta criada com sucesso!", 'success');
-        }
         
-        // Função principal que configura a UI baseada no usuário logado
-        function initializeApp(user) {
-            currentUser = user;
-            
-            // Lógica de Recarga Automática (SUS Racional)
-            checkAutoRecharge(user);
-
-            document.getElementById('auth-view').classList.add('hidden');
-            
-            // Roteamento condicional: Admin vs User
-            if(user.role === 'admin') {
-                document.getElementById('admin-view').classList.remove('hidden');
-                renderAdminPanel();
-            } else {
-                document.getElementById('main-app').classList.remove('hidden');
-                document.getElementById('user-display').textContent = `Olá, ${user.name}`;
-                updateCreditDisplay();
-
-                // Preenche campos automáticos com dados do usuário
-                safeSetValue('pre-name', user.name); safeSetValue('pre-age', user.age); safeSetValue('op-name', user.name);
-                
-                // Popula select de cirurgias do usuário com opções ativas
-                const surgerySelect = document.getElementById('surgery-type');
-                surgerySelect.innerHTML = SYSTEM_SETTINGS.surgeries.map(s => 
-                    `<option value="${s.id}">${s.name}</option>`
-                ).join('');
-
-                // Lógica específica por sexo (ex: teste de gravidez)
-                const lblPreg = document.getElementById('lbl-pregnancy');
-                if (user.sex === 'F') {
-                    lblPreg.classList.remove('hidden');
-                } else {
-                    lblPreg.classList.add('hidden');
-                    document.getElementById('check-pregnancy').checked = false;
-                }
-
-                // Reseta estados visuais
-                document.getElementById('pre-step-2').classList.add('hidden', 'opacity-50', 'pointer-events-none');
-                document.getElementById('pre-results').classList.add('hidden');
-            }
-        }
-
         // --- SEÇÃO: SISTEMA DE CRÉDITOS E RECARGA ---
 
         // Verifica se o usuário tem direito a renovação de cota
@@ -1351,7 +1303,6 @@
                 btn.disabled = false;
             }
         }
-
 
         // Verifica saldo antes de executar ação
         function hasCredits(cost) {
@@ -1654,8 +1605,6 @@
             // Valida Saldo
             if (!hasCredits(80)) return;
 
-            let inputVal = ""; 
-            
             const btn = document.getElementById('btn-gen-exams'); btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin mr-2'></i> Processando..."; btn.disabled = true;
             
             // Coleta dados de comorbidades
@@ -1804,8 +1753,6 @@
                 return showToast(`A cirurgia "${surgeryObj ? surgeryObj.name : 'Selecionada'}" está temporariamente indisponível.`, "error");
             }
 
-            let inputVal = ""; 
-
             document.getElementById('loading-2').classList.remove('hidden');
             document.getElementById('results-2').classList.add('hidden');
             
@@ -1846,8 +1793,6 @@
 
         // --- UTILITÁRIOS GERAIS ---
         async function handleFiles(files, pageId) {
-            let inputVal = ""; 
-
             if(pageId === 1) return processDiagnosisFiles(files);
             if(pageId === 2) {
                 currentPreOpFiles = Array.from(files);
@@ -1859,18 +1804,26 @@
         async function extractPdfText(file) {
             try {
                 const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
-                let t = ""; for(let i=1; i<=Math.min(pdf.numPages, 5); i++) t += (await (await pdf.getPage(i)).getTextContent()).items.map(s=>s.str).join(" ");
+                let t = "";
+                for(let i=1; i<=Math.min(pdf.numPages, 5); i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    t += textContent.items.map(s=>s.str).join(" ");
+                }
                 return t;
             } catch(e) {
                 console.error(e);
                 return "Erro ao ler PDF.";
             }
         }
+        
         // Extrai texto de Imagem (OCR)
         async function extractImageText(file) {
             try {
-                const w = await Tesseract.createWorker('por');
-                const ret = await w.recognize(file); await w.terminate(); return ret.data.text;
+                const worker = await Tesseract.createWorker('por');
+                const result = await worker.recognize(file); 
+                await worker.terminate(); 
+                return result.data.text;
             } catch(e) {
                 console.error(e);
                 return "Erro OCR.";
@@ -2051,8 +2004,15 @@
             }
 
             const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ contents: [{ parts: [{ text: isJson ? prompt + "\nResponda APENAS JSON válido." : prompt }] }] })
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    contents: [{ 
+                        parts: [{ 
+                            text: isJson ? prompt + "\nResponda APENAS JSON válido." : prompt 
+                        }] 
+                    }] 
+                })
             });
             
             if(!res.ok) {
@@ -2072,8 +2032,14 @@
         // --- GERADOR DE PDF DO USUÁRIO ---
         async function downloadPDF(type) {
             let list = [], title = "";
-            if(type==='PRE') { list = currentUser.lastGeneratedExams; title="SOLICITAÇÃO DE EXAMES"; }
-            else if(type==='PENDING') { list = missingExamsList; title="PENDÊNCIAS PRÉ-OPERATÓRIAS"; }
+            if(type==='PRE') { 
+                list = currentUser.lastGeneratedExams; 
+                title="SOLICITAÇÃO DE EXAMES"; 
+            }
+            else if(type==='PENDING') { 
+                list = missingExamsList; 
+                title="PENDÊNCIAS PRÉ-OPERATÓRIAS"; 
+            }
             if(!list || !list.length) return showToast("Nada para gerar.");
             
             const wrapper = document.getElementById('pdf-content-wrapper');
@@ -2170,131 +2136,12 @@
 
         // Formatação visual de CPF
         function mascaraCPF(i) {
-            let v=i.value.replace(/\D/g,""); v=v.replace(/(\d{3})(\d)/,"$1.$2"); v=v.replace(/(\d{3})(\d)/,"$1.$2"); v=v.replace(/(\d{3})(\d{1,2})$/,"$1-$2"); i.value=v;
+            let v=i.value.replace(/\D/g,""); 
+            v=v.replace(/(\d{3})(\d)/,"$1.$2"); 
+            v=v.replace(/(\d{3})(\d)/,"$1.$2"); 
+            v=v.replace(/(\d{3})(\d{1,2})$/,"$1-$2"); 
+            i.value=v;
         }
         
         // Inicializa ícones Lucide após carregamento completo
         lucide.createIcons();
-      
-   // --- FUNÇÕES DE RECUPERAÇÃO DE SENHA (FINAL) ---
-        
-        let recoveryStep = 1; 
-
-        function closeRecoverModal() {
-            document.getElementById('recover-modal').classList.remove('active');
-            // Reseta o modal ao fechar
-            setTimeout(() => {
-                recoveryStep = 1;
-                document.getElementById('rec-step-1').classList.remove('hidden');
-                document.getElementById('rec-step-2').classList.add('hidden');
-                document.getElementById('recover-cpf').disabled = false;
-                
-                // Limpa campos
-                document.getElementById('recover-new-pass').value = "";
-                document.getElementById('recover-confirm-pass').value = "";
-                
-                const btn = document.getElementById('btn-recover');
-                btn.textContent = "BUSCAR CONTA";
-                btn.classList.replace('bg-green-600', 'bg-blue-600');
-                btn.disabled = false;
-            }, 300);
-        }
-
-        async function handleRecoveryStep() {
-            const cpf = document.getElementById('recover-cpf').value;
-            const newPassInput = document.getElementById('recover-new-pass');
-            const confirmPassInput = document.getElementById('recover-confirm-pass');
-            const btn = document.getElementById('btn-recover');
-            
-            if (!cpf || cpf.length < 11) return showToast("Digite um CPF válido.", "error");
-
-            btn.disabled = true;
-
-            try {
-                // PASSO 1: Validar se o CPF existe
-                if (recoveryStep === 1) {
-                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
-                    
-                    const response = await fetch(`${BACKEND_URL}/api/auth/recover`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ cpf: cpf }) // Envia só CPF para verificar existência
-                    });
-                    const data = await response.json();
-
-                    if (response.ok && data.success) {
-                        // Sucesso: Vai para Passo 2 (Senhas)
-                        recoveryStep = 2;
-                        
-                        document.getElementById('recover-cpf').disabled = true; 
-                        document.getElementById('rec-step-2').classList.remove('hidden');
-                        
-                        btn.textContent = "REDEFINIR SENHA"; // Texto alterado conforme pedido
-                        btn.classList.replace('bg-blue-600', 'bg-green-600'); // Fica verde para indicar ação final
-                        btn.disabled = false;
-                        
-                        newPassInput.focus();
-                    } else {
-                        showToast(data.message || "CPF não encontrado.", "error");
-                        btn.innerHTML = "BUSCAR CONTA";
-                        btn.disabled = false;
-                    }
-                } 
-                // PASSO 2: Validar Senhas e Salvar
-                else if (recoveryStep === 2) {
-                    const newPass = newPassInput.value;
-                    const confirmPass = confirmPassInput.value;
-
-                    // Validação Front-end: Campos vazios
-                    if(!newPass || !confirmPass) {
-                        showToast("Preencha os dois campos de senha.", "error");
-                        btn.disabled = false;
-                        return;
-                    }
-
-                    // Validação Front-end: Senhas iguais
-                    if(newPass !== confirmPass) {
-                        showToast("As senhas não coincidem!", "error");
-                        // Efeito visual de erro
-                        newPassInput.classList.add('border-red-500');
-                        confirmPassInput.classList.add('border-red-500');
-                        setTimeout(() => {
-                            newPassInput.classList.remove('border-red-500');
-                            confirmPassInput.classList.remove('border-red-500');
-                        }, 2000);
-                        btn.disabled = false;
-                        return;
-                    }
-
-                    btn.innerHTML = '<i class="fa-solid fa-save fa-spin"></i> Salvando...';
-
-                    // Envia para o Backend salvar
-                    const response = await fetch(`${BACKEND_URL}/api/auth/recover`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ cpf: cpf, newPassword: newPass }) 
-                    });
-                    const data = await response.json();
-
-                    if (response.ok && data.success) {
-                        showToast("Senha redefinida com sucesso! Faça login.", "success");
-                        closeRecoverModal();
-                        // Opcional: preencher o email no login automaticamente aqui se desejar
-                    } else {
-                        showToast("Erro ao salvar senha.", "error");
-                        btn.textContent = "REDEFINIR SENHA";
-                        btn.disabled = false;
-                    }
-                }
-
-            } catch (error) {
-                console.error("Erro JS:", error);
-                showToast("Erro de conexão.", "error");
-                btn.disabled = false;
-                if(recoveryStep === 1) btn.textContent = "BUSCAR CONTA";
-                else btn.textContent = "REDEFINIR SENHA";
-            }
-        }
-    </script>
-</body>
-</html>
