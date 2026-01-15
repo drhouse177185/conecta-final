@@ -2140,6 +2140,97 @@
             i.value=v;
         }
 
+        // --- FUNÇÕES DE RECUPERAÇÃO DE SENHA (CÓDIGO NOVO) ---
+        let recoveryStep = 1;
+
+        async function handleRecoveryStep() {
+            const cpfInput = document.getElementById('recover-cpf');
+            const passInput = document.getElementById('recover-new-pass');
+            const confirmInput = document.getElementById('recover-confirm-pass');
+            const btn = document.getElementById('btn-recover');
+
+            // Feedback visual
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processando...';
+            btn.disabled = true;
+
+            try {
+                // Passo 1: Validar CPF
+                if (recoveryStep === 1) {
+                    if (!cpfInput.value || cpfInput.value.length < 14) {
+                        throw new Error("Por favor, digite um CPF válido.");
+                    }
+
+                    // Chama backend apenas para checar CPF
+                    const res = await fetch(`${BACKEND_URL}/api/auth/recover`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cpf: cpfInput.value })
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (!res.ok || !data.success) {
+                        throw new Error(data.message || "CPF não encontrado.");
+                    }
+
+                    // Sucesso no Passo 1 -> Ir para Passo 2
+                    showToast("CPF encontrado! Defina sua nova senha.", "success");
+                    document.getElementById('rec-step-1').classList.add('hidden');
+                    document.getElementById('rec-step-2').classList.remove('hidden');
+                    btn.textContent = "REDEFINIR SENHA";
+                    recoveryStep = 2;
+                
+                // Passo 2: Trocar Senha
+                } else {
+                    if (passInput.value.length < 3) throw new Error("A senha deve ter no mínimo 3 caracteres.");
+                    if (passInput.value !== confirmInput.value) throw new Error("As senhas não coincidem.");
+
+                    const res = await fetch(`${BACKEND_URL}/api/auth/recover`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            cpf: cpfInput.value,
+                            newPassword: passInput.value
+                        })
+                    });
+
+                    const data = await res.json();
+
+                    if (!res.ok || !data.success) {
+                        throw new Error(data.message || "Erro ao salvar senha.");
+                    }
+
+                    // Sucesso Total
+                    showToast("Senha alterada com sucesso!", "success");
+                    closeRecoverModal();
+                    // Opcional: Já preencher o email no login
+                    if(data.email) document.getElementById('login-email').value = data.email;
+                }
+
+            } catch (error) {
+                showToast(error.message, "error");
+            } finally {
+                if (recoveryStep === 1) btn.innerHTML = "BUSCAR CONTA";
+                else btn.innerHTML = "REDEFINIR SENHA";
+                btn.disabled = false;
+            }
+        }
+
+        function closeRecoverModal() {
+            document.getElementById('recover-modal').classList.remove('active');
+            // Resetar formulário
+            setTimeout(() => {
+                document.getElementById('rec-step-1').classList.remove('hidden');
+                document.getElementById('rec-step-2').classList.add('hidden');
+                document.getElementById('recover-cpf').value = "";
+                document.getElementById('recover-new-pass').value = "";
+                document.getElementById('recover-confirm-pass').value = "";
+                document.getElementById('btn-recover').textContent = "BUSCAR CONTA";
+                recoveryStep = 1;
+            }, 300);
+        }
+
         // INICIALIZAÇÃO SEGURA DO SCRIPT
         window.addEventListener('DOMContentLoaded', () => {
             // Inicializa ícones Lucide após carregamento completo

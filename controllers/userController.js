@@ -73,69 +73,47 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
-// --- RECUPERAÇÃO BLINDADA COM VERIFICAÇÃO ---
+// --- RECUPERAÇÃO REFATORADA (CORREÇÃO SÊNIOR) ---
 exports.recoverPassword = async (req, res) => {
     try {
         const { cpf, newPassword } = req.body;
         
-        // 1. Busca Usuário
+        // 1. Busca Usuário pelo CPF
         const user = await User.findOne({ where: { cpf } });
 
         if (!user) {
-            return res.status(404).json({ success: false, message: "CPF não encontrado." });
+            return res.status(404).json({ success: false, message: "CPF não encontrado no sistema." });
         }
 
-        // 2. Fluxo de Atualização
+        // 2. Lógica de Atualização
         if (newPassword) {
-            console.log(`[RECOVER] Iniciando atualização para: ${user.email}`);
+            console.log(`[RECOVER] Atualizando senha para usuário ID: ${user.id}`);
             
             const cleanPassword = newPassword.trim();
             const hashedPassword = await bcrypt.hash(cleanPassword, 10);
             
-            // TENTATIVA 1: SQL Puro com Aspas (Mais seguro para Postgres) e retorno de Metadata
-            // Usamos "users" e "password" entre aspas duplas para forçar o reconhecimento das colunas
-            const [results, metadata] = await sequelize.query(
-                `UPDATE "users" SET "password" = :pass WHERE "email" = :email`,
-                {
-                    replacements: { 
-                        pass: hashedPassword, 
-                        email: user.email 
-                    }
-                }
-            );
-            
-            // Verifica se alguma linha foi realmente afetada
-            // No Sequelize com Postgres, metadata.rowCount diz quantas linhas mudaram
-            const affected = metadata.rowCount;
-            console.log(`[RECOVER] Linhas afetadas no banco: ${affected}`);
+            // CORREÇÃO: Uso do ORM Sequelize em vez de Raw SQL
+            // O ORM sabe que o model 'User' mapeia para a tabela 'usuarios' e coluna 'senha'
+            user.password = hashedPassword;
+            await user.save(); // Salva a alteração e atualiza o campo updatedAt
 
-            if (affected === 0) {
-                console.error("[RECOVER] ERRO CRÍTICO: Banco retornou 0 alterações. Email pode estar divergente.");
-                return res.status(500).json({ message: "Erro: Banco de dados não confirmou a alteração." });
-            }
-
-            // PROVA REAL: Busca o usuário de novo para ver se a senha mudou mesmo
-            const checkUser = await User.findOne({ where: { id: user.id } });
-            const isSavedCorrectly = checkUser.password === hashedPassword;
+            console.log("[RECOVER] ✅ Senha atualizada com sucesso via ORM.");
             
-            if(isSavedCorrectly) {
-                console.log("[RECOVER] ✅ SUCESSO TOTAL: Senha verificada no banco.");
-                return res.json({ 
-                    success: true, 
-                    passwordUpdated: true,
-                    email: user.email, 
-                    message: "Senha atualizada com sucesso!"
-                });
-            } else {
-                console.error("[RECOVER] ❌ ALERTA: Update rodou mas leitura retornou senha antiga.");
-                return res.status(500).json({ message: "Erro de consistência no banco." });
-            }
+            return res.json({ 
+                success: true, 
+                passwordUpdated: true,
+                email: user.email, // Retorna email mascarado se quiser segurança extra
+                message: "Senha redefinida com sucesso! Faça login."
+            });
         }
 
-        return res.json({ success: true, passwordUpdated: false });
+        // Se não enviou senha, é apenas a validação do passo 1 (Verificar se CPF existe)
+        return res.json({ success: true, passwordUpdated: false, message: "CPF validado." });
 
     } catch (error) {
-        console.error("[RECOVER] Erro Fatal:", error);
-        res.status(500).json({ message: "Erro no servidor ao salvar senha." });
+        console.error("[RECOVER] Erro no Controller:", error);
+        res.status(500).json({ message: "Erro interno ao processar recuperação." });
     }
 };
+            
+          
