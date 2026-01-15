@@ -1,9 +1,15 @@
-// --- CORREÇÃO: Voltamos com as chaves { } para extrair a instância corretamente ---
 const { sequelize } = require('../models'); 
 const { QueryTypes } = require('sequelize');
 
+// --- HELPER: Formata array JS para formato Postgres '{a,b}' ---
+function toPgArray(arr) {
+    if (!arr || !Array.isArray(arr) || arr.length === 0) return '{}';
+    // Envolve itens em aspas duplas e escapa aspas internas
+    const items = arr.map(item => `"${String(item).replace(/"/g, '\\"')}"`).join(',');
+    return `{${items}}`;
+}
+
 exports.saveHistory = async (req, res) => {
-    // Inicia transação segura
     const t = await sequelize.transaction(); 
     
     try {
@@ -28,6 +34,7 @@ exports.saveHistory = async (req, res) => {
         }
 
         // 3. Criar Histórico de Uso
+        // Nota: rawJson já é string (JSON.stringify), então o Postgres aceita no campo JSONB
         const [history] = await sequelize.query(
             `INSERT INTO historico_usos (usuario_id, servico_id, custo_cobrado, status, dados_resultado) 
              VALUES (:uid, :sid, :cost, 'Concluido', :rawJson) RETURNING id`,
@@ -53,8 +60,9 @@ exports.saveHistory = async (req, res) => {
                 {
                     replacements: {
                         hid: historyId,
-                        comorbs: details.comorbidades || [], 
-                        exams: details.exames || [],
+                        // CORREÇÃO: Usar toPgArray para evitar expansão incorreta
+                        comorbs: toPgArray(details.comorbidades), 
+                        exams: toPgArray(details.exames),
                         rot: details.flags.rotina,
                         dst: details.flags.dst,
                         grav: details.flags.gravidez
@@ -75,7 +83,8 @@ exports.saveHistory = async (req, res) => {
                         hipoteses: details.aiResult.diagnostic_possibilities,
                         especialista: details.aiResult.specialist,
                         followup: details.aiResult.follow_up,
-                        procs: details.aiResult.recommended_procedures
+                        // CORREÇÃO: Usar toPgArray
+                        procs: toPgArray(details.aiResult.recommended_procedures)
                     },
                     type: QueryTypes.INSERT,
                     transaction: t
@@ -115,7 +124,8 @@ exports.saveHistory = async (req, res) => {
                         cirurgia: details.surgeryName,
                         asa: details.aiResult.asa,
                         lee: details.aiResult.lee,
-                        missing: details.aiResult.missing_exams || [],
+                        // CORREÇÃO: Usar toPgArray
+                        missing: toPgArray(details.aiResult.missing_exams),
                         cleared: isCleared
                     },
                     type: QueryTypes.INSERT,
