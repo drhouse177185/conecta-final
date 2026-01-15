@@ -1657,11 +1657,13 @@
                 deductCredits(80); 
                 currentUser.lastGeneratedExams = finalExams;
 
+                  // SALVAR
                 saveHistoryToBackend('pre_consulta', 80, {
-                comorbidades: comorbs,
-                exames: finalExams,
-                flags: { rotina, dst, gravidez }
-               });
+                    comorbidades: comorbs,
+                    exames: res.exams || [],
+                    flags: { rotina: routine, dst: std, gravidez: pregnancy }
+                });
+
                 
                 // 6. Renderização na tela
                 const ul = document.getElementById('generated-exam-list'); 
@@ -1732,11 +1734,12 @@
 
                 const data = await callGemini(prompt, true);
 
-                saveHistoryToBackend('pos_consulta', 10, {
-                aiResult: data // Envia o objeto JSON completo da IA
-                });
+                // SALVAR
+                saveHistoryToBackend('pos_consulta', 10, { aiResult: data });
                 
-                deductCredits(10); // Desconta
+                deductCredits(10); 
+                renderDiagnosticResults(data);
+                showToast("Análise concluída!", 'success');
 
                 // Integração com Encaminhamento Automático AME
                 // Só encaminha para fila de regulação se NÃO for Médico de Família (ou seja, se for grave)
@@ -1881,10 +1884,10 @@
             try {
                 const data = await callGemini(prompt, true);
 
-               saveHistoryToBackend('pre_operatorio', 100, {
-               surgeryName: surgeryObj.name,
-               aiResult: data
-               });
+         saveHistoryToBackend('pre_operatorio', 100, {
+                    surgeryName: surgeryObj.name,
+                    aiResult: data
+                });
                 
                 deductCredits(100);
 
@@ -1918,6 +1921,40 @@
         }
 
        // --- UTILITÁRIOS GERAIS (FUNÇÃO DE UPLOAD ATUALIZADA - MÚLTIPLOS ARQUIVOS) ---
+
+      // --- FUNÇÃO DE PERSISTÊNCIA (SALVAR NO BANCO) ---
+        // Adicionada para conectar Frontend -> Backend
+        async function saveHistoryToBackend(serviceSlug, cost, details) {
+            try {
+                if (currentUser.role === 'admin') return;
+                if (!currentUser.id) { console.warn("Usuário sem ID."); return; }
+
+                console.log(`📡 Salvando histórico: ${serviceSlug}...`);
+
+                const res = await fetch(`${BACKEND_URL}/api/history/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        serviceSlug: serviceSlug,
+                        cost: cost,
+                        details: details
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    console.log("✅ Salvo no banco.");
+                    if(data.newCredits !== undefined) {
+                        currentUser.credits = data.newCredits;
+                        updateCreditDisplay();
+                    }
+                } else {
+                    console.warn("⚠️ Erro Backend:", data.message);
+                }
+            } catch (e) { console.error("Erro ao salvar:", e); }
+        }
+     
         async function handleFiles(files, pageId) {
             // Página 1: Pós-consulta (Processamento imediato, mantém comportamento original)
             if(pageId === 1) return processDiagnosisFiles(files);
