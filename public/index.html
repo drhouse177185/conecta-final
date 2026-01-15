@@ -1734,15 +1734,12 @@
 
         // --- SEÇÃO: LÓGICA PRÉ-OPERATÓRIO ---
         async function processPreOp() {
-            // VERIFICAÇÃO DE BLOQUEIO INDIVIDUAL
+            // 1. Verificações de Segurança e Bloqueio
             if (currentUser.blockedFeatures && currentUser.blockedFeatures.preOp) {
                 return showToast("Funcionalidade de Pré-Operatório bloqueada pelo administrador.", "error");
             }
-            
-            // Check de Creditos (Pré-Registro / Pré-Op: 100 créditos)
             if (!hasCredits(100)) return;
 
-            // VERIFICAÇÃO DE CIRURGIA ATIVA (NOVA FEATURE)
             const surgeryId = document.getElementById('surgery-type').value;
             const surgeryObj = SYSTEM_SETTINGS.surgeries.find(s => s.id === surgeryId);
             
@@ -1750,42 +1747,107 @@
                 return showToast(`A cirurgia "${surgeryObj ? surgeryObj.name : 'Selecionada'}" está temporariamente indisponível.`, "error");
             }
 
+            // 2. UI Loading
             document.getElementById('loading-2').classList.remove('hidden');
             document.getElementById('results-2').classList.add('hidden');
             
-            let text = "Nenhum";
+            // --- CORREÇÃO 1: Captura as comorbidades da aba anterior ---
+            // Mesmo estando na aba 2, lemos os checkboxes da aba 0 para ter o histórico completo
+            const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c => c.value);
+            const otherComorb = document.getElementById('pre-other-comorb').value;
+            if(otherComorb) comorbs.push(otherComorb);
+            
+            const patientHistory = comorbs.length > 0 ? comorbs.join(", ") : "Nenhuma comorbidade declarada na anamnese.";
+
+            // --- CORREÇÃO 2: Prepara texto e metadados dos arquivos ---
+            let examsText = "";
+            let fileNames = []; // Lista para guardar os nomes dos arquivos (Dica para a IA)
+
             if(currentPreOpFiles.length) {
                 for(let f of currentPreOpFiles) {
-                    if(f.type==='application/pdf') text += await extractPdfText(f);
-                    else text += await extractImageText(f);
+                    fileNames.push(f.name); // Guarda o nome (ex: "meu_ecg.jpg")
+                    examsText += `\n--- ARQUIVO: ${f.name} ---\n`; // Cabeçalho no texto
+                    
+                    if(f.type === 'application/pdf') {
+                        examsText += await extractPdfText(f);
+                    } else {
+                        // Tenta ler texto, mas se for gráfico (ECG), o nome do arquivo salva
+                        examsText += await extractImageText(f);
+                    }
                 }
+            } else {
+                examsText = "Nenhum arquivo de exame foi anexado.";
             }
-            const prompt = `Paciente: ${currentUser.name}, ${currentUser.age}a. Cirurgia: ${surgeryObj.name}. Exames: ${text.substring(0,10000)}. Calcule ASA/Lee. 
-            Gere JSON: {
-                "asa": "ASA I", 
-                "lee": "Classe I", 
-                "html_report": "...", 
-                "speech_text": "Explicação simples e acolhedora do resultado para o paciente ouvir (evite termos muito técnicos, explique o risco de forma clara).",
-                "missing_exams": ["ECG"]
-            }`;
+
+            // 3. Prompt de Engenharia Aprimorado
+            const prompt = `
+                Atue como um Anestesiologista Sênior avaliando risco cirúrgico.
+                
+                DADOS DO PACIENTE:
+                - Nome: ${currentUser.name}
+                - Idade: ${currentUser.age} anos
+                - Sexo: ${currentUser.sex}
+                - CIRURGIA PROPOSTA: ${surgeryObj.name}
+                
+                HISTÓRICO DE SAÚDE (Anamnese):
+                ${patientHistory}
+                
+                ARQUIVOS ANEXADOS (Nomes):
+                ${fileNames.join(", ")}
+                
+                CONTEÚDO EXTRAÍDO DOS EXAMES (OCR):
+                ${examsText.substring(0, 15000)}
+
+                INSTRUÇÕES CRÍTICAS PARA A IA:
+                1. O paciente possui o histórico listado acima (HAS, Diabetes, etc). USE ISSO para calcular o ASA, mesmo que não haja exame específico confirmando.
+                2. Analise os Exames enviados,seja PDF, Jpeg ou qualquer outro formato, analise as imangens,e laudos antes de formular a sua resposta.
+                3. Se houver um arquivo com nome "ECG", "Eletro", "Cardio" ou similar na lista de arquivos, CONSIDERE QUE O ECG FOI ENTREGUE, mesmo que o texto do OCR esteja ilegível.
+                4. Se o paciente for saudável (ASA I) e a cirurgia for pequeno porte (ex: Catarata), exames podem ser dispensados.
+                5. De orientaçoes Pós operatorias conforme o ASA e Lee do paciente (se necessita de exame especifico pós,internacao em uti e etc...)
+                
+                Gere a resposta EXATAMENTE neste JSON:
+                {
+                    "asa": "ASA I, II, III...", 
+                    "lee": "Classe I, II...", 
+                    "html_report": "Resumo médico em HTML (explicando o risco baseado nas comorbidades listadas e exames vistos).", 
+                    "speech_text": "Texto curto e acolhedor para falar ao paciente.",
+                    "missing_exams": [] 
+                }
+                (Se "missing_exams" estiver vazio [], significa que o paciente está liberado).
+            `;
+
             try {
                 const data = await callGemini(prompt, true);
                 
                 deductCredits(100);
 
-                document.getElementById('res-asa').textContent = data.asa;
-                document.getElementById('res-lee').textContent = data.lee;
-                document.getElementById('ai-content-2').innerHTML = data.html_report;
+                document.getElementById('res-asa').textContent = data.asa || "-";
+                document.getElementById('res-lee').textContent = data.lee || "-";
+                document.getElementById('ai-content-2').innerHTML = data.html_report || "Sem relatório.";
                 
-                // Configura o botão de fala do pré-operatório
-                const speechText = data.speech_text || "O cálculo de risco foi realizado. Verifique os detalhes abaixo.";
+                const speechText = data.speech_text || "Avaliação concluída.";
                 document.getElementById('btn-speak-preop').onclick = () => speakText(speechText, true);
 
+                // Lógica de Pendências
                 missingExamsList = data.missing_exams || [];
-                document.getElementById('pending-exams-container').classList.toggle('hidden', missingExamsList.length === 0);
+                const pendingContainer = document.getElementById('pending-exams-container');
+                
+                if (missingExamsList.length > 0) {
+                    pendingContainer.classList.remove('hidden');
+                    // Atualiza a lista visual de pendências se quiser (opcional)
+                } else {
+                    pendingContainer.classList.add('hidden');
+                }
+
                 document.getElementById('results-2').classList.remove('hidden');
-                showToast("Cálculo realizado!", 'success');
-            } catch(e) { showToast(e.message); } finally { document.getElementById('loading-2').classList.add('hidden'); }
+                showToast("Cálculo de Risco realizado com sucesso!", 'success');
+
+            } catch(e) { 
+                console.error(e);
+                showToast("Erro na análise: " + e.message); 
+            } finally { 
+                document.getElementById('loading-2').classList.add('hidden'); 
+            }
         }
 
         // --- UTILITÁRIOS GERAIS ---
