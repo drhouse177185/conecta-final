@@ -1595,39 +1595,80 @@
             const btn = document.getElementById('btn-confirm-data'); btn.innerHTML = "<i class='fa-solid fa-check mr-1'></i> Confirmado"; btn.classList.replace('bg-blue-600', 'bg-green-600');
         }
         
-        async function generateRationalExams() {
+         async function generateRationalExams() {
+            // 1. Verificações de bloqueio e saldo
             if (currentUser.blockedFeatures && currentUser.blockedFeatures.preConsulta) {
                 return showToast("Funcionalidade de Pré-Consulta bloqueada pelo administrador.", "error");
             }
-            // Valida Saldo
             if (!hasCredits(80)) return;
 
-            const btn = document.getElementById('btn-gen-exams'); btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin mr-2'></i> Processando..."; btn.disabled = true;
+            // 2. Feedback visual no botão
+            const btn = document.getElementById('btn-gen-exams'); 
+            btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin mr-2'></i> Analisando..."; 
+            btn.disabled = true;
             
-            // Coleta dados de comorbidades
+            // 3. Coleta de dados do formulário
             const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c=>c.value);
             const other = document.getElementById('pre-other-comorb').value; if(other) comorbs.push(other);
             const routine = document.getElementById('check-routine').checked;
             const std = document.getElementById('check-std').checked;
             const pregnancy = document.getElementById('check-pregnancy').checked;
 
+            // 4. Pega a lista oficial de exames ativos (O "Menu")
             const activeExamsList = getActiveExamsString();
 
-            // Prompt Engenharia para IA
-            const prompt = `Atue como médico sênior 'Choosing Wisely'. Paciente: ${currentUser.name}, ${currentUser.age} anos, ${currentUser.sex}. Histórico: ${comorbs.join(", ")}. Pedido: ${routine?"Check-up":""} ${std?"+DST":""} ${pregnancy?"+Beta HCG (Teste Gravidez)":""}. 
-            IMPORTANTE: Você só pode solicitar exames que estejam nesta lista de DISPONÍVEIS: [${activeExamsList}]. Se um exame necessário não estiver na lista, não o solicite.
-            Gere JSON: { "exams": ["Hemograma Completo", "Glicemia em Jejum"...] }`;
+            // --- AQUI ESTÁ A ATUALIZAÇÃO DO PROMPT ---
+            const prompt = `
+                Atue como um Médico Auditor rigoroso seguindo o protocolo internacional 'Choosing Wisely'.
+                
+                PERFIL DO PACIENTE:
+                - Nome: ${currentUser.name}
+                - Idade: ${currentUser.age} anos
+                - Sexo: ${currentUser.sex}
+                - Histórico Clínico: ${comorbs.length ? comorbs.join(", ") : "Paciente hígido (sem comorbidades relatadas)"}.
+                - Solicitação: ${routine ? "Check-up de Rotina" : ""} ${std ? "+ Rastreio de ISTs" : ""} ${pregnancy ? "+ Beta HCG" : ""}.
+                
+                CATÁLOGO DE EXAMES DISPONÍVEIS NA CLÍNICA: 
+                [${activeExamsList}]
+
+                DIRETRIZES ESTRITAS DE SOLICITAÇÃO (LEIA COM ATENÇÃO):
+                1. SEJA ECONÔMICO: Solicite APENAS exames baseados em evidência para a idade e sexo.
+                2. EVITE EXCESSOS: Pacientes jovens e assintomáticos NÃO precisam de bateria completa (ex: TSH, Vitamina D, etc) a menos que haja indicação específica.
+                3. PROIBIÇÃO: NÃO invente nomes de exames. Use EXATAMENTE os nomes listados no CATÁLOGO acima.
+                4. REGRAS ESPECÍFICAS:
+                   - Mulheres > 40 anos: Adicionar Mamografia.
+                   - Homens > 50 anos: Adicionar PSA.
+                   - Sexualmente ativos pedindo rastreio: Adicionar HIV, Sífilis, Hepatites.
+                
+                Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
+            `;
             
             try {
-                // Chamada à API Gemini
+                // 5. Chamada à IA
                 const res = await callGemini(prompt, true);
-                deductCredits(80); // Desconta apenas se tiver sucesso
-                currentUser.lastGeneratedExams = res.exams || [];
-                // Renderiza Lista
-                const ul = document.getElementById('generated-exam-list'); ul.innerHTML = currentUser.lastGeneratedExams.map(e=>`<li class="py-1 border-b border-gray-100 last:border-0">${e}</li>`).join('');
+                
+                // Validação de segurança: Filtra alucinações (exames que não existem no catálogo)
+                const validExams = res.exams.filter(e => activeExamsList.includes(e));
+                
+                // Se a IA alucinou tudo, usa a resposta original, senão usa a filtrada
+                const finalExams = validExams.length ? validExams : res.exams;
+
+                deductCredits(80); 
+                currentUser.lastGeneratedExams = finalExams;
+                
+                // 6. Renderização na tela
+                const ul = document.getElementById('generated-exam-list'); 
+                ul.innerHTML = currentUser.lastGeneratedExams.map(e=>`<li class="py-1 border-b border-gray-100 last:border-0 flex items-center text-sm"><i class="fa-solid fa-check text-green-500 mr-2"></i>${e}</li>`).join('');
+                
                 document.getElementById('pre-results').classList.remove('hidden');
-                showToast("Guia gerada com sucesso!", 'success');
-            } catch(e) { showToast("Erro: "+e.message); } finally { btn.innerHTML = "Gerar Guia de Exame"; btn.disabled = false; }
+                showToast("Guia gerada com protocolos baseados em evidência!", 'success');
+            } catch(e) { 
+                console.error(e);
+                showToast("Erro ao gerar: " + e.message, "error"); 
+            } finally { 
+                btn.innerHTML = "<i class='fa-solid fa-file-medical mr-2'></i> Gerar Guia de Exame"; 
+                btn.disabled = false; 
+            }
         }
 
         // --- SEÇÃO: LÓGICA PÓS-CONSULTA (Processamento de Arquivos) ---
@@ -2134,109 +2175,138 @@
 
         // --- GERADOR DE PDF DO USUÁRIO ---
         async function downloadPDF(type) {
-            let list = [], title = "";
-            if(type==='PRE') { 
+            let list = [], mainTitle = "";
+            if(type === 'PRE') { 
                 list = currentUser.lastGeneratedExams; 
-                title="SOLICITAÇÃO DE EXAMES"; 
-            }
-            else if(type==='PENDING') { 
+                mainTitle = "SOLICITAÇÃO DE EXAMES"; 
+            } else if(type === 'PENDING') { 
                 list = missingExamsList; 
-                title="PENDÊNCIAS PRÉ-OPERATÓRIAS"; 
+                mainTitle = "PENDÊNCIAS PRÉ-OPERATÓRIAS"; 
             }
-            if(!list || !list.length) return showToast("Nada para gerar.");
+
+            if(!list || !list.length) return showToast("A lista de exames está vazia.", "error");
+
+            // 1. CLASSIFICAÇÃO DOS EXAMES (Separação por tipo)
+            const buckets = {
+                lab: { title: "EXAMES LABORATORIAIS", items: [] },
+                img: { title: "EXAMES DE IMAGEM", items: [] },
+                cardio: { title: "AVALIAÇÃO CARDIOLÓGICA", items: [] }
+            };
+
+            // Palavras-chave para identificar Cardio (O resto vem do SYSTEM_SETTINGS)
+            const cardioKeywords = ['Eletrocardiograma', 'Ecocardiograma', 'Teste Ergométrico', 'Holter', 'MAPA', 'Risco Cirúrgico'];
             
+            // Pega lista oficial de imagem para comparação
+            const imgOfficialList = SYSTEM_SETTINGS.exams.img.map(e => e.name);
+
+            list.forEach(exam => {
+                // Lógica de Separação
+                if (cardioKeywords.some(k => exam.includes(k))) {
+                    buckets.cardio.items.push(exam);
+                } else if (imgOfficialList.includes(exam) || exam.includes('Raio-X') || exam.includes('USG') || exam.includes('Tomografia') || exam.includes('Mamografia')) {
+                    buckets.img.items.push(exam);
+                } else {
+                    // Se não é cardio nem imagem, assume laboratório (sangue/urina)
+                    buckets.lab.items.push(exam);
+                }
+            });
+
+            // Filtra quais páginas realmente precisamos gerar (ignora categorias vazias)
+            const pagesToPrint = Object.values(buckets).filter(b => b.items.length > 0);
+
             const wrapper = document.getElementById('pdf-content-wrapper');
             const now = new Date().toLocaleDateString('pt-BR');
             const hash = Math.random().toString(36).substring(7).toUpperCase();
 
-            // SVG DA ASSINATURA (Estilo Caneta Azul) - Vetorizado para qualidade máxima
-            const signatureSVG = `<svg width="250" height="80" viewBox="0 0 250 80" xmlns="http://www.w3.org/2000/svg">
-                <path d="M20,50 Q60,10 100,50 T230,40" stroke="#000080" stroke-width="2" fill="none"/>
-                <path d="M30,45 Q50,60 70,30" stroke="#000080" stroke-width="1.5" fill="none"/> 
-                <text x="40" y="65" font-family="'Segoe Script', cursive" font-size="18" fill="#000080" font-weight="bold">Dr. Tiago F.</text>
-            </svg>`;
+            // SVG da Assinatura
+            const signatureSVG = `<svg width="250" height="80" viewBox="0 0 250 80" xmlns="http://www.w3.org/2000/svg"><path d="M20,50 Q60,10 100,50 T230,40" stroke="#000080" stroke-width="2" fill="none"/><path d="M30,45 Q50,60 70,30" stroke="#000080" stroke-width="1.5" fill="none"/><text x="40" y="65" font-family="'Segoe Script', cursive" font-size="18" fill="#000080" font-weight="bold">Dr. Tiago F.</text></svg>`;
 
-            wrapper.innerHTML = `
-                <div class="pdf-report" style="background: white; padding: 40px; font-family: 'Times New Roman', serif; color: #000; position: relative; height: 1123px; box-sizing: border-box;">
-                    
-                    <!-- CABEÇALHO -->
-                    <div style="text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 40px;">
-                        <h1 style="color: #1e3a8a; margin: 0; font-size: 26px; text-transform: uppercase; font-weight: bold;">Dr. Tiago Fernandes</h1>
-                        <p style="margin: 5px 0; font-size: 16px; font-weight: bold;">Médico - CRM 177.185</p>
-                        <p style="margin: 0; font-size: 12px; color: #666;">Sistema Integrado Conecta Saúde | Medicina Diagnóstica</p>
-                    </div>
+            showToast("Gerando PDF multipáginas...", "info");
 
-                    <!-- CONTEÚDO -->
-                    <div style="padding: 0 20px;">
-                        <div style="margin-bottom: 30px; font-size: 14px;">
-                            <p><strong>Paciente:</strong> ${currentUser.name}</p>
-                            <p><strong>CPF:</strong> ${currentUser.cpf || 'Não informado'}</p>
-                            <p><strong>Data da Solicitação:</strong> ${now}</p>
-                        </div>
-
-                        <h2 style="text-align: center; font-size: 20px; text-decoration: underline; margin-bottom: 30px; margin-top: 10px;">${title}</h2>
-                        
-                        <p style="margin-bottom: 15px; font-size: 16px;">Solicito a realização dos seguintes exames complementares:</p>
-
-                        <ul style="list-style-type: none; padding-left: 0; margin-top: 20px;">
-                            ${list.map(e => `<li style="margin-bottom: 8px; font-size: 15px; padding-left: 10px; border-left: 3px solid #1e3a8a; background: #f8fafc; padding: 5px 10px;">• ${e}</li>`).join('')}
-                        </ul>
-                    </div>
-
-                    <!-- RODAPÉ / ASSINATURA -->
-                    <div style="position: absolute; bottom: 100px; left: 0; right: 0; text-align: center;">
-                        <div style="display: inline-block; text-align: center;">
-                            <div style="margin-bottom: -10px;">${signatureSVG}</div>
-                            <div style="border-top: 1px solid #000; padding-top: 5px; width: 350px; margin: 0 auto;">
-                                <p style="margin: 0; font-weight: bold; font-size: 16px;">Dr. Tiago Fernandes</p>
-                                <p style="margin: 0; font-size: 14px;">CRM 177.185</p>
-                            </div>
-                        </div>
-                        <p style="margin-top: 30px; font-size: 10px; color: #999;">Documento assinado digitalmente conforme MP 2.200-2/2001. Hash de verificação: ${hash}</p>
-                        <p style="font-size: 10px; color: #999;">Este documento é válido em todo território nacional.</p>
-                    </div>
-                </div>`;
-            
             try {
-                // Wrapper precisa estar visível para o html2canvas renderizar (mas invisível para o user)
-                wrapper.style.position = 'absolute';
-                wrapper.style.top = '0';
-                wrapper.style.left = '0';
-                wrapper.style.opacity = '1'; 
-                wrapper.style.zIndex = '-9999'; 
-
-                await new Promise(r=>setTimeout(r, 800)); // Espera imagens carregarem
-
-                const canvas = await html2canvas(wrapper, { 
-                    scale: 2, 
-                    useCORS: true, 
-                    backgroundColor: "#ffffff",
-                    logging: false,
-                    windowWidth: 1200 
-                });
-                
+                // Prepara ambiente do PDF
                 const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF('p','mm','a4');
-                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgWidth = 210; // A4 largura total
                 
-                // Ajusta proporção da imagem para caber na A4
-                const imgWidth = 210;
-                const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                
-                pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-                pdf.save(`Pedido_Exames_${currentUser.name.split(' ')[0]}_${type}.pdf`);
+                // Configura wrapper para captura
+                wrapper.style.position = 'absolute';
+                wrapper.style.top = '0'; 
+                wrapper.style.left = '0';
+                wrapper.style.opacity = '1';
+                wrapper.style.zIndex = '-9999';
+
+                // LOOP DE GERAÇÃO DE PÁGINAS
+                for (let i = 0; i < pagesToPrint.length; i++) {
+                    const pageData = pagesToPrint[i];
+                    
+                    // Renderiza o HTML desta página específica
+                    wrapper.innerHTML = `
+                        <div class="pdf-report" style="background: white; padding: 40px; font-family: 'Times New Roman', serif; color: #000; height: 1123px; box-sizing: border-box; position: relative;">
+                            
+                            <!-- CABEÇALHO -->
+                            <div style="text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 15px; margin-bottom: 30px;">
+                                <h1 style="color: #1e3a8a; margin: 0; font-size: 24px; text-transform: uppercase;">Dr. Tiago Fernandes</h1>
+                                <p style="margin: 5px 0; font-size: 14px; font-weight: bold;">Médico - CRM 177.185</p>
+                                <p style="margin: 0; font-size: 10px; color: #666;">Conecta Saúde | Medicina Diagnóstica</p>
+                            </div>
+
+                            <!-- INFO PACIENTE -->
+                            <div style="margin-bottom: 20px; font-size: 14px; background: #f8fafc; padding: 10px; border-radius: 4px;">
+                                <p><strong>Paciente:</strong> ${currentUser.name}</p>
+                                <p><strong>CPF:</strong> ${currentUser.cpf || 'Não informado'} &nbsp;|&nbsp; <strong>Data:</strong> ${now}</p>
+                            </div>
+
+                            <!-- TÍTULO DA SEÇÃO (Categoria) -->
+                            <div style="background-color: #1e3a8a; color: white; padding: 8px 15px; margin-bottom: 20px; font-weight: bold; font-size: 16px; border-radius: 4px;">
+                                ${mainTitle} - ${pageData.title}
+                            </div>
+                            
+                            <ul style="list-style-type: none; padding-left: 0;">
+                                ${pageData.items.map(e => `
+                                    <li style="margin-bottom: 10px; font-size: 15px; padding-bottom: 5px; border-bottom: 1px dashed #ccc; display: flex; justify-content: space-between;">
+                                        <span>• ${e}</span>
+                                        <span style="font-size: 12px; color: #666;">[ ] Realizado</span>
+                                    </li>`).join('')}
+                            </ul>
+
+                            <!-- ASSINATURA (Rodapé) -->
+                            <div style="position: absolute; bottom: 80px; left: 0; right: 0; text-align: center;">
+                                <div style="display: inline-block; text-align: center;">
+                                    ${signatureSVG}
+                                    <div style="border-top: 1px solid #000; width: 300px; margin: 0 auto; padding-top: 5px;">
+                                        <p style="margin: 0; font-weight: bold;">Dr. Tiago Fernandes</p>
+                                    </div>
+                                </div>
+                                <p style="margin-top: 20px; font-size: 9px; color: #999;">Página ${i + 1} de ${pagesToPrint.length} • Hash: ${hash}</p>
+                            </div>
+                        </div>`;
+
+                    // Aguarda renderização de fontes/estilos
+                    await new Promise(r => setTimeout(r, 300));
+
+                    // Captura
+                    const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                    // Adiciona ao PDF
+                    if (i > 0) pdf.addPage(); // Nova página para seções subsequentes
+                    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+                }
+
+                pdf.save(`Pedido_Medico_${currentUser.name.split(' ')[0]}.pdf`);
                 showToast("PDF baixado com sucesso!", 'success');
+
             } catch(e) {
                 console.error(e);
                 showToast("Erro ao gerar PDF: " + e.message, "error");
             } finally {
-                // Limpa DOM
                 wrapper.style.opacity = '0';
                 wrapper.style.left = '-9999px';
                 wrapper.innerHTML = "";
             }
         }
-
         // Formatação visual de CPF
         function mascaraCPF(i) {
             let v=i.value.replace(/\D/g,""); 
