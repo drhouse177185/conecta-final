@@ -1657,7 +1657,7 @@
 
                 loadText.textContent = "Analisando...";
                 const prompt = `
-                    Você é um médico Senior do "Conecta Saúde".
+                    Você é um médico Experiente do "Conecta Saúde" (Identifique se somente como medico).
                     PACIENTE: ${currentUser.name} (Verifique se o nome no texto coincide).
                     TEXTO DOS EXAMES: "${combinedText.substring(0, 30000)}"
                     
@@ -1666,10 +1666,10 @@
                         "patient_name_found": "Nome achado no texto",
                         "summary": "Resumo acolhedor (Markdown). Comece com 'Olá [Nome]'.",
                         "diagnostic_possibilities": "Texto sobre hipóteses.",
-                        "findings": [ {"item": "Nome exame", "value": "Valor", "status": "Normal/Alterado", "explanation": "Explicação detalhada com linguagem simples"} ],
+                        "findings": [ {"item": "Nome exame", "value": "Valor", "status": "Normal/Alterado", "explanation": "Explicação com linguagem simples e acolhedora"} ],
                         "specialist": "Especialista recomendado (Recomende Medico de familia e comunidade para alteraçoes pequenas,e o especialista adequado para alteracoes complexas: Cardiologia, Endocrinologia e etc)",
                         "recommended_procedures": ["Exame 1", "Exame 2"]
-                         ao final Recomende a necessidade de retorno com o Medico de familia/especialista conforme alteracões (se alteracoes graves 1 a 3 meses conforme diretrizes, se nao graves em 1 ano para menores de 60 anos e 6 meses para maiores de 60 anos)
+                        "follow_up" "recomende o retorno breve em casos mais grave e retorno semestral ou anual para casos brandos (mesmo que o paciente ainda nao tenha ido ao especialista)"
                     }
                 `;
 
