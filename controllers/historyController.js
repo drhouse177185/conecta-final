@@ -1,8 +1,10 @@
-const { sequelize } = require('./models'); // Ajuste o import conforme sua estrutura
+// --- CORREÇÃO: Caminho correto para sair da pasta 'controllers' e achar 'models'
+const { sequelize } = require('../models'); 
 const { QueryTypes } = require('sequelize');
 
 exports.saveHistory = async (req, res) => {
-    const t = await sequelize.transaction(); // Inicia transação segura
+    // ... (o restante do código permanece igual)
+    const t = await sequelize.transaction(); 
     
     try {
         const { userId, serviceSlug, cost, details } = req.body;
@@ -15,7 +17,7 @@ exports.saveHistory = async (req, res) => {
         
         if (!service) throw new Error("Serviço não encontrado");
 
-        // 2. Descontar Créditos do Usuário (Check de Saldo)
+        // 2. Descontar Créditos do Usuário
         const [userCheck] = await sequelize.query(
             `UPDATE usuarios SET creditos = creditos - :cost WHERE id = :uid AND creditos >= :cost RETURNING creditos`,
             { replacements: { cost, uid: userId }, type: QueryTypes.UPDATE, transaction: t }
@@ -25,7 +27,7 @@ exports.saveHistory = async (req, res) => {
             throw new Error("Saldo insuficiente no servidor.");
         }
 
-        // 3. Criar Histórico de Uso (Recibo)
+        // 3. Criar Histórico de Uso
         const [history] = await sequelize.query(
             `INSERT INTO historico_usos (usuario_id, servico_id, custo_cobrado, status, dados_resultado) 
              VALUES (:uid, :sid, :cost, 'Concluido', :rawJson) RETURNING id`,
@@ -34,7 +36,7 @@ exports.saveHistory = async (req, res) => {
                     uid: userId, 
                     sid: service.id, 
                     cost, 
-                    rawJson: JSON.stringify(details) // Backup bruto
+                    rawJson: JSON.stringify(details) 
                 }, 
                 type: QueryTypes.INSERT, 
                 transaction: t 
@@ -43,7 +45,7 @@ exports.saveHistory = async (req, res) => {
         
         const historyId = history[0].id;
 
-        // 4. Salvar nas Tabelas Específicas (Switch por tipo de serviço)
+        // 4. Salvar nas Tabelas Específicas
         if (serviceSlug === 'pre_consulta') {
             await sequelize.query(
                 `INSERT INTO detalhes_pre_consulta (historico_uso_id, comorbidades, exames_solicitados, rotina, dst, gravidez)
@@ -51,7 +53,7 @@ exports.saveHistory = async (req, res) => {
                 {
                     replacements: {
                         hid: historyId,
-                        comorbs: details.comorbidades || [], // Postgres aceita array direto se configurado, ou string '{a,b}'
+                        comorbs: details.comorbidades || [], 
                         exams: details.exames || [],
                         rot: details.flags.rotina,
                         dst: details.flags.dst,
@@ -63,7 +65,6 @@ exports.saveHistory = async (req, res) => {
             );
         }
         else if (serviceSlug === 'pos_consulta') {
-            // Salva Cabeçalho
             const [posDetails] = await sequelize.query(
                 `INSERT INTO detalhes_pos_consulta (historico_uso_id, resumo_clinico, hipoteses_diagnosticas, especialista_indicado, conduta_sugerida, procedimentos_sugeridos)
                  VALUES (:hid, :resumo, :hipoteses, :especialista, :followup, :procs) RETURNING id`,
@@ -81,7 +82,6 @@ exports.saveHistory = async (req, res) => {
                 }
             );
             
-            // Salva Itens (Loop para salvar cada exame individualmente)
             const posId = posDetails[0].id;
             if (details.aiResult.findings && details.aiResult.findings.length > 0) {
                 for (const item of details.aiResult.findings) {
@@ -104,7 +104,6 @@ exports.saveHistory = async (req, res) => {
             }
         }
         else if (serviceSlug === 'pre_operatorio') {
-            // Verifica se está liberado (Sem pendências)
             const isCleared = (!details.aiResult.missing_exams || details.aiResult.missing_exams.length === 0);
             
             await sequelize.query(
@@ -126,10 +125,10 @@ exports.saveHistory = async (req, res) => {
         }
 
         await t.commit();
-        res.json({ success: true, newCredits: userCheck[0].creditos[0] }); // Retorna novo saldo para atualizar UI
+        res.json({ success: true, newCredits: userCheck[0].creditos }); 
 
     } catch (error) {
-        await t.rollback();
+        if (t) await t.rollback();
         console.error("Erro ao salvar histórico:", error);
         res.status(500).json({ message: "Erro ao salvar dados", error: error.message });
     }
