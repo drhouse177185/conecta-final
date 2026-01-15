@@ -1,5 +1,5 @@
-// --- CORREÇÃO: Removemos as chaves { } para importar a instância corretamente ---
-const sequelize = require('../models'); 
+// --- CORREÇÃO: Voltamos com as chaves { } para extrair a instância corretamente ---
+const { sequelize } = require('../models'); 
 const { QueryTypes } = require('sequelize');
 
 exports.saveHistory = async (req, res) => {

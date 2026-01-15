@@ -1,4 +1,5 @@
-const sequelize = require('../models');
+// --- CORREÇÃO: Voltamos com as chaves { } pois o módulo exporta um objeto container ---
+const { sequelize } = require('../models');
 
 exports.installDatabase = async (req, res) => {
     try {
@@ -78,14 +79,13 @@ exports.installDatabase = async (req, res) => {
             );
         `);
 
-        // Garante que a coluna status_liberacao exista (caso a tabela já existisse antes)
+        // Garante que a coluna status_liberacao exista
         try {
             await sequelize.query(`ALTER TABLE analises_pre_operatorias ADD COLUMN IF NOT EXISTS status_liberacao BOOLEAN DEFAULT FALSE;`);
         } catch(e) { console.log("Coluna status_liberacao já existe ou erro ignorável."); }
 
 
         // 2. População do Catálogo (Seed)
-        // Primeiro verificamos se já tem dados para não duplicar
         const [results] = await sequelize.query(`SELECT count(*) as total FROM catalogo_servicos`);
         
         if (results[0].total == 0) {
