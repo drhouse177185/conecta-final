@@ -1,9 +1,9 @@
-// --- CORREÇÃO: Caminho correto para sair da pasta 'controllers' e achar 'models'
-const { sequelize } = require('../models'); 
+// --- CORREÇÃO: Removemos as chaves { } para importar a instância corretamente ---
+const sequelize = require('../models'); 
 const { QueryTypes } = require('sequelize');
 
 exports.saveHistory = async (req, res) => {
-    // ... (o restante do código permanece igual)
+    // Inicia transação segura
     const t = await sequelize.transaction(); 
     
     try {

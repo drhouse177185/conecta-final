@@ -1,4 +1,4 @@
-const { sequelize } = require('../models');
+const sequelize = require('../models');
 
 exports.installDatabase = async (req, res) => {
     try {
