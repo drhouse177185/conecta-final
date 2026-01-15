@@ -1,11 +1,30 @@
-// --- CORREÇÃO: Voltamos com as chaves { } pois o módulo exporta um objeto container ---
+// --- CORREÇÃO: Garante a criação da tabela 'usuarios' antes das dependentes ---
 const { sequelize } = require('../models');
 
 exports.installDatabase = async (req, res) => {
     try {
         console.log("--- INICIANDO INSTALAÇÃO DO BANCO DE DADOS ---");
 
-        // 1. Criação das Tabelas (se não existirem)
+        // 0. CRIAÇÃO DA TABELA MÃE 'USUARIOS' (CRUCIAL PARA EVITAR ERRO DE RELAÇÃO)
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id SERIAL PRIMARY KEY,
+                nome VARCHAR(150) NOT NULL,
+                email VARCHAR(150) NOT NULL UNIQUE,
+                senha VARCHAR(255) NOT NULL,
+                cpf VARCHAR(14),
+                idade INT CHECK (idade >= 0),
+                sexo CHAR(1) CHECK (sexo IN ('M', 'F')),
+                creditos INT NOT NULL DEFAULT 0 CHECK (creditos >= 0),
+                role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+                blocked_features JSONB DEFAULT '{"preConsulta": false, "preOp": false}',
+                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log("✅ Tabela 'usuarios' verificada/criada.");
+
+        // 1. Criação das Tabelas de Serviço e Histórico
         await sequelize.query(`
             CREATE TABLE IF NOT EXISTS catalogo_servicos (
                 id SERIAL PRIMARY KEY,
@@ -65,7 +84,6 @@ exports.installDatabase = async (req, res) => {
             );
         `);
         
-        // Verifica se a tabela analises_pre_operatorias existe, senão cria
         await sequelize.query(`
             CREATE TABLE IF NOT EXISTS analises_pre_operatorias (
                 id SERIAL PRIMARY KEY,
