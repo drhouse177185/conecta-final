@@ -1638,7 +1638,8 @@
                 4. REGRAS ESPECÍFICAS:
                    - Mulheres > 40 anos: Adicionar Mamografia.
                    - Homens > 50 anos: Adicionar PSA.
-                   - Sexualmente ativos pedindo rastreio: Adicionar HIV, Sífilis, Hepatites.
+                   - Leve em consideração as comorbidades listadas pelo usuario.
+                 
                 
                 Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
             `;
@@ -1697,19 +1698,29 @@
                 if(!combinedText) throw new Error("Não foi possível ler os arquivos.");
 
                 loadText.textContent = "Analisando...";
+                
+                // --- PROMPT REFINADO COM LÓGICA DE RETORNO (MEDICO FAMILIA vs ESPECIALISTA) ---
                 const prompt = `
-                    Você é um médico Experiente do "Conecta Saúde".
-                    PACIENTE: ${currentUser.name} (Verifique se o nome no texto coincide).
+                    Atue como um Médico Clínico Geral Sênior do "Conecta Saúde".
+                    PACIENTE: ${currentUser.name}.
                     TEXTO DOS EXAMES: "${combinedText.substring(0, 30000)}"
                     
+                    DIRETRIZES DE CONDUTA (IMPORTANTE):
+                    1. Se as alterações forem LEVES (ex: colesterol levemente alto, glicemia limítrofe, falta de vitamina), o caso deve ser manejado na Atenção Primária.
+                    2. Se as alterações forem GRAVES/ALARMANTES (ex: troponina alta, suspeita de câncer, lesão aguda), encaminhe para Especialista Focal.
+
                     RESPONDA APENAS NESTE JSON:
                     {
                         "patient_name_found": "Nome achado no texto",
-                        "summary": "Resumo acolhedor (Markdown). Comece com 'Olá [Nome]'.",
-                        "diagnostic_possibilities": "Texto sobre hipóteses.",
-                        "findings": [ {"item": "Nome exame", "value": "Valor", "status": "Normal/Alterado", "explanation": "Explicação simples"} ],
-                        "specialist": "Especialista recomendado (APENAS A ESPECIALIDADE, ex: Cardiologia, Endocrinologia)",
-                        "recommended_procedures": ["Exame 1", "Exame 2"]
+                        "summary": "Resumo clínico acolhedor (Markdown). Comece com 'Olá [Nome]'.",
+                        "diagnostic_possibilities": "Texto explicativo sobre as hipóteses diagnósticas.",
+                        "findings": [ {"item": "Nome exame", "value": "Valor", "status": "Normal/Alterado", "explanation": "Explicação para leigos"} ],
+                        
+                        "specialist": "Especialista recomendado (Se for leve, preencha 'Médico de Família'. Se for grave, preencha a especialidade: Cardiologia, etc)",
+                        
+                        "recommended_procedures": ["Exame 1", "Exame 2"],
+                        
+                        "follow_up": "Texto curto de orientação. REGRA OBRIGATÓRIA: Se LEVE: escrever 'Acompanhamento com Médico de Família em 1 ano'. Se GRAVE: escrever 'Busca por Especialista'."
                     }
                 `;
 
@@ -1718,7 +1729,8 @@
                 deductCredits(10); // Desconta
 
                 // Integração com Encaminhamento Automático AME
-                if (data.specialist && data.specialist !== "Nenhum" && data.specialist !== "Clínico Geral") {
+                // Só encaminha para fila de regulação se NÃO for Médico de Família (ou seja, se for grave)
+                if (data.specialist && data.specialist !== "Nenhum" && data.specialist !== "Médico de Família" && data.specialist !== "Clínico Geral") {
                     referralQueue.push({
                         patientName: currentUser.name,
                         cpf: currentUser.cpf || "Não informado",
@@ -1729,7 +1741,7 @@
                 }
 
                 renderDiagnosticResults(data);
-                showToast("Análise concluída!", 'success');
+                showToast("Análise clínica concluída!", 'success');
 
             } catch(e) {
                 errorBox.classList.remove('hidden');
@@ -1739,7 +1751,6 @@
                 loading.classList.add('hidden');
             }
         }
-
         function renderDiagnosticResults(data) {
             document.getElementById('ai-summary').innerHTML = data.summary ? data.summary.replace(/\n/g, '<br>') : "";
             
