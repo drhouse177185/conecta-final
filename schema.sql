@@ -159,3 +159,51 @@ INSERT INTO catalogo_servicos (slug, nome, descricao, preco_creditos) VALUES
 -- FROM analises_pre_operatorias apo
 -- JOIN historico_usos h ON apo.historico_uso_id = h.id
 -- JOIN usuarios u ON h.usuario_id = u.id;
+
+ ... (Mantenha o código anterior)
+
+-- -----------------------------------------------------------------------------
+-- 6. DETALHES DA PRÉ-CONSULTA (NOVA)
+-- Armazena o input (comorbidades) e o output (exames solicitados) estruturados.
+-- -----------------------------------------------------------------------------
+CREATE TABLE detalhes_pre_consulta (
+    id SERIAL PRIMARY KEY,
+    historico_uso_id INT NOT NULL REFERENCES historico_usos(id) ON DELETE CASCADE,
+    comorbidades TEXT[], -- Array: ['HAS', 'Diabetes']
+    exames_solicitados TEXT[], -- Array: ['Hemograma', 'Glicemia']
+    rotina BOOLEAN DEFAULT FALSE,
+    dst BOOLEAN DEFAULT FALSE,
+    gravidez BOOLEAN DEFAULT FALSE
+);
+
+-- -----------------------------------------------------------------------------
+-- 7. DETALHES DA PÓS-CONSULTA (NOVA)
+-- Armazena o cabeçalho da análise da IA.
+-- -----------------------------------------------------------------------------
+CREATE TABLE detalhes_pos_consulta (
+    id SERIAL PRIMARY KEY,
+    historico_uso_id INT NOT NULL REFERENCES historico_usos(id) ON DELETE CASCADE,
+    resumo_clinico TEXT,
+    hipoteses_diagnosticas TEXT,
+    especialista_indicado VARCHAR(100),
+    conduta_sugerida TEXT, -- O campo follow_up
+    procedimentos_sugeridos TEXT[] -- Array de exames sugeridos
+);
+
+-- -----------------------------------------------------------------------------
+-- 8. ITENS DE RESULTADOS DE EXAMES (NOVA - DATA SCIENCE)
+-- Cada linha de exame lida vira um registro aqui.
+-- Ex: Glicemia | 99 mg/dL | Normal
+-- -----------------------------------------------------------------------------
+CREATE TABLE resultados_exames_itens (
+    id SERIAL PRIMARY KEY,
+    detalhe_pos_consulta_id INT NOT NULL REFERENCES detalhes_pos_consulta(id) ON DELETE CASCADE,
+    nome_exame VARCHAR(150),
+    valor_encontrado VARCHAR(100),
+    status_exame VARCHAR(50), -- 'Normal', 'Alterado', 'Crítico'
+    expliacao_ia TEXT
+);
+
+-- OBS: A tabela 'analises_pre_operatorias' já existe no seu schema original 
+-- e atende bem, mas certifique-se que ela tem a coluna 'status_liberacao'.
+ALTER TABLE analises_pre_operatorias ADD COLUMN IF NOT EXISTS status_liberacao BOOLEAN DEFAULT FALSE;
