@@ -1850,12 +1850,56 @@
             }
         }
 
-        // --- UTILITÁRIOS GERAIS ---
+       // --- UTILITÁRIOS GERAIS (FUNÇÃO DE UPLOAD ATUALIZADA - MÚLTIPLOS ARQUIVOS) ---
         async function handleFiles(files, pageId) {
+            // Página 1: Pós-consulta (Processamento imediato, mantém comportamento original)
             if(pageId === 1) return processDiagnosisFiles(files);
+            
+            // Página 2: Pré-operatório (Acúmulo de arquivos com limite de 10)
             if(pageId === 2) {
-                currentPreOpFiles = Array.from(files);
-                document.getElementById('file-count-2').textContent = `${files.length} arquivo(s)`;
+                const newFiles = Array.from(files);
+                
+                // 1. Validação de Limite (Máximo 10 arquivos)
+                const totalTentativa = currentPreOpFiles.length + newFiles.length;
+                
+                if (totalTentativa > 10) {
+                    showToast(`Limite de 10 arquivos! Adicionamos apenas o que coube.`, "error");
+                    // Calcula quantos espaços restam
+                    const slotsLivres = 10 - currentPreOpFiles.length;
+                    
+                    if(slotsLivres > 0) {
+                        // Adiciona apenas os que cabem para completar 10
+                        const arquivosQueCabem = newFiles.slice(0, slotsLivres);
+                        currentPreOpFiles = [...currentPreOpFiles, ...arquivosQueCabem];
+                    }
+                } else {
+                    // 2. Acumula os novos arquivos sem apagar os anteriores
+                    currentPreOpFiles = [...currentPreOpFiles, ...newFiles];
+                }
+
+                // 3. Atualiza Interface (Mostra contagem e lista breve de nomes)
+                const count = currentPreOpFiles.length;
+                // Pega os nomes para mostrar ao usuário o que já foi enviado
+                const fileNames = currentPreOpFiles.map(f => f.name).join(", ");
+                // Corta o texto se ficar muito grande para não quebrar o layout
+                const displayNames = fileNames.length > 50 ? fileNames.substring(0, 50) + "..." : fileNames;
+
+                const displayEl = document.getElementById('file-count-2');
+                // HTML rico para feedback visual claro
+                displayEl.innerHTML = `
+                    <span class="font-bold ${count === 10 ? 'text-red-600' : 'text-blue-800'}">
+                        ${count} / 10 Arquivos prontos
+                    </span>
+                    <br>
+                    <span class="text-[10px] text-slate-500 italic leading-tight block mt-1">
+                        ${displayNames || "Aguardando..."}
+                    </span>
+                    ${count > 0 ? `<button onclick="event.stopPropagation(); currentPreOpFiles=[]; document.getElementById('file-count-2').textContent='Nenhum arquivo'; showToast('Lista limpa!', 'info');" class="text-[10px] text-red-500 underline mt-1 hover:text-red-700">Limpar lista</button>` : ''}
+                `;
+                
+                if(newFiles.length > 0) {
+                    showToast(`+${newFiles.length} arquivo(s) adicionado(s).`, "success");
+                }
             }
         }
 
