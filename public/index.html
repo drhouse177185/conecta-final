@@ -1737,28 +1737,106 @@ function getActiveExamsString() {
             const btn = document.getElementById('btn-confirm-data'); btn.innerHTML = "<i class='fa-solid fa-check mr-1'></i> Confirmado"; btn.classList.replace('bg-blue-600', 'bg-green-600');
         }
         
-         async function generateRationalExams() {
+    
+      async function generateRationalExams() {
             // 1. Verificações de bloqueio e saldo
-            if (currentUser.blockedFeatures && currentUser.blockedFeatures.preConsulta) {
-                return showToast("Funcionalidade de Pré-Consulta bloqueada pelo administrador.", "error");
+            if (currentUser.blocked_features && currentUser.blocked_features.preConsulta) {
+                return showToast("Funcionalidade bloqueada pelo administrador.", "error");
             }
             if (!hasCredits(80)) return;
 
-            // 2. Feedback visual no botão
             const btn = document.getElementById('btn-gen-exams'); 
-            btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin mr-2'></i> Analisando..."; 
+            btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin mr-2'></i> IA Analisando..."; 
             btn.disabled = true;
             
-            // 3. Coleta de dados do formulário
-            const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c=>c.value);
-            const other = document.getElementById('pre-other-comorb').value; if(other) comorbs.push(other);
-            const routine = document.getElementById('check-routine').checked;
-            const std = document.getElementById('check-std').checked;
-            const pregnancy = document.getElementById('check-pregnancy').checked;
+            try {
+                // 3. Coleta de dados
+                const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c=>c.value);
+                const other = document.getElementById('pre-other-comorb').value; if(other) comorbs.push(other);
+                const routine = document.getElementById('check-routine').checked;
+                const std = document.getElementById('check-std').checked;
+                const pregnancy = document.getElementById('check-pregnancy').checked;
 
-            // 4. Pega a lista oficial de exames ativos (O "Menu")
-            const activeExamsList = getActiveExamsString();
+                // 4. Lista ATIVA (O que a IA pode pedir)
+                // Pega os objetos reais do SYSTEM_SETTINGS para validação posterior
+                const activeLabItems = SYSTEM_SETTINGS.exams.lab.filter(e => e.ativo);
+                const activeImgItems = SYSTEM_SETTINGS.exams.img.filter(e => e.ativo);
+                const activeNamesList = [...activeLabItems, ...activeImgItems].map(e => e.nome);
+                
+                // String para o prompt
+                const menuString = activeNamesList.join(", ");
 
+                if (!menuString) throw new Error("Nenhum exame disponível no catálogo (Contate o Admin).");
+
+                const prompt = `
+                    Atue como Médico Auditor (Protocolo Choosing Wisely).
+                    PACIENTE: ${currentUser.name}, ${currentUser.age} anos, Sexo: ${currentUser.sex}.
+                    HISTÓRICO: ${comorbs.join(", ") || "Hígido"}.
+                    PEDIDO: ${routine ? "Check-up" : ""} ${std ? "+ DSTs" : ""} ${pregnancy ? "+ Gravidez" : ""}.
+                    
+                    MENU DE EXAMES DISPONÍVEIS (USE APENAS ESTES):
+                    [${menuString}]
+
+                    REGRAS:
+                    1. Escolha APENAS exames necessários para o perfil.
+                    2. Retorne um JSON estrito: { "exams": ["Nome Exame 1", "Nome Exame 2"] }
+                `;
+                
+                // 5. Chamada à IA
+                const res = await callGemini(prompt, true);
+                
+                // --- CORREÇÃO DA VALIDAÇÃO (O PULO DO GATO) ---
+                // Verifica se o exame da IA "bate" com algum do catálogo, mesmo parcialmente
+                const validExams = [];
+                
+                if (res.exams && Array.isArray(res.exams)) {
+                    res.exams.forEach(aiExam => {
+                        // Tenta encontrar um match no catálogo ativo
+                        const match = activeNamesList.find(activeName => 
+                            // Verifica igualdade ou se um contém o outro (case insensitive)
+                            activeName.toLowerCase() === aiExam.toLowerCase() ||
+                            activeName.toLowerCase().includes(aiExam.toLowerCase()) ||
+                            aiExam.toLowerCase().includes(activeName.toLowerCase())
+                        );
+
+                        if (match) {
+                            validExams.push(match); // Usa o nome oficial do catálogo
+                        }
+                    });
+                }
+                
+                // Remove duplicatas
+                const finalExams = [...new Set(validExams)];
+
+                if (finalExams.length === 0) {
+                    throw new Error("A IA não sugeriu exames compatíveis com o catálogo ativo.");
+                }
+
+                deductCredits(80); 
+                currentUser.lastGeneratedExams = finalExams;
+
+                // Salva no Backend
+                saveHistoryToBackend('pre_consulta', 80, {
+                    comorbidades: comorbs,
+                    exames: finalExams,
+                    flags: { rotina: routine, dst: std, gravidez: pregnancy }
+                });
+                
+                // 6. Renderização
+                const ul = document.getElementById('generated-exam-list'); 
+                ul.innerHTML = finalExams.map(e=>`<li class="py-1 border-b border-gray-100 last:border-0 flex items-center text-sm"><i class="fa-solid fa-check text-green-500 mr-2"></i>${e}</li>`).join('');
+                
+                document.getElementById('pre-results').classList.remove('hidden');
+                showToast("Guia gerada com sucesso!", 'success');
+
+            } catch(e) { 
+                console.error(e);
+                showToast(e.message, "error"); 
+            } finally { 
+                btn.innerHTML = "<i class='fa-solid fa-file-medical mr-2'></i> Gerar Guia de Exame"; 
+                btn.disabled = false; 
+            }
+        
             // --- AQUI ESTÁ A ATUALIZAÇÃO DO PROMPT ---
             const prompt = `
                 Atue como um Médico Auditor rigoroso seguindo o protocolo internacional 'Choosing Wisely'.
@@ -1781,6 +1859,7 @@ function getActiveExamsString() {
                    - Mulheres > 40 anos: Adicionar Mamografia.
                    - Homens > 50 anos: Adicionar PSA.
                    - Leve em consideração as comorbidades listadas pelo usuario.
+                   - Sorologia somente se Marcado acima pelo Usuario.
                  
                 
                 Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
