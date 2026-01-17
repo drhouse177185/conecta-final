@@ -1848,46 +1848,8 @@ function getActiveExamsString() {
                 btn.innerHTML = "<i class='fa-solid fa-file-medical mr-2'></i> Gerar Guia de Exame"; 
                 btn.disabled = false; 
             }
-        
-            
-            
-            try {
-                // 5. Chamada à IA
-                const res = await callGemini(prompt, true);
-                
-                // Validação de segurança: Filtra alucinações (exames que não existem no catálogo)
-                const validExams = res.exams.filter(e => activeExamsList.includes(e));
-                
-                // Se a IA alucinou tudo, usa a resposta original, senão usa a filtrada
-                const finalExams = validExams.length ? validExams : res.exams;
-
-                deductCredits(80); 
-                currentUser.lastGeneratedExams = finalExams;
-
-                  // SALVAR
-                saveHistoryToBackend('pre_consulta', 80, {
-                    comorbidades: comorbs,
-                    exames: res.exams || [],
-                    flags: { rotina: routine, dst: std, gravidez: pregnancy }
-                });
-
-                
-                // 6. Renderização na tela
-                const ul = document.getElementById('generated-exam-list'); 
-                ul.innerHTML = currentUser.lastGeneratedExams.map(e=>`<li class="py-1 border-b border-gray-100 last:border-0 flex items-center text-sm"><i class="fa-solid fa-check text-green-500 mr-2"></i>${e}</li>`).join('');
-                
-                document.getElementById('pre-results').classList.remove('hidden');
-                showToast("Guia gerada com protocolos baseados em evidência!", 'success');
-            } catch(e) { 
-                console.error(e);
-                showToast("Erro ao gerar: " + e.message, "error"); 
-            } finally { 
-                btn.innerHTML = "<i class='fa-solid fa-file-medical mr-2'></i> Gerar Guia de Exame"; 
-                btn.disabled = false; 
-            }
         }
-
-        // --- SEÇÃO: LÓGICA PÓS-CONSULTA (Processamento de Arquivos) ---
+            // --- SEÇÃO: LÓGICA PÓS-CONSULTA (Processamento de Arquivos) ---
         async function processDiagnosisFiles(files) {
             // Check de Creditos
             if (!hasCredits(10)) return;
