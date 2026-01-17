@@ -1859,8 +1859,9 @@ function getActiveExamsString() {
                 4. REGRAS ESPECÍFICAS:
                    - Mulheres > 40 anos: Adicionar Mamografia.
                    - Homens > 50 anos: Adicionar PSA.
-                   - Solicite exames conforme a comorbidades listadas pelo usuario.
-                   - Sorologias Só podem ser solicitadas mediante a marcaçao previa pelo usuario.
+                5. REGRA DE SOROLOGIA:
+                       - Se "Incluir Sorologias" for "NÃO": PROIBIDO incluir HIV, VDRL, HBsAg, Anti-HCV ou quaisquer testes virais, a menos que o histórico mencione explicitamente "exposição de risco" ou "DST".
+                       - Se "Incluir Sorologias" for "SIM": Inclua o painel básico de rastreio (HIV, Sífilis, Hepatites B e C).
                  
                 
                 Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
