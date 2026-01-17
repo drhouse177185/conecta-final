@@ -17,52 +17,45 @@ const sequelize = new Sequelize(
     }
 );
 
-async function repair() {
+async function forceRepair() {
     try {
         await sequelize.authenticate();
-        console.log('🔧 Conectado para reparo...');
+        console.log('🔧 Conectado. Iniciando verificação de colunas...');
 
-        // --- CORREÇÃO 1: SENHA (Mantida por segurança) ---
-        console.log('PASSO 1: Verificando coluna password...');
-        await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS "password" VARCHAR(255);`);
-        await sequelize.query(`UPDATE users SET "password" = '$2a$10$EpWxTcR/I7l9i.O1qO7.BO/Zq.JpL/m9.8p/h.0q.1r.2s.3t' WHERE "password" IS NULL;`);
-        await sequelize.query(`ALTER TABLE users ALTER COLUMN "password" SET NOT NULL;`);
+        const tableName = 'users';
 
-        // --- CORREÇÃO 2: DATAS (O Erro Atual) ---
-        console.log('PASSO 2: Verificando createdAt e updatedAt...');
+        // 1. Adiciona blocked_features se não existir
+        try {
+            await sequelize.query(`
+                ALTER TABLE "${tableName}" 
+                ADD COLUMN IF NOT EXISTS "blocked_features" JSONB DEFAULT '{"preConsulta": false, "preOp": false}';
+            `);
+            console.log('✅ Coluna blocked_features verificada/criada.');
+        } catch (e) {
+            console.log(`⚠️ Erro ao criar blocked_features (pode já existir): ${e.message}`);
+        }
+
+        // 2. Adiciona credits se não existir
+        try {
+            await sequelize.query(`
+                ALTER TABLE "${tableName}" 
+                ADD COLUMN IF NOT EXISTS "credits" INTEGER DEFAULT 100;
+            `);
+            console.log('✅ Coluna credits verificada/criada.');
+        } catch (e) {
+            console.log(`⚠️ Erro ao criar credits: ${e.message}`);
+        }
+
+        // 3. Garante que os dados existentes não sejam nulos
+        await sequelize.query(`UPDATE "${tableName}" SET "blocked_features" = '{"preConsulta": false, "preOp": false}' WHERE "blocked_features" IS NULL`);
+        await sequelize.query(`UPDATE "${tableName}" SET "credits" = 100 WHERE "credits" IS NULL`);
         
-        // Cria colunas de data permitindo valor padrão (CURRENT_TIMESTAMP)
-        // Isso preenche automaticamente as linhas existentes com a data/hora de agora
-        await sequelize.query(`
-            ALTER TABLE users 
-            ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
-        `);
-        
-        await sequelize.query(`
-            ALTER TABLE users 
-            ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
-        `);
-
-        // Garante que não haja nulos (backfill para segurança extra)
-        await sequelize.query(`UPDATE users SET "createdAt" = CURRENT_TIMESTAMP WHERE "createdAt" IS NULL;`);
-        await sequelize.query(`UPDATE users SET "updatedAt" = CURRENT_TIMESTAMP WHERE "updatedAt" IS NULL;`);
-
-        // Aplica a restrição de NOT NULL agora que todos têm dados
-        console.log('PASSO 3: Aplicando restrições de data...');
-        await sequelize.query(`ALTER TABLE users ALTER COLUMN "createdAt" SET NOT NULL;`);
-        await sequelize.query(`ALTER TABLE users ALTER COLUMN "updatedAt" SET NOT NULL;`);
-
-        console.log('✅ Banco de dados reparado com sucesso!');
+        console.log('🏁 Reparo concluído. Dados normalizados.');
         process.exit(0);
     } catch (error) {
-        // Ignora erro se a coluna já for NOT NULL (significa que já foi corrigido antes)
-        if (error.original && error.original.code === '42701') {
-             console.log('⚠️ Aviso: Algumas colunas já existiam, mas o processo continuou.');
-        } else {
-             console.error('❌ Erro no reparo:', error.message);
-        }
+        console.error('❌ Erro fatal:', error);
         process.exit(1);
     }
 }
 
-repair();
+forceRepair();
