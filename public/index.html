@@ -1746,7 +1746,7 @@ function getActiveExamsString() {
             if (!hasCredits(80)) return;
 
             const btn = document.getElementById('btn-gen-exams'); 
-            btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin mr-2'></i> IA Analisando..."; 
+            btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin mr-2'></i> Gerando..."; 
             btn.disabled = true;
             
             try {
@@ -1858,8 +1858,8 @@ function getActiveExamsString() {
                 4. REGRAS ESPECÍFICAS:
                    - Mulheres > 40 anos: Adicionar Mamografia.
                    - Homens > 50 anos: Adicionar PSA.
-                   - Leve em consideração as comorbidades listadas pelo usuario.
-                   - Sorologia somente se Marcado acima pelo Usuario.
+                   - Solicite exames conforme a comorbidades listadas pelo usuario.
+                   - Solicite Sorologia somente se o usuario marcar a opção acima.
                  
                 
                 Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
@@ -2003,7 +2003,7 @@ function getActiveExamsString() {
             }
 
             const spec = data.specialist || "Clínico Geral";
-            document.getElementById('specialist-text').textContent = `Ideal conversar com: ${spec}.`;
+            document.getElementById('specialist-text').textContent = `Sugiro seguimento com: ${spec}.`;
             document.getElementById('action-btn').href = `https://www.google.com/maps/search/${encodeURIComponent(spec + " perto de mim")}`;
             
             const procList = document.getElementById('procedures-list');
