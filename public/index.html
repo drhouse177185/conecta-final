@@ -2479,6 +2479,149 @@
                 console.warn('Lucide icons not loaded');
             }
         });
+
+
+
+let dbUsersList = [];
+
+// 2. NOVA: Função para carregar usuários do Backend (Substitui o uso de inMemoryUsers)
+async function fetchAdminUsers() {
+    try {
+        const btn = document.querySelector('input[placeholder="Buscar paciente..."]');
+        if(btn) btn.disabled = true; // Trava busca enquanto carrega
+        
+        const res = await fetch(`${BACKEND_URL}/api/admin/users`);
+        if (!res.ok) throw new Error("Erro ao buscar usuários");
+        
+        dbUsersList = await res.json(); // Atualiza a lista global
+        renderUserList(); // Renderiza a tabela
+        
+        if(btn) btn.disabled = false;
+    } catch (error) {
+        console.error(error);
+        showToast("Erro ao carregar lista de pacientes.", "error");
+    }
+}
+
+// 3. ATUALIZADA: Renderiza a lista usando os dados reais
+function renderUserList(filter = '') {
+    const container = document.getElementById('admin-users-list');
+    
+    // Filtra na lista carregada do banco (dbUsersList) em vez de inMemoryUsers
+    const users = dbUsersList.filter(u => 
+        (u.name.toLowerCase().includes(filter.toLowerCase()) || 
+         u.email.toLowerCase().includes(filter.toLowerCase()))
+    );
+    
+    container.innerHTML = users.map(user => {
+        // Mapeia o snake_case do banco (blocked_features) para o uso no JS
+        const blocks = user.blocked_features || { preConsulta: false, preOp: false };
+        
+        return `
+        <tr class="hover:bg-gray-50 transition">
+            <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                ${user.name}
+                <div class="text-xs text-gray-400 font-normal">${user.email}</div>
+                <div class="text-xs text-gray-400 font-normal">CPF: ${user.cpf || 'N/A'}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-center">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.creditos > 20 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                    ${user.creditos} Créditos
+                </span>
+            </td>
+            <td class="px-6 py-4 text-center">
+                 <button onclick="adminRecharge('${user.email}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1 px-3 rounded shadow transition transform active:scale-95">
+                    <i class="fa-solid fa-bolt mr-1"></i> +100
+                </button>
+            </td>
+            <td class="px-6 py-4 text-center">
+                <!-- Switch Pré-Consulta -->
+                <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                    <input type="checkbox" id="toggle-pre-${user.id}" 
+                           class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" 
+                           ${blocks.preConsulta ? 'checked' : ''} 
+                           onchange="toggleUserBlock('${user.email}', 'preConsulta', this)"/>
+                    <label for="toggle-pre-${user.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
+                </div>
+            </td>
+            <td class="px-6 py-4 text-center">
+                <!-- Switch Pré-Op -->
+                <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                    <input type="checkbox" id="toggle-op-${user.id}" 
+                           class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" 
+                           ${blocks.preOp ? 'checked' : ''} 
+                           onchange="toggleUserBlock('${user.email}', 'preOp', this)"/>
+                    <label for="toggle-op-${user.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
+                </div>
+            </td>
+        </tr>
+    `}).join('');
+}
+
+// 4. ATUALIZADA: Função que realmente BLOQUEIA no banco de dados (A Mágica)
+async function toggleUserBlock(email, feature, checkboxElement) {
+    const isBlocked = checkboxElement.checked; // Estado atual do checkbox
+    
+    // Feedback visual imediato (Otimista)
+    showToast(`Atualizando permissão...`, 'info');
+
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/admin/toggle_block`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ email, feature, isBlocked })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            // Atualiza a lista local para refletir a mudança sem precisar recarregar tudo
+            const userIndex = dbUsersList.findIndex(u => u.email === email);
+            if(userIndex > -1) {
+                if(!dbUsersList[userIndex].blocked_features) dbUsersList[userIndex].blocked_features = {};
+                dbUsersList[userIndex].blocked_features[feature] = isBlocked;
+            }
+            
+            showToast(`Permissão ${isBlocked ? 'BLOQUEADA' : 'LIBERADA'} com sucesso!`, "success");
+        } else {
+            throw new Error(data.message || "Erro ao atualizar");
+        }
+    } catch (error) {
+        // Reverte o checkbox em caso de erro
+        checkboxElement.checked = !isBlocked;
+        showToast("Falha ao salvar no banco de dados.", "error");
+        console.error(error);
+    }
+}
+
+// 5. ATUALIZADA: Recarga Real
+async function adminRecharge(email) {
+    if(!confirm(`Confirma adicionar 100 créditos para ${email}?`)) return;
+
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/admin/recharge`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ email, amount: 100 })
+        });
+        
+        if(res.ok) {
+            showToast("Recarga realizada!", "success");
+            fetchAdminUsers(); // Recarrega a lista para mostrar saldo novo
+        } else {
+            showToast("Erro na recarga.", "error");
+        }
+    } catch(e) { console.error(e); }
+}
+
+// 6. Atualize a função renderAdminPanel para chamar o fetch
+function renderAdminPanel() {
+    renderReferralDashboard();
+    fetchAdminUsers(); // <--- MUDANÇA IMPORTANTE AQUI
+    renderExamList('lab', 'adm-list-lab');
+    renderExamList('img', 'adm-list-img');
+    renderSurgeryList();
+}
     </script>
 </body>
 </html>
