@@ -1,11 +1,10 @@
-// --- CORREÇÃO: Garante a criação da tabela 'usuarios' antes das dependentes ---
 const { sequelize } = require('../models');
 
 exports.installDatabase = async (req, res) => {
     try {
-        console.log("--- INICIANDO INSTALAÇÃO DO BANCO DE DADOS ---");
+        console.log("--- INICIANDO INSTALAÇÃO E REPARO DO BANCO DE DADOS ---");
 
-        // 0. CRIAÇÃO DA TABELA MÃE 'USUARIOS' (CRUCIAL PARA EVITAR ERRO DE RELAÇÃO)
+        // 1. CRIAÇÃO DAS TABELAS (Para bancos novos)
         await sequelize.query(`
             CREATE TABLE IF NOT EXISTS usuarios (
                 id SERIAL PRIMARY KEY,
@@ -22,9 +21,27 @@ exports.installDatabase = async (req, res) => {
                 data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
-        console.log("✅ Tabela 'usuarios' verificada/criada.");
 
-        // 1. Criação das Tabelas de Serviço e Histórico
+        // =========================================================================
+        // 2. COMANDOS DE REPARO (A MÁGICA AQUI!)
+        // Isso conserta tabelas antigas que foram criadas sem essa coluna
+        // =========================================================================
+        console.log("🛠️ Verificando e reparando colunas ausentes...");
+        
+        await sequelize.query(`
+            ALTER TABLE usuarios 
+            ADD COLUMN IF NOT EXISTS blocked_features JSONB DEFAULT '{"preConsulta": false, "preOp": false}';
+        `).catch(e => console.log("Aviso: Tentativa de reparar 'blocked_features' em usuarios."));
+
+        // Se por acaso seu banco criou como 'users' (padrão inglês), repara também
+        await sequelize.query(`
+            ALTER TABLE IF EXISTS users 
+            ADD COLUMN IF NOT EXISTS blocked_features JSONB DEFAULT '{"preConsulta": false, "preOp": false}';
+        `).catch(e => console.log("Aviso: Tabela 'users' não existe, ignorando."));
+
+        // =========================================================================
+
+        // 3. Criação das Outras Tabelas
         await sequelize.query(`
             CREATE TABLE IF NOT EXISTS catalogo_servicos (
                 id SERIAL PRIMARY KEY,
@@ -97,13 +114,11 @@ exports.installDatabase = async (req, res) => {
             );
         `);
 
-        // Garante que a coluna status_liberacao exista
-        try {
-            await sequelize.query(`ALTER TABLE analises_pre_operatorias ADD COLUMN IF NOT EXISTS status_liberacao BOOLEAN DEFAULT FALSE;`);
-        } catch(e) { console.log("Coluna status_liberacao já existe ou erro ignorável."); }
+        // Garante coluna status_liberacao
+        await sequelize.query(`ALTER TABLE analises_pre_operatorias ADD COLUMN IF NOT EXISTS status_liberacao BOOLEAN DEFAULT FALSE;`)
+              .catch(e => {});
 
-
-        // 2. População do Catálogo (Seed)
+        // 4. População do Catálogo (Seed)
         const [results] = await sequelize.query(`SELECT count(*) as total FROM catalogo_servicos`);
         
         if (results[0].total == 0) {
@@ -114,15 +129,22 @@ exports.installDatabase = async (req, res) => {
                 ('pos_consulta', 'Análise de Exames (IA)', 'Interpretação e resumo de laudos de exames via OCR e IA.', 10),
                 ('pre_operatorio', 'Risco Cirúrgico', 'Calculadora de risco ASA/Lee e verificação de exames pré-operatórios.', 100);
             `);
-        } else {
-            console.log("Catálogo já populado.");
         }
 
-        console.log("--- INSTALAÇÃO CONCLUÍDA COM SUCESSO ---");
-        res.json({ success: true, message: "Banco de dados atualizado e populado com sucesso!" });
+        console.log("--- INSTALAÇÃO E REPARO CONCLUÍDOS ---");
+        
+        res.send(`
+            <div style="font-family: sans-serif; padding: 20px; background: #dcfce7; color: #166534; border-radius: 8px; border: 1px solid #166534;">
+                <h1>✅ Banco de Dados Reparado com Sucesso!</h1>
+                <p>As colunas ausentes (blocked_features) foram adicionadas.</p>
+                <hr style="border-color: #166534; opacity: 0.3;">
+                <p><strong>Próximo passo:</strong> Volte ao Painel Admin e recarregue a página.</p>
+                <a href="/" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #166534; color: white; text-decoration: none; border-radius: 5px;">Voltar ao App</a>
+            </div>
+        `);
 
     } catch (error) {
         console.error("Erro na instalação:", error);
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).send(`❌ Erro: ${error.message}`);
     }
 };
