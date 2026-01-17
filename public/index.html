@@ -1860,7 +1860,7 @@ function getActiveExamsString() {
                    - Mulheres > 40 anos: Adicionar Mamografia.
                    - Homens > 50 anos: Adicionar PSA.
                    - Solicite exames conforme a comorbidades listadas pelo usuario.
-                   - Solicite Sorologia somente se o usuario marcar a opção acima.
+                   - Sorologias Só podem ser solicitadas mediante a marcaçao previa pelo usuario.
                  
                 
                 Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
@@ -2019,72 +2019,87 @@ function getActiveExamsString() {
             lucide.createIcons();
         }
 
-        // --- SEÇÃO: LÓGICA PRÉ-OPERATÓRIO ---
+        // --- LÓGICA PRÉ-OPERATÓRIO
         async function processPreOp() {
-            // 1. Verificações de Segurança e Bloqueio
-            if (currentUser.blockedFeatures && currentUser.blockedFeatures.preOp) {
-                return showToast("Funcionalidade de Pré-Operatório bloqueada pelo administrador.", "error");
+            // 1. Normalização de segurança (Garante que lemos as permissões corretamente)
+            const safeUser = normalizeUser(currentUser); 
+            
+            // 2. Verificações de Bloqueio e Saldo
+            if (safeUser.blockedFeatures && safeUser.blockedFeatures.preOp) {
+                return showToast("Funcionalidade bloqueada pelo administrador.", "error");
             }
             if (!hasCredits(100)) return;
 
-            const surgeryId = document.getElementById('surgery-type').value;
-            const surgeryObj = SYSTEM_SETTINGS.surgeries.find(s => s.id === surgeryId);
-            
-            if (!surgeryObj || !surgeryObj.active) {
-                return showToast(`A cirurgia "${surgeryObj ? surgeryObj.name : 'Selecionada'}" está temporariamente indisponível.`, "error");
+            // 3. Captura e Conversão do ID (O FIX PRINCIPAL)
+            const surgerySelect = document.getElementById('surgery-type');
+            const surgeryId = parseInt(surgerySelect.value); // Converte "1" (string) para 1 (int)
+
+            if (isNaN(surgeryId)) {
+                return showToast("Por favor, selecione uma cirurgia válida na lista.", "error");
             }
 
-            // 2. UI Loading
+            const surgeryObj = SYSTEM_SETTINGS.surgeries.find(s => s.id === surgeryId);
+            
+            // Validação robusta do objeto cirurgia
+            if (!surgeryObj || !surgeryObj.ativo) {
+                return showToast(`A cirurgia selecionada não está disponível no momento.`, "error");
+            }
+
+            // 4. Feedback Visual (Loading)
+            const btn = document.querySelector('#preop-form button[type="submit"]');
+            const originalBtnText = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Analisando Risco...`;
+            btn.disabled = true;
+
             document.getElementById('loading-2').classList.remove('hidden');
             document.getElementById('results-2').classList.add('hidden');
             
-            // --- CORREÇÃO 1: Captura as comorbidades da aba anterior ---
-            // Mesmo estando na aba 2, lemos os checkboxes da aba 0 para ter o histórico completo
-            const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c => c.value);
-            const otherComorb = document.getElementById('pre-other-comorb').value;
-            if(otherComorb) comorbs.push(otherComorb);
-            
-            const patientHistory = comorbs.length > 0 ? comorbs.join(", ") : "Nenhuma comorbidade declarada na anamnese.";
+            try {
+                // 5. Coleta de Contexto (Histórico + Arquivos)
+                const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c => c.value);
+                const otherComorb = document.getElementById('pre-other-comorb').value;
+                if(otherComorb) comorbs.push(otherComorb);
+                
+                const patientHistory = comorbs.length > 0 ? comorbs.join(", ") : "Paciente nega comorbidades (Hígido).";
 
-            // --- CORREÇÃO 2: Prepara texto e metadados dos arquivos ---
-            let examsText = "";
-            let fileNames = []; // Lista para guardar os nomes dos arquivos (Dica para a IA)
+                // Leitura dos Arquivos (OCR)
+                let examsText = "";
+                let fileNames = []; 
 
-            if(currentPreOpFiles.length) {
-                for(let f of currentPreOpFiles) {
-                    fileNames.push(f.name); // Guarda o nome (ex: "meu_ecg.jpg")
-                    examsText += `\n--- ARQUIVO: ${f.name} ---\n`; // Cabeçalho no texto
-                    
-                    if(f.type === 'application/pdf') {
-                        examsText += await extractPdfText(f);
-                    } else {
-                        // Tenta ler texto, mas se for gráfico (ECG), o nome do arquivo salva
-                        examsText += await extractImageText(f);
+                if(currentPreOpFiles.length) {
+                    for(let f of currentPreOpFiles) {
+                        fileNames.push(f.name);
+                        examsText += `\n--- ARQUIVO: ${f.name} ---\n`;
+                        if(f.type === 'application/pdf') {
+                            examsText += await extractPdfText(f);
+                        } else {
+                            examsText += await extractImageText(f);
+                        }
                     }
+                } else {
+                    examsText = "Nenhum arquivo de exame foi anexado (Avaliar apenas com base na anamnese clínica).";
                 }
-            } else {
-                examsText = "Nenhum arquivo de exame foi anexado.";
-            }
 
-            // 3. Prompt de Engenharia Aprimorado
-            const prompt = `
-                Atue como um Anestesiologista Sênior avaliando risco cirúrgico.
-                
-                DADOS DO PACIENTE:
-                - Nome: ${currentUser.name}
-                - Idade: ${currentUser.age} anos
-                - Sexo: ${currentUser.sex}
-                - CIRURGIA PROPOSTA: ${surgeryObj.name}
-                
-                HISTÓRICO DE SAÚDE (Anamnese):
-                ${patientHistory}
-                
-                ARQUIVOS ANEXADOS (Nomes):
-                ${fileNames.join(", ")}
-                
-                CONTEÚDO EXTRAÍDO DOS EXAMES (OCR):
-                ${examsText.substring(0, 15000)}
+                // 6. Prompt de Engenharia para o Gemini (Risco Cirúrgico)
+                const prompt = `
+                    Atue como um Anestesiologista Sênior e Cardiologista avaliando risco perioperatório.
+                    
+                    DADOS DO PACIENTE:
+                    - Nome: ${safeUser.name}
+                    - Idade: ${safeUser.age} anos
+                    - Sexo: ${safeUser.sex}
+                    
+                    CIRURGIA PROPOSTA: ${surgeryObj.nome} (Porte estimado pelo tipo).
+                    
+                    HISTÓRICO CLÍNICO (Anamnese):
+                    ${patientHistory}
+                    
+                    EXAMES COMPLEMENTARES (OCR Extraído):
+                    ${examsText.substring(0, 20000)}
 
+                    TAREFA:
+                    Calcule o Risco Cirúrgico (ASA e Índice de Lee) e determine se o paciente está APTO ou se faltam exames.
+                    
                 INSTRUÇÕES CRÍTICAS PARA A IA:
                 1. O paciente possui o histórico listado acima (HAS, Diabetes, etc). USE ISSO para calcular o ASA, mesmo que não haja exame específico confirmando.
                 2. Analise os Exames enviados,seja PDF, Jpeg ou qualquer outro formato, analise as imangens,e laudos antes de formular a sua resposta.
@@ -2100,33 +2115,33 @@ function getActiveExamsString() {
                     "speech_text": "Texto curto e acolhedor para falar ao paciente.",
                     "missing_exams": [] 
                 }
-                (Se "missing_exams" estiver vazio [], significa que o paciente está liberado).
-            `;
+                (Se "missing_exams" estiver vazio [], significa que o paciente está liberado).`;
 
-            try {
+                // 7. Chamada à API
                 const data = await callGemini(prompt, true);
 
-         saveHistoryToBackend('pre_operatorio', 100, {
-                    surgeryName: surgeryObj.name,
+                // 8. Salvar Histórico
+                saveHistoryToBackend('pre_operatorio', 100, {
+                    surgeryName: surgeryObj.nome,
                     aiResult: data
                 });
                 
                 deductCredits(100);
 
+                // 9. Renderizar Resultados
                 document.getElementById('res-asa').textContent = data.asa || "-";
                 document.getElementById('res-lee').textContent = data.lee || "-";
-                document.getElementById('ai-content-2').innerHTML = data.html_report || "Sem relatório.";
+                document.getElementById('ai-content-2').innerHTML = data.html_report || "<p>Sem relatório gerado.</p>";
                 
                 const speechText = data.speech_text || "Avaliação concluída.";
                 document.getElementById('btn-speak-preop').onclick = () => speakText(speechText, true);
 
-                // Lógica de Pendências
+                // Lógica de Pendências (Exibe caixa vermelha se faltar exame)
                 missingExamsList = data.missing_exams || [];
                 const pendingContainer = document.getElementById('pending-exams-container');
                 
                 if (missingExamsList.length > 0) {
                     pendingContainer.classList.remove('hidden');
-                    // Atualiza a lista visual de pendências se quiser (opcional)
                 } else {
                     pendingContainer.classList.add('hidden');
                 }
@@ -2136,9 +2151,11 @@ function getActiveExamsString() {
 
             } catch(e) { 
                 console.error(e);
-                showToast("Erro na análise: " + e.message); 
+                showToast("Erro na análise: " + e.message, "error"); 
             } finally { 
                 document.getElementById('loading-2').classList.add('hidden'); 
+                btn.innerHTML = originalBtnText;
+                btn.disabled = false;
             }
         }
 
@@ -2838,6 +2855,29 @@ function renderAdminPanel() {
     renderExamList('img', 'adm-list-img');
     renderSurgeryList();
 }
+
+// =========================================================
+        // FUNÇÃO DE NORMALIZAÇÃO DE DADOS (CRUCIAL PARA O FIX)
+        // =========================================================
+        function normalizeUser(u) {
+            if (!u) return null;
+            
+            // Detecta se veio blockedFeatures (novo) ou blocked_features (banco legado)
+            // e unifica tudo em 'blockedFeatures' (CamelCase)
+            // Se nenhum existir, cria um objeto padrão seguro.
+            const rawBlocks = u.blockedFeatures || u.blocked_features || {};
+            
+            // Reconstrói o objeto garantindo booleanos
+            u.blockedFeatures = {
+                preConsulta: !!rawBlocks.preConsulta, // !! converte para true/false real
+                preOp: !!rawBlocks.preOp
+            };
+            
+            // Opcional: Remove a propriedade antiga snake_case para evitar confusão futura
+            // delete u.blocked_features; 
+            
+            return u;
+        }
 
     </script>
 </body>
