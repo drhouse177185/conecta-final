@@ -216,7 +216,7 @@
             <h1 class="splash-title">CONECTA SAÚDE</h1>
             <p class="splash-subtitle">Sistema Integrado de Diagnóstico</p>
             <div class="splash-loader"><div class="splash-bar"></div></div>
-            <p class="text-slate-400 text-xs mt-2 font-mono">Restaurando versão 2.5...</p>
+            <p class="text-slate-400 text-xs mt-2 font-mono"> versão 1.0...</p>
         </div>
     </div>
 
@@ -1770,18 +1770,29 @@ function getActiveExamsString() {
                 if (!menuString) throw new Error("Nenhum exame disponível no catálogo (Contate o Admin).");
 
                 const prompt = `
-                    Atue como Médico Auditor (Protocolo Choosing Wisely).
+                    Atue como um Médico Auditor rigoroso seguindo o protocolo internacional 'Choosing Wisely'.
                     PACIENTE: ${currentUser.name}, ${currentUser.age} anos, Sexo: ${currentUser.sex}.
                     HISTÓRICO: ${comorbs.join(", ") || "Hígido"}.
                     PEDIDO: ${routine ? "Check-up" : ""} ${std ? "+ DSTs" : ""} ${pregnancy ? "+ Gravidez" : ""}.
                     
-                    MENU DE EXAMES DISPONÍVEIS (USE APENAS ESTES):
+                    MENU DE EXAMES DISPONÍVEIS
                     [${menuString}]
 
-                    REGRAS:
-                    1. Escolha APENAS exames necessários para o perfil.
-                    2. Retorne um JSON estrito: { "exams": ["Nome Exame 1", "Nome Exame 2"] }
-                `;
+                DIRETRIZES ESTRITAS DE SOLICITAÇÃO (LEIA COM ATENÇÃO):
+                1. SEJA ECONÔMICO: Solicite APENAS exames baseados em evidência para a idade e sexo.
+                2. EVITE EXCESSOS: Pacientes jovens e assintomáticos NÃO precisam de bateria completa (ex: TSH, Vitamina D, etc) a menos que haja indicação específica.
+                3. PROIBIÇÃO: NÃO invente nomes de exames. Use EXATAMENTE os nomes listados no CATÁLOGO acima.
+                4. REGRAS ESPECÍFICAS:
+                   - Mulheres > 40 anos: Adicionar Mamografia.
+                   - Homens > 50 anos: Adicionar PSA.
+                   - Leve em consideração as comorbidades do paciente caso seja necessario algum Exame nao listado em nossa lista previa.
+                5. REGRA DE SOROLOGIA:
+                       - Se "Incluir Sorologias" pelo usuario for "NÃO": PROIBIDO incluir HIV, VDRL, HBsAg, Anti-HCV ou quaisquer testes virais, a menos que o histórico mencione explicitamente "exposição de risco" ou "DST".
+                       - Se "Incluir Sorologias" pelo usuario for "SIM": Inclua o painel básico de rastreio (HIV, Sífilis, Hepatites B e C).
+                 
+                
+                Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
+            `;
                 
                 // 5. Chamada à IA
                 const res = await callGemini(prompt, true);
@@ -1838,34 +1849,7 @@ function getActiveExamsString() {
                 btn.disabled = false; 
             }
         
-            // --- AQUI ESTÁ A ATUALIZAÇÃO DO PROMPT ---
-            const prompt = `
-                Atue como um Médico Auditor rigoroso seguindo o protocolo internacional 'Choosing Wisely'.
-                
-                PERFIL DO PACIENTE:
-                - Nome: ${currentUser.name}
-                - Idade: ${currentUser.age} anos
-                - Sexo: ${currentUser.sex}
-                - Histórico Clínico: ${comorbs.length ? comorbs.join(", ") : "Paciente hígido (sem comorbidades relatadas)"}.
-                - Solicitação: ${routine ? "Check-up de Rotina" : ""} ${std ? "+ Rastreio de ISTs" : ""} ${pregnancy ? "+ Beta HCG" : ""}.
-                
-                CATÁLOGO DE EXAMES DISPONÍVEIS NA CLÍNICA: 
-                [${activeExamsList}]
-
-                DIRETRIZES ESTRITAS DE SOLICITAÇÃO (LEIA COM ATENÇÃO):
-                1. SEJA ECONÔMICO: Solicite APENAS exames baseados em evidência para a idade e sexo.
-                2. EVITE EXCESSOS: Pacientes jovens e assintomáticos NÃO precisam de bateria completa (ex: TSH, Vitamina D, etc) a menos que haja indicação específica.
-                3. PROIBIÇÃO: NÃO invente nomes de exames. Use EXATAMENTE os nomes listados no CATÁLOGO acima.
-                4. REGRAS ESPECÍFICAS:
-                   - Mulheres > 40 anos: Adicionar Mamografia.
-                   - Homens > 50 anos: Adicionar PSA.
-                5. REGRA DE SOROLOGIA:
-                       - Se "Incluir Sorologias" for "NÃO": PROIBIDO incluir HIV, VDRL, HBsAg, Anti-HCV ou quaisquer testes virais, a menos que o histórico mencione explicitamente "exposição de risco" ou "DST".
-                       - Se "Incluir Sorologias" for "SIM": Inclua o painel básico de rastreio (HIV, Sífilis, Hepatites B e C).
-                 
-                
-                Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
-            `;
+            
             
             try {
                 // 5. Chamada à IA
