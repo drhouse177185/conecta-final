@@ -892,63 +892,56 @@
                 // Não mostra alert para não travar a experiência, apenas loga
             }
         }
-
-        // --- SEÇÃO: CONFIGURAÇÃO GLOBAL DO SISTEMA (Base de Conhecimento) ---
-        // Este objeto simula um banco de dados de configurações de exames e cirurgias
+// --- SEÇÃO: CONFIGURAÇÃO GLOBAL DO SISTEMA (CATÁLOGO DINÂMICO) ---
+        // 1. Variável Global agora começa vazia e será preenchida pelo backend
         let SYSTEM_SETTINGS = {
-            exams: {
-                lab: [
-                    {id: 'hemograma', name: 'Hemograma Completo', active: true},
-                    {id: 'glicemia', name: 'Glicemia em Jejum', active: true},
-                    {id: 'colesterol', name: 'Colesterol Total e Frações', active: true},
-                    {id: 'triglicerideos', name: 'Triglicerídeos', active: true},
-                    {id: 'creatinina', name: 'Creatinina', active: true},
-                    {id: 'ureia', name: 'Ureia', active: true},
-                    {id: 'tgo', name: 'TGO (AST)', active: true},
-                    {id: 'tgp', name: 'TGP (ALT)', active: true},
-                    {id: 'tsh', name: 'TSH', active: true},
-                    {id: 't4', name: 'T4 Livre', active: true},
-                    {id: 'urina1', name: 'Urina Tipo 1 (EAS)', active: true},
-                    {id: 'urocultura', name: 'Urocultura', active: true},
-                    {id: 'parasitologico', name: 'Parasitológico de Fezes', active: true},
-                    {id: 'hba1c', name: 'Hemoglobina Glicada', active: true},
-                    {id: 'psa', name: 'PSA Total', active: true},
-                    {id: 'acido_urico', name: 'Ácido Úrico', active: true},
-                    {id: 'pcr', name: 'Proteína C Reativa', active: true},
-                    {id: 'vhs', name: 'VHS', active: true},
-                    {id: 'ferritina', name: 'Ferritina', active: true},
-                    {id: 'vit_d', name: 'Vitamina D', active: true},
-                    {id: 'hiv', name: 'Sorologia HIV 1 e 2', active: true},
-                    {id: 'vdrl', name: 'VDRL (Sífilis)', active: true},
-                    {id: 'hep_b', name: 'HbsAg (Hepatite B)', active: true},
-                    {id: 'hep_c', name: 'Anti-HCV (Hepatite C)', active: true},
-                    {id: 'beta_hcg', name: 'Beta HCG (Gravidez)', active: true}
-                ],
-                img: [
-                    {id: 'rx_torax', name: 'Raio-X de Tórax', active: true},
-                    {id: 'usg_abd', name: 'USG Abdome Total', active: true},
-                    {id: 'mamografia', name: 'Mamografia Bilateral', active: true},
-                    {id: 'ecg', name: 'Eletrocardiograma', active: true},
-                    {id: 'usg_tv', name: 'USG Transvaginal', active: true},
-                    {id: 'usg_prostata', name: 'USG Próstata (Via Abdominal)', active: true},
-                    {id: 'tc_cranio', name: 'Tomografia de Crânio', active: true},
-                    {id: 'tc_torax', name: 'Tomografia de Tórax', active: true},
-                    {id: 'usg_mamas', name: 'USG de Mamas', active: true},
-                    {id: 'usg_obstetrica', name: 'USG Obstétrica', active: true},
-                    {id: 'rx_seios', name: 'Raio-X Seios da Face', active: true},
-                    {id: 'eco', name: 'Ecocardiograma', active: true}
-                ]
-            },
-            surgeries: [
-                {id: 'catarata', name: 'Correção de Catarata', active: true},
-                {id: 'hemorroidectomia', name: 'Hemorroidectomia', active: true},
-                {id: 'laqueadura', name: 'Laqueadura Tubária', active: true},
-                {id: 'hernia', name: 'Hernioplastia', active: true},
-                {id: 'colecistectomia', name: 'Colecistectomia', active: true},
-                {id: 'histerectomia', name: 'Histerectomia Total', active: true},
-                {id: 'outra', name: 'Outra (Médio Porte)', active: true}
-            ]
+            exams: { lab: [], img: [] },
+            surgeries: []
         };
+
+        // 2. NOVA: Função para carregar catálogo do banco
+        async function fetchCatalog() {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/catalog`);
+                if(res.ok) {
+                    const data = await res.json();
+                    
+                    // Atualiza a memória global do frontend
+                    SYSTEM_SETTINGS = data;
+                    
+                    // Se o usuário estiver na tela, atualiza as listas visuais
+                    if(currentUser && currentUser.role === 'admin') {
+                        renderExamList('lab', 'adm-list-lab');
+                        renderExamList('img', 'adm-list-img');
+                        renderSurgeryList();
+                    } else if (currentUser) {
+                        // Se for usuário comum, atualiza o dropdown de cirurgias
+                        populateSurgeryDropdown();
+                    }
+                    
+                    console.log("✅ Catálogo sincronizado com o servidor.");
+                }
+            } catch(e) {
+                console.error("Erro ao baixar catálogo:", e);
+            }
+        }
+
+        // 3. ATUALIZADA: Popula o Select de Cirurgias (Apenas ATIVAS)
+        function populateSurgeryDropdown() {
+            const surgerySelect = document.getElementById('surgery-type');
+            if(surgerySelect && SYSTEM_SETTINGS.surgeries.length) {
+                // FILTRO CRUCIAL: Só mostra o que tiver active = true (vindo do banco)
+                const activeSurgeries = SYSTEM_SETTINGS.surgeries.filter(s => s.ativo);
+                
+                if (activeSurgeries.length === 0) {
+                    surgerySelect.innerHTML = '<option disabled selected>Nenhuma cirurgia disponível</option>';
+                } else {
+                    surgerySelect.innerHTML = activeSurgeries.map(s => 
+                        `<option value="${s.id}">${s.nome}</option>`
+                    ).join('');
+                }
+            }
+        }
 
         // --- FILA DE ENCAMINHAMENTOS (MOCK INICIAL) ---
         // Dados fictícios para popular o Dashboard AME inicial
@@ -1035,54 +1028,40 @@
             }
         };
 
-        // Função principal que configura a UI baseada no usuário logado
+    // 4. ATUALIZADA: Inicialização do App
+        // Adicione a chamada do fetchCatalog na inicialização do App
         function initializeApp(user) {
-            currentUser = user;
+            // Define usuário global
+            currentUser = user; 
             
-            // Lógica de Recarga Automática (SUS Racional)
-            if(user.role !== 'admin') checkAutoRecharge(user);
-
-            document.getElementById('auth-view').classList.add('hidden');
-            
-            // Roteamento condicional: Admin vs User
-            if(user.role === 'admin') {
-                document.getElementById('admin-view').classList.remove('hidden');
-                renderAdminPanel();
-            } else {
-                document.getElementById('main-app').classList.remove('hidden');
-                document.getElementById('user-display').textContent = `Olá, ${user.name}`;
-                updateCreditDisplay();
-
-                // Preenche campos automáticos com dados do usuário
-                safeSetValue('pre-name', user.name); safeSetValue('pre-age', user.age); safeSetValue('op-name', user.name);
+            // Busca dados atualizados do banco ANTES de mostrar a tela
+            fetchCatalog().then(() => {
                 
-                // Popula select de cirurgias
-                const surgerySelect = document.getElementById('surgery-type');
-                if(surgerySelect && SYSTEM_SETTINGS && SYSTEM_SETTINGS.surgeries) {
-                    surgerySelect.innerHTML = SYSTEM_SETTINGS.surgeries.map(s => 
-                        `<option value="${s.id}">${s.name}</option>`
-                    ).join('');
-                }
+                // Lógica de Roteamento (Admin vs User)
+                if(user.role === 'admin') {
+                    document.getElementById('admin-view').classList.remove('hidden');
+                    renderAdminPanel();
+                } else {
+                    document.getElementById('main-app').classList.remove('hidden');
+                    document.getElementById('user-display').textContent = `Olá, ${user.name}`;
+                    updateCreditDisplay();
+                    safeSetValue('pre-name', user.name); safeSetValue('pre-age', user.age); safeSetValue('op-name', user.name);
+                    
+                    populateSurgeryDropdown(); // <--- CHAMA AQUI COM DADOS DO BANCO
 
-                // Lógica específica por sexo
-                const lblPreg = document.getElementById('lbl-pregnancy');
-                if(lblPreg) {
-                    if (user.sex === 'F') {
-                        lblPreg.classList.remove('hidden');
-                    } else {
-                        lblPreg.classList.add('hidden');
-                        const checkPreg = document.getElementById('check-pregnancy');
-                        if(checkPreg) checkPreg.checked = false;
+                    // Lógica de sexo, etc... (Mantém o original)
+                    const lblPreg = document.getElementById('lbl-pregnancy');
+                    if(lblPreg) {
+                        if (user.sex === 'F') lblPreg.classList.remove('hidden');
+                        else { lblPreg.classList.add('hidden'); const ck = document.getElementById('check-pregnancy'); if(ck) ck.checked = false; }
                     }
                 }
-
-                // Reseta estados visuais
-                const s2 = document.getElementById('pre-step-2');
-                if(s2) s2.classList.add('hidden', 'opacity-50', 'pointer-events-none');
-                
-                const preRes = document.getElementById('pre-results');
-                if(preRes) preRes.classList.add('hidden');
-            }
+            });
+            
+            document.getElementById('auth-view').classList.add('hidden');
+            
+            // Lógica de Recarga Automática (Se existir)
+            if(typeof checkAutoRecharge === 'function' && user.role !== 'admin') checkAutoRecharge(user);
         }
 
         // --- FUNÇÕES DE LOGIN ---
@@ -1530,25 +1509,88 @@
             }
         }
 
-        // Renderiza listas de exames no Admin
+        // 5. FUNÇÕES DO ADMIN (Atualizadas para chamar API)
+
         function renderExamList(type, elementId) {
             const container = document.getElementById(elementId);
-            container.innerHTML = SYSTEM_SETTINGS.exams[type].map((exam, index) => `
+            const list = SYSTEM_SETTINGS.exams[type]; // Pega da memória atualizada
+            
+            if(!list) return;
+
+            container.innerHTML = list.map((exam) => `
                 <label class="flex items-center space-x-2 p-2 border rounded hover:bg-slate-50 cursor-pointer bg-white">
-                    <input type="checkbox" onchange="toggleExam('${type}', ${index})" ${exam.active ? 'checked' : ''} class="exam-checkbox rounded text-blue-600 focus:ring-blue-500 h-4 w-4">
-                    <span class="exam-label-text text-sm text-slate-700 select-none">${exam.name}</span>
+                    <input type="checkbox" onchange="toggleItemGlobal(${exam.id}, '${type}', this)" 
+                        ${exam.ativo ? 'checked' : ''} 
+                        class="exam-checkbox rounded text-blue-600 focus:ring-blue-500 h-4 w-4">
+                    <span class="exam-label-text text-sm text-slate-700 select-none ${!exam.ativo ? 'line-through text-red-400' : ''}">${exam.nome}</span>
                 </label>
             `).join('');
         }
 
         function renderSurgeryList() {
             const container = document.getElementById('adm-list-surg');
-            container.innerHTML = SYSTEM_SETTINGS.surgeries.map((surg, index) => `
+            const list = SYSTEM_SETTINGS.surgeries;
+
+            if(!list) return;
+
+            container.innerHTML = list.map((surg) => `
                 <label class="flex items-center space-x-2 p-2 border rounded hover:bg-indigo-50 cursor-pointer bg-white border-indigo-100">
-                    <input type="checkbox" onchange="toggleSurgery(${index})" ${surg.active ? 'checked' : ''} class="exam-checkbox rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
-                    <span class="exam-label-text text-sm text-indigo-900 select-none font-medium">${surg.name}</span>
+                    <input type="checkbox" onchange="toggleItemGlobal(${surg.id}, 'cirurgia', this)" 
+                        ${surg.ativo ? 'checked' : ''} 
+                        class="exam-checkbox rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <span class="exam-label-text text-sm text-indigo-900 select-none font-medium ${!surg.ativo ? 'line-through text-red-400' : ''}">${surg.nome}</span>
                 </label>
             `).join('');
+        }
+
+        // Função Mestra que chama o Backend para Bloquear/Desbloquear
+        async function toggleItemGlobal(id, type, checkbox) {
+            const novoStatus = checkbox.checked;
+            
+            // Feedback visual imediato (Otimista)
+            const labelSpan = checkbox.nextElementSibling;
+            if(!novoStatus) labelSpan.classList.add('line-through', 'text-red-400');
+            else labelSpan.classList.remove('line-through', 'text-red-400');
+            
+            showToast("Atualizando catálogo global...", "info");
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/catalog/toggle`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ id: id, ativo: novoStatus })
+                });
+
+                if(res.ok) {
+                    // Atualiza memória local para refletir mudança instantaneamente
+                    if(type === 'cirurgia') {
+                        const item = SYSTEM_SETTINGS.surgeries.find(x => x.id === id);
+                        if(item) item.ativo = novoStatus;
+                    } else {
+                        const item = SYSTEM_SETTINGS.exams[type].find(x => x.id === id);
+                        if(item) item.ativo = novoStatus;
+                    }
+                    showToast("Item atualizado para todos os usuários!", "success");
+                } else {
+                    throw new Error("Falha API");
+                }
+            } catch(e) {
+                checkbox.checked = !novoStatus; // Reverte se der erro
+                showToast("Erro ao salvar.", "error");
+                console.error(e);
+            }
+        }
+
+        // 6. ATUALIZADA: Prompt da IA (Agora só envia o que está ativo no banco)
+        function getActiveExamsString() {
+            // Filtra apenas onde ativo == true
+            const activeLab = SYSTEM_SETTINGS.exams.lab.filter(e => e.ativo).map(e => e.nome);
+            const activeImg = SYSTEM_SETTINGS.exams.img.filter(e => e.ativo).map(e => e.nome);
+            
+            // Se a lista estiver vazia (tudo bloqueado), retorna aviso
+            if(activeLab.length === 0 && activeImg.length === 0) return "NENHUM EXAME DISPONÍVEL (Serviço em manutenção).";
+
+            return [...activeLab, ...activeImg].join(", ");
         }
 
         // Alterna tabs do Admin
@@ -2616,7 +2658,6 @@ function renderAdminPanel() {
     renderExamList('img', 'adm-list-img');
     renderSurgeryList();
 }
-
 
     </script>
 </body>
