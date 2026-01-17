@@ -2480,43 +2480,48 @@
             }
         });
 
-
+// =============================================================================
+// CÓDIGO PARA SUBSTITUIR NO SEU index.html (FINAL DA TAG <SCRIPT>)
+// Correção: Agora lê 'credits' vindo do backend corretamente
+// =============================================================================
 
 let dbUsersList = [];
 
-// 2. NOVA: Função para carregar usuários do Backend (Substitui o uso de inMemoryUsers)
+// Carrega usuários do Backend
 async function fetchAdminUsers() {
     try {
         const btn = document.querySelector('input[placeholder="Buscar paciente..."]');
-        if(btn) btn.disabled = true; // Trava busca enquanto carrega
+        if(btn) btn.disabled = true;
         
         const res = await fetch(`${BACKEND_URL}/api/admin/users`);
-        if (!res.ok) throw new Error("Erro ao buscar usuários");
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || "Erro ao buscar usuários");
+        }
         
-        dbUsersList = await res.json(); // Atualiza a lista global
-        renderUserList(); // Renderiza a tabela
+        dbUsersList = await res.json();
+        renderUserList();
         
         if(btn) btn.disabled = false;
     } catch (error) {
         console.error(error);
-        showToast("Erro ao carregar lista de pacientes.", "error");
+        showToast("Erro ao carregar lista: " + error.message, "error");
     }
 }
 
-// 3. ATUALIZADA: Renderiza a lista usando os dados reais
+// Renderiza a tabela (CORRIGIDO: usa user.credits)
 function renderUserList(filter = '') {
     const container = document.getElementById('admin-users-list');
     
-    // Filtra na lista carregada do banco (dbUsersList) em vez de inMemoryUsers
     const users = dbUsersList.filter(u => 
         (u.name.toLowerCase().includes(filter.toLowerCase()) || 
          u.email.toLowerCase().includes(filter.toLowerCase()))
     );
     
     container.innerHTML = users.map(user => {
-        // Mapeia o snake_case do banco (blocked_features) para o uso no JS
         const blocks = user.blocked_features || { preConsulta: false, preOp: false };
         
+        // CORREÇÃO CRÍTICA ABAIXO: user.credits ao invés de user.creditos
         return `
         <tr class="hover:bg-gray-50 transition">
             <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
@@ -2525,8 +2530,8 @@ function renderUserList(filter = '') {
                 <div class="text-xs text-gray-400 font-normal">CPF: ${user.cpf || 'N/A'}</div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-center">
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.creditos > 20 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                    ${user.creditos} Créditos
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.credits > 20 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                    ${user.credits} Créditos
                 </span>
             </td>
             <td class="px-6 py-4 text-center">
@@ -2535,7 +2540,6 @@ function renderUserList(filter = '') {
                 </button>
             </td>
             <td class="px-6 py-4 text-center">
-                <!-- Switch Pré-Consulta -->
                 <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
                     <input type="checkbox" id="toggle-pre-${user.id}" 
                            class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" 
@@ -2545,7 +2549,6 @@ function renderUserList(filter = '') {
                 </div>
             </td>
             <td class="px-6 py-4 text-center">
-                <!-- Switch Pré-Op -->
                 <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
                     <input type="checkbox" id="toggle-op-${user.id}" 
                            class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" 
@@ -2558,11 +2561,9 @@ function renderUserList(filter = '') {
     `}).join('');
 }
 
-// 4. ATUALIZADA: Função que realmente BLOQUEIA no banco de dados (A Mágica)
+// Bloqueio Real
 async function toggleUserBlock(email, feature, checkboxElement) {
-    const isBlocked = checkboxElement.checked; // Estado atual do checkbox
-    
-    // Feedback visual imediato (Otimista)
+    const isBlocked = checkboxElement.checked;
     showToast(`Atualizando permissão...`, 'info');
 
     try {
@@ -2571,57 +2572,52 @@ async function toggleUserBlock(email, feature, checkboxElement) {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ email, feature, isBlocked })
         });
-
         const data = await res.json();
 
         if (res.ok) {
-            // Atualiza a lista local para refletir a mudança sem precisar recarregar tudo
             const userIndex = dbUsersList.findIndex(u => u.email === email);
             if(userIndex > -1) {
                 if(!dbUsersList[userIndex].blocked_features) dbUsersList[userIndex].blocked_features = {};
                 dbUsersList[userIndex].blocked_features[feature] = isBlocked;
             }
-            
             showToast(`Permissão ${isBlocked ? 'BLOQUEADA' : 'LIBERADA'} com sucesso!`, "success");
         } else {
             throw new Error(data.message || "Erro ao atualizar");
         }
     } catch (error) {
-        // Reverte o checkbox em caso de erro
         checkboxElement.checked = !isBlocked;
-        showToast("Falha ao salvar no banco de dados.", "error");
-        console.error(error);
+        showToast("Falha ao salvar no banco.", "error");
     }
 }
 
-// 5. ATUALIZADA: Recarga Real
+// Recarga Real
 async function adminRecharge(email) {
     if(!confirm(`Confirma adicionar 100 créditos para ${email}?`)) return;
-
     try {
         const res = await fetch(`${BACKEND_URL}/api/admin/recharge`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ email, amount: 100 })
         });
-        
         if(res.ok) {
             showToast("Recarga realizada!", "success");
-            fetchAdminUsers(); // Recarrega a lista para mostrar saldo novo
+            fetchAdminUsers(); 
         } else {
             showToast("Erro na recarga.", "error");
         }
     } catch(e) { console.error(e); }
 }
 
-// 6. Atualize a função renderAdminPanel para chamar o fetch
+// Renderização Geral
 function renderAdminPanel() {
     renderReferralDashboard();
-    fetchAdminUsers(); // <--- MUDANÇA IMPORTANTE AQUI
+    fetchAdminUsers();
     renderExamList('lab', 'adm-list-lab');
     renderExamList('img', 'adm-list-img');
     renderSurgeryList();
 }
+
+
     </script>
 </body>
 </html>
