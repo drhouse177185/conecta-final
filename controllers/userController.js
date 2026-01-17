@@ -1,7 +1,7 @@
 const { User, sequelize } = require('../models');
 const bcrypt = require('bcryptjs');
 
-// Login
+// --- LOGIN ---
 exports.login = async (req, res) => {
     try {
         let { email, password } = req.body;
@@ -18,7 +18,7 @@ exports.login = async (req, res) => {
         const userData = user.toJSON();
         delete userData.password;
         
-        // Garante que o objeto de bloqueio exista, mesmo se for null no banco
+        // Garante que blocked_features exista
         userData.blocked_features = userData.blocked_features || { preConsulta: false, preOp: false };
         
         res.json(userData);
@@ -27,7 +27,7 @@ exports.login = async (req, res) => {
     }
 };
 
-// Registro
+// --- REGISTRO ---
 exports.register = async (req, res) => {
     try {
         let { name, email, password, cpf, age, sex } = req.body;
@@ -46,7 +46,7 @@ exports.register = async (req, res) => {
     }
 };
 
-// Recuperação de Senha
+// --- RECUPERAÇÃO DE SENHA ---
 exports.recoverPassword = async (req, res) => {
     try {
         const { cpf, newPassword } = req.body;
@@ -56,7 +56,7 @@ exports.recoverPassword = async (req, res) => {
         if (newPassword) {
             user.password = await bcrypt.hash(newPassword.trim(), 10);
             await user.save();
-            return res.json({ success: true, message: "Senha redefinida." });
+            return res.json({ success: true, email: user.email, message: "Senha redefinida." });
         }
         return res.json({ success: true, message: "CPF validado." });
     } catch (error) {
@@ -64,34 +64,32 @@ exports.recoverPassword = async (req, res) => {
     }
 };
 
-// --- FUNÇÕES ADMIN ---
+// =============================================================================
+// ÁREA DO ADMIN (Funções que faltavam)
+// =============================================================================
 
-// Listar Usuários
+// 1. Listar Usuários (Com estrutura correta para o Admin)
 exports.getAllUsers = async (req, res) => {
     try {
-        // Tenta buscar com a coluna blocked_features
-        // Se a coluna não existir (antes do reparo), o Sequelize lança erro, então tratamos no frontend ou setup
         const users = await User.findAll({ 
             where: { role: 'user' },
-            // IMPORTANTE: 'credits' (banco real) e 'blocked_features'
             attributes: ['id', 'name', 'email', 'cpf', 'age', 'sex', 'credits', 'blocked_features'],
             order: [['name', 'ASC']]
         });
         res.json(users);
     } catch (error) {
-        console.error("Erro lista usuários:", error.message);
+        console.error("Erro lista usuários:", error);
         res.status(500).json({ error: error.message });
     }
 };
 
-// Alternar Bloqueio
+// 2. Bloquear/Desbloquear Funcionalidades
 exports.toggleBlock = async (req, res) => {
     try {
         const { email, feature, isBlocked } = req.body;
         const user = await User.findOne({ where: { email } });
         if (!user) return res.status(404).json({ message: "Usuário não encontrado" });
 
-        // Parse seguro do JSON
         let currentBlocks = user.blocked_features;
         if (typeof currentBlocks === 'string') {
             try { currentBlocks = JSON.parse(currentBlocks); } catch(e) { currentBlocks = {}; }
@@ -100,26 +98,24 @@ exports.toggleBlock = async (req, res) => {
 
         currentBlocks[feature] = isBlocked;
 
-        // Atualização forçada
         user.blocked_features = currentBlocks;
-        user.changed('blocked_features', true); // Avisa o Sequelize que o JSON mudou
+        user.changed('blocked_features', true);
         await user.save();
 
         res.json({ success: true, newStatus: currentBlocks });
     } catch (error) {
-        console.error("Erro toggleBlock:", error);
         res.status(500).json({ message: "Erro ao atualizar bloqueio." });
     }
 };
 
-// Recarga Admin
+// 3. Recarga Manual pelo Admin
 exports.adminRecharge = async (req, res) => {
     try {
         const { email, amount } = req.body;
         const user = await User.findOne({ where: { email } });
         if (!user) return res.status(404).json({ message: "Usuário não encontrado" });
 
-        user.credits += parseInt(amount); // Usa 'credits'
+        user.credits += parseInt(amount);
         await user.save();
 
         res.json({ success: true, newCredits: user.credits });
