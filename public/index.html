@@ -893,55 +893,155 @@
             }
         }
 // --- SEÇÃO: CONFIGURAÇÃO GLOBAL DO SISTEMA (CATÁLOGO DINÂMICO) ---
-        // 1. Variável Global agora começa vazia e será preenchida pelo backend
-        let SYSTEM_SETTINGS = {
-            exams: { lab: [], img: [] },
-            surgeries: []
-        };
+     
+// LÓGICA DO CATÁLOGO DINÂMICO (FRONTEND)
+// =============================================================================
 
-        // 2. NOVA: Função para carregar catálogo do banco
-        async function fetchCatalog() {
-            try {
-                const res = await fetch(`${BACKEND_URL}/api/catalog`);
-                if(res.ok) {
-                    const data = await res.json();
-                    
-                    // Atualiza a memória global do frontend
-                    SYSTEM_SETTINGS = data;
-                    
-                    // Se o usuário estiver na tela, atualiza as listas visuais
-                    if(currentUser && currentUser.role === 'admin') {
-                        renderExamList('lab', 'adm-list-lab');
-                        renderExamList('img', 'adm-list-img');
-                        renderSurgeryList();
-                    } else if (currentUser) {
-                        // Se for usuário comum, atualiza o dropdown de cirurgias
-                        populateSurgeryDropdown();
-                    }
-                    
-                    console.log("✅ Catálogo sincronizado com o servidor.");
-                }
-            } catch(e) {
-                console.error("Erro ao baixar catálogo:", e);
+let SYSTEM_SETTINGS = {
+    exams: { lab: [], img: [] },
+    surgeries: []
+};
+
+// Carrega do banco e Renderiza
+async function fetchCatalog() {
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/catalog`);
+        if(res.ok) {
+            const data = await res.json();
+            SYSTEM_SETTINGS = data;
+            
+            // Se for Admin, força a renderização das listas de controle
+            if(currentUser && currentUser.role === 'admin') {
+                renderExamList('lab', 'adm-list-lab');
+                renderExamList('img', 'adm-list-img');
+                renderSurgeryList();
+            } 
+            // Se for Usuário Comum, popula o dropdown
+            else if (currentUser) {
+                populateSurgeryDropdown();
+            }
+            console.log("✅ Catálogo (Lab, Img, Cirurgia) carregado.");
+        }
+    } catch(e) { console.error("Erro catalogo:", e); }
+}
+
+function populateSurgeryDropdown() {
+    const surgerySelect = document.getElementById('surgery-type');
+    if(surgerySelect && SYSTEM_SETTINGS.surgeries.length) {
+        const activeSurgeries = SYSTEM_SETTINGS.surgeries.filter(s => s.ativo);
+        if (activeSurgeries.length === 0) {
+            surgerySelect.innerHTML = '<option disabled selected>Indisponível</option>';
+        } else {
+            surgerySelect.innerHTML = activeSurgeries.map(s => `<option value="${s.id}">${s.nome}</option>`).join('');
+        }
+    }
+}
+
+// INICIALIZAÇÃO ATUALIZADA
+const originalInit = initializeApp;
+initializeApp = function(user) {
+    currentUser = user; 
+    
+    // Busca dados ANTES de mostrar a tela
+    fetchCatalog().then(() => {
+        if(user.role === 'admin') {
+            document.getElementById('admin-view').classList.remove('hidden');
+            renderAdminPanel(); // Renderiza painel
+        } else {
+            document.getElementById('main-app').classList.remove('hidden');
+            document.getElementById('user-display').textContent = `Olá, ${user.name}`;
+            updateCreditDisplay();
+            safeSetValue('pre-name', user.name); safeSetValue('pre-age', user.age); safeSetValue('op-name', user.name);
+            populateSurgeryDropdown();
+            
+            const lblPreg = document.getElementById('lbl-pregnancy');
+            if(lblPreg) {
+                if (user.sex === 'F') lblPreg.classList.remove('hidden');
+                else { lblPreg.classList.add('hidden'); const ck = document.getElementById('check-pregnancy'); if(ck) ck.checked = false; }
             }
         }
+    });
+    
+    document.getElementById('auth-view').classList.add('hidden');
+};
 
-        // 3. ATUALIZADA: Popula o Select de Cirurgias (Apenas ATIVAS)
-        function populateSurgeryDropdown() {
-            const surgerySelect = document.getElementById('surgery-type');
-            if(surgerySelect && SYSTEM_SETTINGS.surgeries.length) {
-                // FILTRO CRUCIAL: Só mostra o que tiver active = true (vindo do banco)
-                const activeSurgeries = SYSTEM_SETTINGS.surgeries.filter(s => s.ativo);
-                
-                if (activeSurgeries.length === 0) {
-                    surgerySelect.innerHTML = '<option disabled selected>Nenhuma cirurgia disponível</option>';
-                } else {
-                    surgerySelect.innerHTML = activeSurgeries.map(s => 
-                        `<option value="${s.id}">${s.nome}</option>`
-                    ).join('');
-                }
+// RENDERIZAÇÃO DAS LISTAS DO ADMIN (COM CHECKBOXES)
+function renderExamList(type, elementId) {
+    const container = document.getElementById(elementId);
+    if(!container) return; // Segurança
+
+    const list = SYSTEM_SETTINGS.exams[type] || [];
+    
+    if(list.length === 0) {
+        container.innerHTML = `<p class="text-gray-400 text-xs col-span-full">Nenhum item nesta categoria.</p>`;
+        return;
+    }
+
+    container.innerHTML = list.map((exam) => `
+        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-slate-50 cursor-pointer bg-white">
+            <input type="checkbox" onchange="toggleItemGlobal(${exam.id}, '${type}', this)" 
+                   ${exam.ativo ? 'checked' : ''} 
+                   class="exam-checkbox rounded text-blue-600 focus:ring-blue-500 h-4 w-4">
+            <span class="exam-label-text text-sm text-slate-700 select-none ${!exam.ativo ? 'line-through text-red-400' : ''}">${exam.nome}</span>
+        </label>
+    `).join('');
+}
+
+function renderSurgeryList() {
+    const container = document.getElementById('adm-list-surg');
+    if(!container) return;
+
+    const list = SYSTEM_SETTINGS.surgeries || [];
+
+    container.innerHTML = list.map((surg) => `
+        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-indigo-50 cursor-pointer bg-white border-indigo-100">
+            <input type="checkbox" onchange="toggleItemGlobal(${surg.id}, 'cirurgia', this)" 
+                   ${surg.ativo ? 'checked' : ''} 
+                   class="exam-checkbox rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+            <span class="exam-label-text text-sm text-indigo-900 select-none font-medium ${!surg.ativo ? 'line-through text-red-400' : ''}">${surg.nome}</span>
+        </label>
+    `).join('');
+}
+
+async function toggleItemGlobal(id, type, checkbox) {
+    const novoStatus = checkbox.checked;
+    const labelSpan = checkbox.nextElementSibling;
+    
+    if(!novoStatus) labelSpan.classList.add('line-through', 'text-red-400');
+    else labelSpan.classList.remove('line-through', 'text-red-400');
+    
+    showToast("Salvando...", "info");
+
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/catalog/toggle`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id, ativo: novoStatus })
+        });
+
+        if(res.ok) {
+            // Atualiza memória local
+            if(type === 'cirurgia') {
+                const item = SYSTEM_SETTINGS.surgeries.find(x => x.id === id);
+                if(item) item.ativo = novoStatus;
+            } else {
+                const item = SYSTEM_SETTINGS.exams[type].find(x => x.id === id);
+                if(item) item.ativo = novoStatus;
             }
-        }
+            showToast("Item atualizado!", "success");
+        } else throw new Error();
+    } catch(e) {
+        checkbox.checked = !novoStatus;
+        showToast("Erro ao salvar.", "error");
+    }
+}
+
+function getActiveExamsString() {
+    const activeLab = SYSTEM_SETTINGS.exams.lab.filter(e => e.ativo).map(e => e.nome);
+    const activeImg = SYSTEM_SETTINGS.exams.img.filter(e => e.ativo).map(e => e.nome);
+    if(activeLab.length === 0 && activeImg.length === 0) return "NENHUM EXAME DISPONÍVEL.";
+    return [...activeLab, ...activeImg].join(", ");
+}
 
         // --- FILA DE ENCAMINHAMENTOS (MOCK INICIAL) ---
         // Dados fictícios para popular o Dashboard AME inicial
