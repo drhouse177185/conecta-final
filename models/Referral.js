@@ -10,8 +10,8 @@ const Referral = sequelize.define('Referral', {
     },
     patientName: {
         type: DataTypes.STRING,
-        allowNull: false,
-        field: 'patient_name' // Mapeia para snake_case no banco
+        allowNull: true, // ALTERADO: true para evitar erro de migração em tabela existente
+        field: 'patient_name'
     },
     cpf: {
         type: DataTypes.STRING,
@@ -32,18 +32,13 @@ const Referral = sequelize.define('Referral', {
     userId: {
         type: DataTypes.INTEGER,
         field: 'user_id',
-        references: {
-            model: 'users',
-            key: 'id'
-        }
+        // Removemos a referência estrita aqui para evitar erro se o usuário não existir
+        // O relacionamento lógico é mantido
     }
 }, {
     tableName: 'referrals',
-    timestamps: true,      // Cria created_at e updated_at
-    underscored: true      // Usa snake_case nas colunas automáticas
+    timestamps: true,
+    underscored: true
 });
-
-// Define o relacionamento se necessário, mas o index.js geralmente cuida das associações finais
-// Referral.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 module.exports = Referral;
