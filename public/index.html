@@ -446,7 +446,8 @@
             <div id="page-1" class="hidden animate-fade-in">
                 <header class="mb-6 text-center">
                     <h1 class="text-2xl font-bold text-slate-900">Análise de Exames</h1>
-                    <p class="text-slate-600">Interpretação detalhada de laudos e resultados.</p>
+                  <p class="text-slate-600 text-sm" id="specialist-text"></p>
+<div id="schedule-btn-wrapper" class="mt-2 mb-4 min-h-[30px]"></div>
                 </header>
 
                 <!-- Área de Upload Drag & Drop -->
@@ -2130,7 +2131,7 @@ function getActiveExamsString() {
                 if(btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-calendar-check mr-2 text-indigo-600"></i> Agendar Consulta'; }
             }
         }
-        // 3. Renderiza Resultados Pós-Consulta (Atualizada com Botão de Agendamento)
+       // 3. Renderiza Resultados Pós-Consulta (CORRIGIDA COM CONTAINER SEPARADO)
         function renderDiagnosticResults(data) {
             document.getElementById('ai-summary').innerHTML = data.summary ? data.summary.replace(/\n/g, '<br>') : "";
             
@@ -2148,34 +2149,34 @@ function getActiveExamsString() {
                 });
             }
 
-            const spec = data.specialist || "Clínico Geral";
+            // Define o especialista com trim() para evitar erros de espaço
+            const spec = (data.specialist || "Clínico Geral").trim();
             document.getElementById('specialist-text').textContent = `Sugiro seguimento com: ${spec}.`;
 
-            // --- LÓGICA DO BOTÃO NOVO (INÍCIO) ---
-            const btnContainer = document.getElementById('schedule-btn-container');
-            
-            // Só executa se o container existir no HTML (e ele existe no seu código novo)
-            if (btnContainer) {
-                // Lógica: Só mostra botão se for especialista focal
-                const isFocal = spec !== "Clínico Geral" && spec !== "Médico de Família" && spec !== "Nenhum" && spec !== "N/A";
+            // --- LÓGICA DO BOTÃO NOVO (ATUALIZADA) ---
+            const btnWrapper = document.getElementById('schedule-btn-wrapper');
+            btnWrapper.innerHTML = ''; // Limpa o container para não duplicar
 
-                if(isFocal) {
-                     const safeSpec = spec.replace(/'/g, "\\'");
-                     const safeReason = (data.diagnostic_possibilities || "Avaliação especializada").replace(/'/g, "\\'").replace(/\n/g, " ");
-                     
-                     // Injeta o botão no container
-                     btnContainer.innerHTML = `
-                        <button id="btn-schedule-app" 
-                            onclick="scheduleAppointment('${safeSpec}', '${safeReason}')" 
-                            class="ml-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-1 px-3 rounded border border-slate-300 transition inline-flex items-center shadow-sm">
-                            <i class="fa-solid fa-calendar-check mr-2 text-indigo-600"></i> Agendar Consulta
-                        </button>
-                    `;
-                } else {
-                    btnContainer.innerHTML = ""; // Limpa se não for especialista
-                }
+            // Lista de termos que NÃO devem gerar encaminhamento
+            const ignoreList = ["Clínico Geral", "Médico de Família", "Nenhum", "N/A", "Não se aplica"];
+            
+            // Verifica se é especialista focal (case insensitive)
+            const isFocal = !ignoreList.some(term => spec.toLowerCase().includes(term.toLowerCase()));
+
+            if(isFocal) {
+                 const safeSpec = spec.replace(/'/g, "\\'");
+                 const safeReason = (data.diagnostic_possibilities || "Avaliação especializada").replace(/'/g, "\\'").replace(/\n/g, " ");
+                 
+                 btnWrapper.innerHTML = `
+                    <button id="btn-schedule-app" 
+                        onclick="scheduleAppointment('${safeSpec}', '${safeReason}')" 
+                        class="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold py-2 px-4 rounded border border-slate-300 transition flex items-center justify-center shadow-sm gap-2">
+                        <i class="fa-solid fa-calendar-check text-indigo-600"></i>
+                        <span>Agendar Encaminhamento</span>
+                    </button>
+                `;
             }
-            // --- LÓGICA DO BOTÃO NOVO (FIM) ---
+            // --- FIM DA LÓGICA ---
 
             document.getElementById('action-btn').href = `https://www.google.com/maps/search/${encodeURIComponent(spec + " perto de mim")}`;
             
