@@ -216,11 +216,7 @@
             <h1 class="splash-title">CONECTA SAÚDE</h1>
             <p class="splash-subtitle">Sistema Integrado de Diagnóstico</p>
             <div class="splash-loader"><div class="splash-bar"></div></div>
-<<<<<<< HEAD
             <p class="text-slate-400 text-xs mt-2 font-mono"> versão 2.6...</p>
-=======
-            <p class="text-slate-400 text-xs mt-2 font-mono"> versão 1.0...</p>
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
         </div>
     </div>
 
@@ -912,16 +908,9 @@
                 console.error("❌ Falha de conexão na configuração:", error);
             }
         }
-// --- SEÇÃO: CONFIGURAÇÃO GLOBAL DO SISTEMA (CATÁLOGO DINÂMICO) ---
-     
-// LÓGICA DO CATÁLOGO DINÂMICO (FRONTEND)
-// =============================================================================
 
-<<<<<<< HEAD
 // --- SEÇÃO: CONFIGURAÇÃO GLOBAL DO SISTEMA (CATÁLOGO DINÂMICO) ---
      
-=======
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
 let SYSTEM_SETTINGS = {
     exams: { lab: [], img: [] },
     surgeries: []
@@ -989,87 +978,6 @@ initializeApp = function(user) {
     
     document.getElementById('auth-view').classList.add('hidden');
 };
-<<<<<<< HEAD
-=======
-
-// RENDERIZAÇÃO DAS LISTAS DO ADMIN (COM CHECKBOXES)
-function renderExamList(type, elementId) {
-    const container = document.getElementById(elementId);
-    if(!container) return; // Segurança
-
-    const list = SYSTEM_SETTINGS.exams[type] || [];
-    
-    if(list.length === 0) {
-        container.innerHTML = `<p class="text-gray-400 text-xs col-span-full">Nenhum item nesta categoria.</p>`;
-        return;
-    }
-
-    container.innerHTML = list.map((exam) => `
-        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-slate-50 cursor-pointer bg-white">
-            <input type="checkbox" onchange="toggleItemGlobal(${exam.id}, '${type}', this)" 
-                   ${exam.ativo ? 'checked' : ''} 
-                   class="exam-checkbox rounded text-blue-600 focus:ring-blue-500 h-4 w-4">
-            <span class="exam-label-text text-sm text-slate-700 select-none ${!exam.ativo ? 'line-through text-red-400' : ''}">${exam.nome}</span>
-        </label>
-    `).join('');
-}
-
-function renderSurgeryList() {
-    const container = document.getElementById('adm-list-surg');
-    if(!container) return;
-
-    const list = SYSTEM_SETTINGS.surgeries || [];
-
-    container.innerHTML = list.map((surg) => `
-        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-indigo-50 cursor-pointer bg-white border-indigo-100">
-            <input type="checkbox" onchange="toggleItemGlobal(${surg.id}, 'cirurgia', this)" 
-                   ${surg.ativo ? 'checked' : ''} 
-                   class="exam-checkbox rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
-            <span class="exam-label-text text-sm text-indigo-900 select-none font-medium ${!surg.ativo ? 'line-through text-red-400' : ''}">${surg.nome}</span>
-        </label>
-    `).join('');
-}
-
-async function toggleItemGlobal(id, type, checkbox) {
-    const novoStatus = checkbox.checked;
-    const labelSpan = checkbox.nextElementSibling;
-    
-    if(!novoStatus) labelSpan.classList.add('line-through', 'text-red-400');
-    else labelSpan.classList.remove('line-through', 'text-red-400');
-    
-    showToast("Salvando...", "info");
-
-    try {
-        const res = await fetch(`${BACKEND_URL}/api/catalog/toggle`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ id, ativo: novoStatus })
-        });
-
-        if(res.ok) {
-            // Atualiza memória local
-            if(type === 'cirurgia') {
-                const item = SYSTEM_SETTINGS.surgeries.find(x => x.id === id);
-                if(item) item.ativo = novoStatus;
-            } else {
-                const item = SYSTEM_SETTINGS.exams[type].find(x => x.id === id);
-                if(item) item.ativo = novoStatus;
-            }
-            showToast("Item atualizado!", "success");
-        } else throw new Error();
-    } catch(e) {
-        checkbox.checked = !novoStatus;
-        showToast("Erro ao salvar.", "error");
-    }
-}
-
-function getActiveExamsString() {
-    const activeLab = SYSTEM_SETTINGS.exams.lab.filter(e => e.ativo).map(e => e.nome);
-    const activeImg = SYSTEM_SETTINGS.exams.img.filter(e => e.ativo).map(e => e.nome);
-    if(activeLab.length === 0 && activeImg.length === 0) return "NENHUM EXAME DISPONÍVEL.";
-    return [...activeLab, ...activeImg].join(", ");
-}
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
 
         // --- FILA DE ENCAMINHAMENTOS (MOCK INICIAL) ---
         let referralQueue = [
@@ -1106,46 +1014,10 @@ function getActiveExamsString() {
         
         let inMemoryUsers = []; // Placeholder
 
-<<<<<<< HEAD
         // 4. ATUALIZADA: Inicialização do App
         function initializeApp(user) {
             currentUser = user; 
             fetchCatalog().then(() => {
-=======
-        // Camada de Abstração do Banco de Dados
-        const MockDB = {
-            usersKey: 'conecta_v3_users_secure',
-            // Autenticação simples por email/senha
-            login(e, p) {
-                let users = inMemoryUsers;
-                try {
-                    const stored = localStorage.getItem(this.usersKey);
-                    if(stored) users = JSON.parse(stored);
-                } catch(e) {}
-                return users.find(u => u.email.toLowerCase() === e.toLowerCase() && u.password === p);
-            },
-            // Registro de novo usuário
-            register(u) {
-                u.blockedFeatures = { preConsulta: false, preOp: false }; 
-                u.credits = 100;
-                u.claimedFreeBonus = false; // Novo usuário começa sem ter reclamado o bônus
-                u.lastRecharge = new Date().toISOString().split('T')[0];
-                inMemoryUsers.push(u);
-                return u;
-            }
-        };
-
-    // 4. ATUALIZADA: Inicialização do App
-        // Adicione a chamada do fetchCatalog na inicialização do App
-        function initializeApp(user) {
-            // Define usuário global
-            currentUser = user; 
-            
-            // Busca dados atualizados do banco ANTES de mostrar a tela
-            fetchCatalog().then(() => {
-                
-                // Lógica de Roteamento (Admin vs User)
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 if(user.role === 'admin') {
                     document.getElementById('admin-view').classList.remove('hidden');
                     renderAdminPanel();
@@ -1155,14 +1027,8 @@ function getActiveExamsString() {
                     updateCreditDisplay();
                     safeSetValue('pre-name', user.name); safeSetValue('pre-age', user.age); safeSetValue('op-name', user.name);
                     
-<<<<<<< HEAD
                     populateSurgeryDropdown(); 
 
-=======
-                    populateSurgeryDropdown(); // <--- CHAMA AQUI COM DADOS DO BANCO
-
-                    // Lógica de sexo, etc... (Mantém o original)
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                     const lblPreg = document.getElementById('lbl-pregnancy');
                     if(lblPreg) {
                         if (user.sex === 'F') lblPreg.classList.remove('hidden');
@@ -1170,14 +1036,7 @@ function getActiveExamsString() {
                     }
                 }
             });
-<<<<<<< HEAD
             document.getElementById('auth-view').classList.add('hidden');
-=======
-            
-            document.getElementById('auth-view').classList.add('hidden');
-            
-            // Lógica de Recarga Automática (Se existir)
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
             if(typeof checkAutoRecharge === 'function' && user.role !== 'admin') checkAutoRecharge(user);
         }
 
@@ -1446,49 +1305,7 @@ function getActiveExamsString() {
         }
 
         function renderUserList(filter = '') {
-<<<<<<< HEAD
             // ... (Lógica de Lista de Usuários Mantida)
-=======
-            
-            const container = document.getElementById('admin-users-list');
-            const users = inMemoryUsers.filter(u => u.role !== 'admin' && (u.name.toLowerCase().includes(filter.toLowerCase()) || u.email.toLowerCase().includes(filter.toLowerCase())));
-            
-            container.innerHTML = users.map(user => `
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
-                        ${user.name}
-                        <div class="text-xs text-gray-400 font-normal">${user.cpf || 'CPF N/A'}</div>
-                        <div class="text-xs text-gray-400 font-normal">Idade: ${user.age}</div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-center">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.credits > 20 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                            ${user.credits || 0} Créditos
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                         <button onclick="adminRecharge('${user.email}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1 px-3 rounded shadow transition">
-                            <i class="fa-solid fa-bolt mr-1"></i> Recarregar (+100)
-                        </button>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                            <input type="checkbox" id="toggle-pre-${user.email}" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" 
-                                ${user.blockedFeatures?.preConsulta ? 'checked' : ''} 
-                                onchange="toggleUserBlock('${user.email}', 'preConsulta')"/>
-                            <label for="toggle-pre-${user.email}" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                            <input type="checkbox" id="toggle-op-${user.email}" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" 
-                                ${user.blockedFeatures?.preOp ? 'checked' : ''} 
-                                onchange="toggleUserBlock('${user.email}', 'preOp')"/>
-                            <label for="toggle-op-${user.email}" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
         }
         
         function adminRecharge(email) {
@@ -1501,17 +1318,9 @@ function getActiveExamsString() {
             // ... (Lógica de Bloqueio Mantida)
         }
 
-<<<<<<< HEAD
         function renderExamList(type, elementId) {
             const container = document.getElementById(elementId);
             const list = SYSTEM_SETTINGS.exams[type]; 
-=======
-        // 5. FUNÇÕES DO ADMIN (Atualizadas para chamar API)
-
-        function renderExamList(type, elementId) {
-            const container = document.getElementById(elementId);
-            const list = SYSTEM_SETTINGS.exams[type]; // Pega da memória atualizada
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
             
             if(!list) return;
 
@@ -1541,64 +1350,10 @@ function getActiveExamsString() {
             `).join('');
         }
 
-<<<<<<< HEAD
         async function toggleItemGlobal(id, type, checkbox) {
              // ... (Lógica de Toggle Mantida)
         }
 
-=======
-        // Função Mestra que chama o Backend para Bloquear/Desbloquear
-        async function toggleItemGlobal(id, type, checkbox) {
-            const novoStatus = checkbox.checked;
-            
-            // Feedback visual imediato (Otimista)
-            const labelSpan = checkbox.nextElementSibling;
-            if(!novoStatus) labelSpan.classList.add('line-through', 'text-red-400');
-            else labelSpan.classList.remove('line-through', 'text-red-400');
-            
-            showToast("Atualizando catálogo global...", "info");
-
-            try {
-                const res = await fetch(`${BACKEND_URL}/api/catalog/toggle`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ id: id, ativo: novoStatus })
-                });
-
-                if(res.ok) {
-                    // Atualiza memória local para refletir mudança instantaneamente
-                    if(type === 'cirurgia') {
-                        const item = SYSTEM_SETTINGS.surgeries.find(x => x.id === id);
-                        if(item) item.ativo = novoStatus;
-                    } else {
-                        const item = SYSTEM_SETTINGS.exams[type].find(x => x.id === id);
-                        if(item) item.ativo = novoStatus;
-                    }
-                    showToast("Item atualizado para todos os usuários!", "success");
-                } else {
-                    throw new Error("Falha API");
-                }
-            } catch(e) {
-                checkbox.checked = !novoStatus; // Reverte se der erro
-                showToast("Erro ao salvar.", "error");
-                console.error(e);
-            }
-        }
-
-        // 6. ATUALIZADA: Prompt da IA (Agora só envia o que está ativo no banco)
-        function getActiveExamsString() {
-            // Filtra apenas onde ativo == true
-            const activeLab = SYSTEM_SETTINGS.exams.lab.filter(e => e.ativo).map(e => e.nome);
-            const activeImg = SYSTEM_SETTINGS.exams.img.filter(e => e.ativo).map(e => e.nome);
-            
-            // Se a lista estiver vazia (tudo bloqueado), retorna aviso
-            if(activeLab.length === 0 && activeImg.length === 0) return "NENHUM EXAME DISPONÍVEL (Serviço em manutenção).";
-
-            return [...activeLab, ...activeImg].join(", ");
-        }
-
-        // Alterna tabs do Admin
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
         function switchAdminTab(tab) {
              // ... (Lógica de Tab Admin Mantida)
         }
@@ -1613,15 +1368,8 @@ function getActiveExamsString() {
             setTimeout(() => s2.classList.remove('opacity-50', 'pointer-events-none'), 100);
             const btn = document.getElementById('btn-confirm-data'); btn.innerHTML = "<i class='fa-solid fa-check mr-1'></i> Confirmado"; btn.classList.replace('bg-blue-600', 'bg-green-600');
         }
-<<<<<<< HEAD
     
       async function generateRationalExams() {
-=======
-        
-    
-      async function generateRationalExams() {
-            // 1. Verificações de bloqueio e saldo
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
             if (currentUser.blocked_features && currentUser.blocked_features.preConsulta) {
                 return showToast("Funcionalidade bloqueada pelo administrador.", "error");
             }
@@ -1632,36 +1380,19 @@ function getActiveExamsString() {
             btn.disabled = true;
             
             try {
-<<<<<<< HEAD
-=======
-                // 3. Coleta de dados
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c=>c.value);
                 const other = document.getElementById('pre-other-comorb').value; if(other) comorbs.push(other);
                 const routine = document.getElementById('check-routine').checked;
                 const std = document.getElementById('check-std').checked;
                 const pregnancy = document.getElementById('check-pregnancy').checked;
 
-<<<<<<< HEAD
-=======
-                // 4. Lista ATIVA (O que a IA pode pedir)
-                // Pega os objetos reais do SYSTEM_SETTINGS para validação posterior
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 const activeLabItems = SYSTEM_SETTINGS.exams.lab.filter(e => e.ativo);
                 const activeImgItems = SYSTEM_SETTINGS.exams.img.filter(e => e.ativo);
                 const activeNamesList = [...activeLabItems, ...activeImgItems].map(e => e.nome);
                 
-<<<<<<< HEAD
                 const menuString = activeNamesList.join(", ");
                 if (!menuString) throw new Error("Nenhum exame disponível no catálogo (Contate o Admin).");
 
-=======
-                // String para o prompt
-                const menuString = activeNamesList.join(", ");
-
-                if (!menuString) throw new Error("Nenhum exame disponível no catálogo (Contate o Admin).");
-
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 const prompt = `
                     Atue como um Médico Auditor rigoroso seguindo o protocolo internacional 'Choosing Wisely'.
                     PACIENTE: ${currentUser.name}, ${currentUser.age} anos, Sexo: ${currentUser.sex}.
@@ -1687,71 +1418,32 @@ function getActiveExamsString() {
                 Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
             `;
                 
-<<<<<<< HEAD
                 const res = await callGemini(prompt, true);
                 
                 const validExams = [];
                 if (res.exams && Array.isArray(res.exams)) {
                     res.exams.forEach(aiExam => {
                         const match = activeNamesList.find(activeName => 
-=======
-                // 5. Chamada à IA
-                const res = await callGemini(prompt, true);
-                
-                // --- CORREÇÃO DA VALIDAÇÃO (O PULO DO GATO) ---
-                // Verifica se o exame da IA "bate" com algum do catálogo, mesmo parcialmente
-                const validExams = [];
-                
-                if (res.exams && Array.isArray(res.exams)) {
-                    res.exams.forEach(aiExam => {
-                        // Tenta encontrar um match no catálogo ativo
-                        const match = activeNamesList.find(activeName => 
-                            // Verifica igualdade ou se um contém o outro (case insensitive)
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                             activeName.toLowerCase() === aiExam.toLowerCase() ||
                             activeName.toLowerCase().includes(aiExam.toLowerCase()) ||
                             aiExam.toLowerCase().includes(activeName.toLowerCase())
                         );
-<<<<<<< HEAD
                         if (match) validExams.push(match); 
                     });
                 }
                 const finalExams = [...new Set(validExams)];
 
                 if (finalExams.length === 0) throw new Error("A IA não sugeriu exames compatíveis com o catálogo ativo.");
-=======
-
-                        if (match) {
-                            validExams.push(match); // Usa o nome oficial do catálogo
-                        }
-                    });
-                }
-                
-                // Remove duplicatas
-                const finalExams = [...new Set(validExams)];
-
-                if (finalExams.length === 0) {
-                    throw new Error("A IA não sugeriu exames compatíveis com o catálogo ativo.");
-                }
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
 
                 deductCredits(80); 
                 currentUser.lastGeneratedExams = finalExams;
 
-<<<<<<< HEAD
-=======
-                // Salva no Backend
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 saveHistoryToBackend('pre_consulta', 80, {
                     comorbidades: comorbs,
                     exames: finalExams,
                     flags: { rotina: routine, dst: std, gravidez: pregnancy }
                 });
                 
-<<<<<<< HEAD
-=======
-                // 6. Renderização
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 const ul = document.getElementById('generated-exam-list'); 
                 ul.innerHTML = finalExams.map(e=>`<li class="py-1 border-b border-gray-100 last:border-0 flex items-center text-sm"><i class="fa-solid fa-check text-green-500 mr-2"></i>${e}</li>`).join('');
                 
@@ -1844,45 +1536,19 @@ function getActiveExamsString() {
                     findingsDiv.innerHTML += `<div class="bg-orange-50 border-l-4 border-orange-400 p-3 rounded"><p class="font-bold text-orange-800">${f.item} <span class="font-normal text-sm">(${f.value})</span></p><p class="text-sm text-slate-700">${f.explanation}</p></div>`;
                 });
             }
-<<<<<<< HEAD
             document.getElementById('specialist-text').textContent = `Sugiro seguimento com: ${data.specialist || "Clínico Geral"}.`;
-=======
-
-            const spec = data.specialist || "Clínico Geral";
-            document.getElementById('specialist-text').textContent = `Sugiro seguimento com: ${spec}.`;
-            document.getElementById('action-btn').href = `https://www.google.com/maps/search/${encodeURIComponent(spec + " perto de mim")}`;
-            
-            const procList = document.getElementById('procedures-list');
-            procList.innerHTML = '';
-            if(data.recommended_procedures) data.recommended_procedures.forEach(p => procList.innerHTML += `<li>${p}</li>`);
-            
-            // TTS
-            const fullText = `${data.summary || ''}. ${data.diagnostic_possibilities || ''}. Encontramos os seguintes achados: ${data.findings ? data.findings.map(f => f.item + ' ' + f.value + ', ' + f.explanation).join('. ') : ''}.`;
-            document.getElementById('btn-speak-result').onclick = () => speakText(fullText, true);
-
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
             document.getElementById('results-1').classList.remove('hidden');
         }
 
-<<<<<<< HEAD
         // --- LÓGICA PRÉ-OPERATÓRIO ---
         async function processPreOp() {
             const safeUser = normalizeUser(currentUser); 
             
-=======
-        // --- LÓGICA PRÉ-OPERATÓRIO
-        async function processPreOp() {
-            // 1. Normalização de segurança (Garante que lemos as permissões corretamente)
-            const safeUser = normalizeUser(currentUser); 
-            
-            // 2. Verificações de Bloqueio e Saldo
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
             if (safeUser.blockedFeatures && safeUser.blockedFeatures.preOp) {
                 return showToast("Funcionalidade bloqueada pelo administrador.", "error");
             }
             if (!hasCredits(100)) return;
 
-<<<<<<< HEAD
             const surgerySelect = document.getElementById('surgery-type');
             const surgeryId = parseInt(surgerySelect.value);
 
@@ -1896,44 +1562,16 @@ function getActiveExamsString() {
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Analisando Risco...`;
             btn.disabled = true;
 
-=======
-            // 3. Captura e Conversão do ID (O FIX PRINCIPAL)
-            const surgerySelect = document.getElementById('surgery-type');
-            const surgeryId = parseInt(surgerySelect.value); // Converte "1" (string) para 1 (int)
-
-            if (isNaN(surgeryId)) {
-                return showToast("Por favor, selecione uma cirurgia válida na lista.", "error");
-            }
-
-            const surgeryObj = SYSTEM_SETTINGS.surgeries.find(s => s.id === surgeryId);
-            
-            // Validação robusta do objeto cirurgia
-            if (!surgeryObj || !surgeryObj.ativo) {
-                return showToast(`A cirurgia selecionada não está disponível no momento.`, "error");
-            }
-
-            // 4. Feedback Visual (Loading)
-            const btn = document.querySelector('#preop-form button[type="submit"]');
-            const originalBtnText = btn.innerHTML;
-            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Analisando Risco...`;
-            btn.disabled = true;
-
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
             document.getElementById('loading-2').classList.remove('hidden');
             document.getElementById('results-2').classList.add('hidden');
             
             try {
-<<<<<<< HEAD
-=======
-                // 5. Coleta de Contexto (Histórico + Arquivos)
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c => c.value);
                 const otherComorb = document.getElementById('pre-other-comorb').value;
                 if(otherComorb) comorbs.push(otherComorb);
                 
                 const patientHistory = comorbs.length > 0 ? comorbs.join(", ") : "Paciente nega comorbidades (Hígido).";
 
-<<<<<<< HEAD
                 let examsText = "";
                 if(currentPreOpFiles.length) {
                     for(let f of currentPreOpFiles) {
@@ -1943,24 +1581,6 @@ function getActiveExamsString() {
                     }
                 } else {
                     examsText = "Nenhum arquivo de exame foi anexado.";
-=======
-                // Leitura dos Arquivos (OCR)
-                let examsText = "";
-                let fileNames = []; 
-
-                if(currentPreOpFiles.length) {
-                    for(let f of currentPreOpFiles) {
-                        fileNames.push(f.name);
-                        examsText += `\n--- ARQUIVO: ${f.name} ---\n`;
-                        if(f.type === 'application/pdf') {
-                            examsText += await extractPdfText(f);
-                        } else {
-                            examsText += await extractImageText(f);
-                        }
-                    }
-                } else {
-                    examsText = "Nenhum arquivo de exame foi anexado (Avaliar apenas com base na anamnese clínica).";
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 }
 
                 // 6. Prompt de Engenharia para o Gemini (Risco Cirúrgico)
@@ -1983,20 +1603,10 @@ function getActiveExamsString() {
                     TAREFA:
                     Calcule o Risco Cirúrgico (ASA e Índice de Lee) e determine se o paciente está APTO ou se faltam exames.
                     
-<<<<<<< HEAD
                     INSTRUÇÕES PARA O LAUDO:
                     1. Se o paciente for saudável (ASA I) e a cirurgia for pequeno porte, libere.
                     2. Se faltarem exames cruciais para o risco, liste-os em 'missing_exams'.
                     
-=======
-                INSTRUÇÕES CRÍTICAS PARA A IA:
-                1. O paciente possui o histórico listado acima (HAS, Diabetes, etc). USE ISSO para calcular o ASA, mesmo que não haja exame específico confirmando.
-                2. Analise os Exames enviados,seja PDF, Jpeg ou qualquer outro formato, analise as imangens,e laudos antes de formular a sua resposta.
-                3. Se houver um arquivo com nome "ECG", "Eletro", "Cardio" ou similar na lista de arquivos, CONSIDERE QUE O ECG FOI ENTREGUE, mesmo que o texto do OCR esteja ilegível.
-                4. Se o paciente for saudável (ASA I) e a cirurgia for pequeno porte (ex: Catarata), exames podem ser dispensados.
-                5. De orientaçoes Pós operatorias conforme o ASA e Lee do paciente (se necessita de exame especifico pós,internacao em uti e etc...)
-                
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 Gere a resposta EXATAMENTE neste JSON:
                 {
                     "asa": "ASA I, II, III...", 
@@ -2010,7 +1620,6 @@ function getActiveExamsString() {
                 }
                 (Se "missing_exams" estiver vazio [], significa que o paciente está liberado).`;
 
-<<<<<<< HEAD
                 const data = await callGemini(prompt, true);
 
                 // Salva o último resultado para o gerador de PDF
@@ -2019,12 +1628,6 @@ function getActiveExamsString() {
                     ...data
                 };
 
-=======
-                // 7. Chamada à API
-                const data = await callGemini(prompt, true);
-
-                // 8. Salvar Histórico
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 saveHistoryToBackend('pre_operatorio', 100, {
                     surgeryName: surgeryObj.nome,
                     aiResult: data
@@ -2032,11 +1635,7 @@ function getActiveExamsString() {
                 
                 deductCredits(100);
 
-<<<<<<< HEAD
                 // Renderiza Scores
-=======
-                // 9. Renderizar Resultados
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 document.getElementById('res-asa').textContent = data.asa || "-";
                 document.getElementById('res-lee').textContent = data.lee || "-";
                 document.getElementById('ai-content-2').innerHTML = data.html_report || "<p>Sem relatório gerado.</p>";
@@ -2044,11 +1643,7 @@ function getActiveExamsString() {
                 const speechText = data.speech_text || "Avaliação concluída.";
                 document.getElementById('btn-speak-preop').onclick = () => speakText(speechText, true);
 
-<<<<<<< HEAD
                 // Lógica de Pendências x Liberação
-=======
-                // Lógica de Pendências (Exibe caixa vermelha se faltar exame)
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 missingExamsList = data.missing_exams || [];
                 
                 const pendingContainer = document.getElementById('pending-exams-container');
@@ -2057,10 +1652,7 @@ function getActiveExamsString() {
                 if (missingExamsList.length > 0) {
                     // FALTA EXAME
                     pendingContainer.classList.remove('hidden');
-<<<<<<< HEAD
                     clearedContainer.classList.add('hidden');
-=======
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
                 } else {
                     // LIBERADO!
                     pendingContainer.classList.add('hidden');
@@ -2448,169 +2040,6 @@ function getActiveExamsString() {
             if (typeof lucide !== 'undefined') lucide.createIcons();
         });
 
-<<<<<<< HEAD
-=======
-// =============================================================================
-// CÓDIGO PARA SUBSTITUIR NO SEU index.html (FINAL DA TAG <SCRIPT>)
-// Correção: Agora lê 'credits' vindo do backend corretamente
-// =============================================================================
-
-let dbUsersList = [];
-
-// Carrega usuários do Backend
-async function fetchAdminUsers() {
-    try {
-        const btn = document.querySelector('input[placeholder="Buscar paciente..."]');
-        if(btn) btn.disabled = true;
-        
-        const res = await fetch(`${BACKEND_URL}/api/admin/users`);
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error || "Erro ao buscar usuários");
-        }
-        
-        dbUsersList = await res.json();
-        renderUserList();
-        
-        if(btn) btn.disabled = false;
-    } catch (error) {
-        console.error(error);
-        showToast("Erro ao carregar lista: " + error.message, "error");
-    }
-}
-
-// Renderiza a tabela (CORRIGIDO: usa user.credits)
-function renderUserList(filter = '') {
-    const container = document.getElementById('admin-users-list');
-    
-    const users = dbUsersList.filter(u => 
-        (u.name.toLowerCase().includes(filter.toLowerCase()) || 
-         u.email.toLowerCase().includes(filter.toLowerCase()))
-    );
-    
-    container.innerHTML = users.map(user => {
-        const blocks = user.blocked_features || { preConsulta: false, preOp: false };
-        
-        // CORREÇÃO CRÍTICA ABAIXO: user.credits ao invés de user.creditos
-        return `
-        <tr class="hover:bg-gray-50 transition">
-            <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
-                ${user.name}
-                <div class="text-xs text-gray-400 font-normal">${user.email}</div>
-                <div class="text-xs text-gray-400 font-normal">CPF: ${user.cpf || 'N/A'}</div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-center">
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.credits > 20 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                    ${user.credits} Créditos
-                </span>
-            </td>
-            <td class="px-6 py-4 text-center">
-                 <button onclick="adminRecharge('${user.email}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1 px-3 rounded shadow transition transform active:scale-95">
-                    <i class="fa-solid fa-bolt mr-1"></i> +100
-                </button>
-            </td>
-            <td class="px-6 py-4 text-center">
-                <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                    <input type="checkbox" id="toggle-pre-${user.id}" 
-                           class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" 
-                           ${blocks.preConsulta ? 'checked' : ''} 
-                           onchange="toggleUserBlock('${user.email}', 'preConsulta', this)"/>
-                    <label for="toggle-pre-${user.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
-                </div>
-            </td>
-            <td class="px-6 py-4 text-center">
-                <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                    <input type="checkbox" id="toggle-op-${user.id}" 
-                           class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" 
-                           ${blocks.preOp ? 'checked' : ''} 
-                           onchange="toggleUserBlock('${user.email}', 'preOp', this)"/>
-                    <label for="toggle-op-${user.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
-                </div>
-            </td>
-        </tr>
-    `}).join('');
-}
-
-// Bloqueio Real
-async function toggleUserBlock(email, feature, checkboxElement) {
-    const isBlocked = checkboxElement.checked;
-    showToast(`Atualizando permissão...`, 'info');
-
-    try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/toggle_block`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email, feature, isBlocked })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-            const userIndex = dbUsersList.findIndex(u => u.email === email);
-            if(userIndex > -1) {
-                if(!dbUsersList[userIndex].blocked_features) dbUsersList[userIndex].blocked_features = {};
-                dbUsersList[userIndex].blocked_features[feature] = isBlocked;
-            }
-            showToast(`Permissão ${isBlocked ? 'BLOQUEADA' : 'LIBERADA'} com sucesso!`, "success");
-        } else {
-            throw new Error(data.message || "Erro ao atualizar");
-        }
-    } catch (error) {
-        checkboxElement.checked = !isBlocked;
-        showToast("Falha ao salvar no banco.", "error");
-    }
-}
-
-// Recarga Real
-async function adminRecharge(email) {
-    if(!confirm(`Confirma adicionar 100 créditos para ${email}?`)) return;
-    try {
-        const res = await fetch(`${BACKEND_URL}/api/admin/recharge`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email, amount: 100 })
-        });
-        if(res.ok) {
-            showToast("Recarga realizada!", "success");
-            fetchAdminUsers(); 
-        } else {
-            showToast("Erro na recarga.", "error");
-        }
-    } catch(e) { console.error(e); }
-}
-
-// Renderização Geral
-function renderAdminPanel() {
-    renderReferralDashboard();
-    fetchAdminUsers();
-    renderExamList('lab', 'adm-list-lab');
-    renderExamList('img', 'adm-list-img');
-    renderSurgeryList();
-}
-
-// =========================================================
-        // FUNÇÃO DE NORMALIZAÇÃO DE DADOS (CRUCIAL PARA O FIX)
-        // =========================================================
-        function normalizeUser(u) {
-            if (!u) return null;
-            
-            // Detecta se veio blockedFeatures (novo) ou blocked_features (banco legado)
-            // e unifica tudo em 'blockedFeatures' (CamelCase)
-            // Se nenhum existir, cria um objeto padrão seguro.
-            const rawBlocks = u.blockedFeatures || u.blocked_features || {};
-            
-            // Reconstrói o objeto garantindo booleanos
-            u.blockedFeatures = {
-                preConsulta: !!rawBlocks.preConsulta, // !! converte para true/false real
-                preOp: !!rawBlocks.preOp
-            };
-            
-            // Opcional: Remove a propriedade antiga snake_case para evitar confusão futura
-            // delete u.blocked_features; 
-            
-            return u;
-        }
-
->>>>>>> a152110410926ff03efb46c4d8920877dccc3e4d
     </script>
 </body>
 </html>
