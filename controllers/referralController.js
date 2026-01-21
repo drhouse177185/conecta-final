@@ -1,10 +1,9 @@
-const { Referral } = require('../models'); // Usa o modelo do Sequelize
+const { Referral } = require('../models');
 
 exports.createReferral = async (req, res) => {
     try {
         const { userId, patientName, cpf, specialty, reason } = req.body;
 
-        // Cria usando Sequelize (muito mais limpo e seguro)
         const newReferral = await Referral.create({
             userId,
             patientName,
@@ -18,7 +17,7 @@ exports.createReferral = async (req, res) => {
 
     } catch (error) {
         console.error('Erro ao criar encaminhamento:', error);
-        res.status(500).json({ error: 'Erro ao salvar encaminhamento no banco.' });
+        res.status(500).json({ error: 'Erro ao salvar encaminhamento.' });
     }
 };
 

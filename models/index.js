@@ -1,6 +1,6 @@
 const sequelize = require('../config/database');
 const User = require('./User');
-const Referral = require('./Referral'); // Importa o novo modelo
+const Referral = require('./Referral'); // Garante a importação do novo modelo
 
 // Define relacionamentos
 Referral.belongsTo(User, { foreignKey: 'userId', as: 'user' });
