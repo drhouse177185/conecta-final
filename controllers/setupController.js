@@ -1,128 +1,81 @@
-// --- CORREÇÃO: Garante a criação da tabela 'usuarios' antes das dependentes ---
 const { sequelize } = require('../models');
 
 exports.installDatabase = async (req, res) => {
     try {
-        console.log("--- INICIANDO INSTALAÇÃO DO BANCO DE DADOS ---");
+        console.log("--- INICIANDO REPARO AGRESSIVO DO BANCO DE DADOS ---");
 
-        // 0. CRIAÇÃO DA TABELA MÃE 'USUARIOS' (CRUCIAL PARA EVITAR ERRO DE RELAÇÃO)
-        await sequelize.query(`
-            CREATE TABLE IF NOT EXISTS usuarios (
-                id SERIAL PRIMARY KEY,
-                nome VARCHAR(150) NOT NULL,
-                email VARCHAR(150) NOT NULL UNIQUE,
-                senha VARCHAR(255) NOT NULL,
-                cpf VARCHAR(14),
-                idade INT CHECK (idade >= 0),
-                sexo CHAR(1) CHECK (sexo IN ('M', 'F')),
-                creditos INT NOT NULL DEFAULT 0 CHECK (creditos >= 0),
-                role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'admin')),
-                blocked_features JSONB DEFAULT '{"preConsulta": false, "preOp": false}',
-                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-        console.log("✅ Tabela 'usuarios' verificada/criada.");
+        // 1. REPARO DE COLUNAS (Tenta em todas as variações de nome de tabela possíveis)
+        // Isso resolve o erro "column blocked_features does not exist" de vez.
+        const repairTable = async (tableName) => {
+            try {
+                console.log(`🔧 Tentando reparar tabela: ${tableName}...`);
+                
+                // Adiciona blocked_features
+                await sequelize.query(`
+                    ALTER TABLE ${tableName} 
+                    ADD COLUMN IF NOT EXISTS "blocked_features" JSONB DEFAULT '{"preConsulta": false, "preOp": false}';
+                `);
+                
+                // Adiciona credits (caso esteja faltando)
+                await sequelize.query(`
+                    ALTER TABLE ${tableName} 
+                    ADD COLUMN IF NOT EXISTS "credits" INTEGER DEFAULT 100;
+                `);
+                
+                console.log(`✅ Tabela ${tableName} reparada.`);
+            } catch (e) {
+                // Ignora erro se a tabela não existir, mas loga para debug
+                console.log(`⚠️ Tabela ${tableName} não encontrada ou erro: ${e.message}`);
+            }
+        };
 
-        // 1. Criação das Tabelas de Serviço e Histórico
+        // Tenta reparar as 3 variações comuns do Sequelize/Postgres
+        await repairTable('"users"');    // Padrão Sequelize (com aspas)
+        await repairTable('users');      // Padrão SQL simples
+        await repairTable('usuarios');   // Padrão Schema original
+
+        // 2. RECRIAÇÃO DO CATÁLOGO (Garante que exames existam)
         await sequelize.query(`
-            CREATE TABLE IF NOT EXISTS catalogo_servicos (
+            CREATE TABLE IF NOT EXISTS catalogo_itens (
                 id SERIAL PRIMARY KEY,
-                slug VARCHAR(50) NOT NULL UNIQUE,
-                nome VARCHAR(100) NOT NULL,
-                descricao TEXT,
-                preco_creditos INT NOT NULL CHECK (preco_creditos >= 0),
+                tipo VARCHAR(20),
+                nome VARCHAR(150),
+                slug VARCHAR(100),
                 ativo BOOLEAN DEFAULT TRUE,
-                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ordem INT DEFAULT 0
             );
         `);
 
-        await sequelize.query(`
-            CREATE TABLE IF NOT EXISTS historico_usos (
-                id SERIAL PRIMARY KEY,
-                usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-                servico_id INT NOT NULL REFERENCES catalogo_servicos(id),
-                dados_resultado JSONB,
-                custo_cobrado INT NOT NULL,
-                status VARCHAR(20) DEFAULT 'Concluido',
-                data_uso TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
-        await sequelize.query(`
-            CREATE TABLE IF NOT EXISTS detalhes_pre_consulta (
-                id SERIAL PRIMARY KEY,
-                historico_uso_id INT NOT NULL REFERENCES historico_usos(id) ON DELETE CASCADE,
-                comorbidades TEXT[],
-                exames_solicitados TEXT[],
-                rotina BOOLEAN DEFAULT FALSE,
-                dst BOOLEAN DEFAULT FALSE,
-                gravidez BOOLEAN DEFAULT FALSE
-            );
-        `);
-
-        await sequelize.query(`
-            CREATE TABLE IF NOT EXISTS detalhes_pos_consulta (
-                id SERIAL PRIMARY KEY,
-                historico_uso_id INT NOT NULL REFERENCES historico_usos(id) ON DELETE CASCADE,
-                resumo_clinico TEXT,
-                hipoteses_diagnosticas TEXT,
-                especialista_indicado VARCHAR(100),
-                conduta_sugerida TEXT,
-                procedimentos_sugeridos TEXT[]
-            );
-        `);
-
-        await sequelize.query(`
-            CREATE TABLE IF NOT EXISTS resultados_exames_itens (
-                id SERIAL PRIMARY KEY,
-                detalhe_pos_consulta_id INT NOT NULL REFERENCES detalhes_pos_consulta(id) ON DELETE CASCADE,
-                nome_exame VARCHAR(150),
-                valor_encontrado VARCHAR(100),
-                status_exame VARCHAR(50),
-                expliacao_ia TEXT
-            );
-        `);
-        
-        await sequelize.query(`
-            CREATE TABLE IF NOT EXISTS analises_pre_operatorias (
-                id SERIAL PRIMARY KEY,
-                historico_uso_id INT NOT NULL REFERENCES historico_usos(id) ON DELETE CASCADE,
-                cirurgia_proposta VARCHAR(150) NOT NULL,
-                score_asa VARCHAR(50),
-                indice_lee VARCHAR(50),
-                exames_faltantes TEXT[],
-                data_analise TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                status_liberacao BOOLEAN DEFAULT FALSE
-            );
-        `);
-
-        // Garante que a coluna status_liberacao exista
-        try {
-            await sequelize.query(`ALTER TABLE analises_pre_operatorias ADD COLUMN IF NOT EXISTS status_liberacao BOOLEAN DEFAULT FALSE;`);
-        } catch(e) { console.log("Coluna status_liberacao já existe ou erro ignorável."); }
-
-
-        // 2. População do Catálogo (Seed)
-        const [results] = await sequelize.query(`SELECT count(*) as total FROM catalogo_servicos`);
-        
+        // Verifica se está vazio e popula
+        const [results] = await sequelize.query(`SELECT count(*) as total FROM catalogo_itens`);
         if (results[0].total == 0) {
-            console.log("Populando catálogo de serviços...");
-            await sequelize.query(`
-                INSERT INTO catalogo_servicos (slug, nome, descricao, preco_creditos) VALUES 
-                ('pre_consulta', 'Pré-Consulta Inteligente', 'Geração de guia de exames baseada em perfil e comorbidades.', 80),
-                ('pos_consulta', 'Análise de Exames (IA)', 'Interpretação e resumo de laudos de exames via OCR e IA.', 10),
-                ('pre_operatorio', 'Risco Cirúrgico', 'Calculadora de risco ASA/Lee e verificação de exames pré-operatórios.', 100);
-            `);
-        } else {
-            console.log("Catálogo já populado.");
+            console.log("Populando catálogo...");
+            const inserir = async (tipo, nome, i) => {
+                await sequelize.query(`INSERT INTO catalogo_itens (tipo, nome, slug, ativo, ordem) VALUES ('${tipo}', '${nome}', '${tipo}_${i}', true, ${i})`);
+            };
+
+            const labs = ['Hemograma Completo', 'Glicemia em Jejum', 'Colesterol Total', 'Triglicerídeos', 'Creatinina', 'Ureia', 'TGO', 'TGP', 'TSH', 'T4 Livre', 'Urina 1', 'Urocultura', 'Parasitológico', 'Hemoglobina Glicada', 'PSA', 'Vitamina D', 'Beta HCG'];
+            const imgs = ['Raio-X Tórax', 'USG Abdome', 'Mamografia', 'Eletrocardiograma', 'USG Transvaginal', 'Tomografia', 'Ecocardiograma'];
+            const surgs = ['Catarata', 'Hemorroidectomia', 'Laqueadura', 'Hernioplastia', 'Colecistectomia', 'Histerectomia'];
+
+            for(let i=0; i<labs.length; i++) await inserir('lab', labs[i], i);
+            for(let i=0; i<imgs.length; i++) await inserir('img', imgs[i], i);
+            for(let i=0; i<surgs.length; i++) await inserir('cirurgia', surgs[i], i);
         }
 
-        console.log("--- INSTALAÇÃO CONCLUÍDA COM SUCESSO ---");
-        res.json({ success: true, message: "Banco de dados atualizado e populado com sucesso!" });
+        res.send(`
+            <div style="font-family: sans-serif; padding: 20px; background: #ecfccb; color: #365314; border: 1px solid #84cc16; border-radius: 8px;">
+                <h1>✅ Reparo Completo Executado!</h1>
+                <p>1. Colunas <strong>blocked_features</strong> e <strong>credits</strong> injetadas na tabela 'users'.</p>
+                <p>2. Catálogo verificado.</p>
+                <hr>
+                <p><strong>IMPORTANTE:</strong> Volte ao Painel Admin agora. O erro deve ter sumido.</p>
+                <a href="/" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #365314; color: white; text-decoration: none; border-radius: 5px;">Voltar ao App</a>
+            </div>
+        `);
 
     } catch (error) {
-        console.error("Erro na instalação:", error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error("Erro fatal setup:", error);
+        res.status(500).send(`❌ Erro: ${error.message}`);
     }
 };

@@ -1,119 +1,125 @@
 const { User, sequelize } = require('../models');
 const bcrypt = require('bcryptjs');
 
-// Login
+// --- LOGIN ---
 exports.login = async (req, res) => {
     try {
         let { email, password } = req.body;
-        
         if(!email || !password) return res.status(400).json({ message: "Dados incompletos." });
-        email = email.trim(); 
         
-        console.log(`[LOGIN] Tentativa para: ${email}`);
+        const user = await User.findOne({ where: { email: email.trim() } });
+        if (!user) return res.status(404).json({ message: "E-mail não encontrado." });
 
-        const user = await User.findOne({ where: { email } });
-        
-        if (!user) {
-            console.log(`[LOGIN] Email não encontrado.`);
-            return res.status(404).json({ message: "E-mail não encontrado." });
-        }
-
-        console.log(`[LOGIN] Usuário encontrado (ID: ${user.id}).`);
-
-        const isMatchHash = await bcrypt.compare(password, user.password).catch(() => false);
+        const isMatch = await bcrypt.compare(password, user.password).catch(() => false);
         const isMatchPlain = password === user.password; 
 
-        if (isMatchHash) {
-            console.log(`[LOGIN] Sucesso via HASH.`);
-        } else if (isMatchPlain) {
-            console.log(`[LOGIN] Sucesso via TEXTO PURO.`);
-        } else {
-            console.log(`[LOGIN] Falha: Senha incorreta.`);
-            return res.status(401).json({ message: "Senha incorreta." });
-        }
+        if (!isMatch && !isMatchPlain) return res.status(401).json({ message: "Senha incorreta." });
 
         const userData = user.toJSON();
         delete userData.password;
+        
+        // Garante que blocked_features exista
+        userData.blocked_features = userData.blocked_features || { preConsulta: false, preOp: false };
+        
         res.json(userData);
-
     } catch (error) {
-        console.error("Erro Login:", error);
         res.status(500).json({ message: "Erro no servidor", error: error.message });
     }
 };
 
-// Registro
+// --- REGISTRO ---
 exports.register = async (req, res) => {
     try {
         let { name, email, password, cpf, age, sex } = req.body;
-        email = email.trim();
-
-        const existing = await User.findOne({ where: { email } });
+        const existing = await User.findOne({ where: { email: email.trim() } });
         if (existing) return res.status(400).json({ message: "Email já cadastrado." });
 
         const hashedPassword = await bcrypt.hash(password.trim(), 10);
-
         const newUser = await User.create({
-            name, email, password: hashedPassword, cpf, age, sex,
-            credits: 100, role: 'user'
+            name, email: email.trim(), password: hashedPassword, cpf, age, sex,
+            credits: 100, role: 'user',
+            blocked_features: { preConsulta: false, preOp: false }
         });
-
         res.status(201).json(newUser);
     } catch (error) {
         res.status(500).json({ message: "Erro ao registrar", error: error.message });
     }
 };
 
+// --- RECUPERAÇÃO DE SENHA ---
+exports.recoverPassword = async (req, res) => {
+    try {
+        const { cpf, newPassword } = req.body;
+        const user = await User.findOne({ where: { cpf } });
+        if (!user) return res.status(404).json({ success: false, message: "CPF não encontrado." });
+
+        if (newPassword) {
+            user.password = await bcrypt.hash(newPassword.trim(), 10);
+            await user.save();
+            return res.json({ success: true, email: user.email, message: "Senha redefinida." });
+        }
+        return res.json({ success: true, message: "CPF validado." });
+    } catch (error) {
+        res.status(500).json({ message: "Erro interno." });
+    }
+};
+
+// =============================================================================
+// ÁREA DO ADMIN (Funções que faltavam)
+// =============================================================================
+
+// 1. Listar Usuários (Com estrutura correta para o Admin)
 exports.getAllUsers = async (req, res) => {
     try {
-        const users = await User.findAll({ attributes: { exclude: ['password'] } });
+        const users = await User.findAll({ 
+            where: { role: 'user' },
+            attributes: ['id', 'name', 'email', 'cpf', 'age', 'sex', 'credits', 'blocked_features'],
+            order: [['name', 'ASC']]
+        });
         res.json(users);
     } catch (error) {
+        console.error("Erro lista usuários:", error);
         res.status(500).json({ error: error.message });
     }
 };
 
-// --- RECUPERAÇÃO REFATORADA (CORREÇÃO SÊNIOR) ---
-exports.recoverPassword = async (req, res) => {
+// 2. Bloquear/Desbloquear Funcionalidades
+exports.toggleBlock = async (req, res) => {
     try {
-        const { cpf, newPassword } = req.body;
-        
-        // 1. Busca Usuário pelo CPF
-        const user = await User.findOne({ where: { cpf } });
+        const { email, feature, isBlocked } = req.body;
+        const user = await User.findOne({ where: { email } });
+        if (!user) return res.status(404).json({ message: "Usuário não encontrado" });
 
-        if (!user) {
-            return res.status(404).json({ success: false, message: "CPF não encontrado no sistema." });
+        let currentBlocks = user.blocked_features;
+        if (typeof currentBlocks === 'string') {
+            try { currentBlocks = JSON.parse(currentBlocks); } catch(e) { currentBlocks = {}; }
         }
+        if (!currentBlocks) currentBlocks = { preConsulta: false, preOp: false };
 
-        // 2. Lógica de Atualização
-        if (newPassword) {
-            console.log(`[RECOVER] Atualizando senha para usuário ID: ${user.id}`);
-            
-            const cleanPassword = newPassword.trim();
-            const hashedPassword = await bcrypt.hash(cleanPassword, 10);
-            
-            // CORREÇÃO: Uso do ORM Sequelize em vez de Raw SQL
-            // O ORM sabe que o model 'User' mapeia para a tabela 'usuarios' e coluna 'senha'
-            user.password = hashedPassword;
-            await user.save(); // Salva a alteração e atualiza o campo updatedAt
+        currentBlocks[feature] = isBlocked;
 
-            console.log("[RECOVER] ✅ Senha atualizada com sucesso via ORM.");
-            
-            return res.json({ 
-                success: true, 
-                passwordUpdated: true,
-                email: user.email, // Retorna email mascarado se quiser segurança extra
-                message: "Senha redefinida com sucesso! Faça login."
-            });
-        }
+        user.blocked_features = currentBlocks;
+        user.changed('blocked_features', true);
+        await user.save();
 
-        // Se não enviou senha, é apenas a validação do passo 1 (Verificar se CPF existe)
-        return res.json({ success: true, passwordUpdated: false, message: "CPF validado." });
-
+        res.json({ success: true, newStatus: currentBlocks });
     } catch (error) {
-        console.error("[RECOVER] Erro no Controller:", error);
-        res.status(500).json({ message: "Erro interno ao processar recuperação." });
+        res.status(500).json({ message: "Erro ao atualizar bloqueio." });
     }
 };
-            
-          
+
+// 3. Recarga Manual pelo Admin
+exports.adminRecharge = async (req, res) => {
+    try {
+        const { email, amount } = req.body;
+        const user = await User.findOne({ where: { email } });
+        if (!user) return res.status(404).json({ message: "Usuário não encontrado" });
+
+        user.credits += parseInt(amount);
+        await user.save();
+
+        res.json({ success: true, newCredits: user.credits });
+    } catch (error) {
+        res.status(500).json({ message: "Erro na recarga" });
+    }
+};

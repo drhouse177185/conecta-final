@@ -22,9 +22,7 @@ const User = sequelize.define('User', {
     password: {
         type: DataTypes.STRING,
         allowNull: false,
-        // CORREÇÃO AQUI:
-        // Definimos um valor padrão para que o banco possa preencher os registros antigos.
-        // Este hash abaixo corresponde à senha "mudar123"
+        // Senha padrão hash para compatibilidade
         defaultValue: '$2a$10$EpWxTcR/I7l9i.O1qO7.BO/Zq.JpL/m9.8p/h.0q.1r.2s.3t' 
     },
     cpf: {
@@ -47,8 +45,10 @@ const User = sequelize.define('User', {
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
+    // --- CORREÇÃO PRINCIPAL AQUI ---
     blockedFeatures: {
         type: DataTypes.JSONB, 
+        field: 'blocked_features', // Mapeia explicitamente para snake_case no banco
         defaultValue: { preConsulta: false, preOp: false }
     }
 }, {
