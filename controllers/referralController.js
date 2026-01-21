@@ -1,34 +1,35 @@
-const { Pool } = require('pg');
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+const { Referral } = require('../models'); // Usa o modelo do Sequelize
 
 exports.createReferral = async (req, res) => {
-    const { userId, patientName, cpf, specialty, reason } = req.body;
-
     try {
-        const query = `
-            INSERT INTO referrals (user_id, patient_name, cpf, specialty, reason)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING *;
-        `;
-        const values = [userId, patientName, cpf, specialty, reason];
+        const { userId, patientName, cpf, specialty, reason } = req.body;
+
+        // Cria usando Sequelize (muito mais limpo e seguro)
+        const newReferral = await Referral.create({
+            userId,
+            patientName,
+            cpf,
+            specialty,
+            reason,
+            status: 'pendente'
+        });
         
-        const result = await pool.query(query, values);
-        
-        res.json({ success: true, referral: result.rows[0] });
+        res.json({ success: true, referral: newReferral });
+
     } catch (error) {
         console.error('Erro ao criar encaminhamento:', error);
-        res.status(500).json({ error: 'Erro ao salvar encaminhamento.' });
+        res.status(500).json({ error: 'Erro ao salvar encaminhamento no banco.' });
     }
 };
 
 exports.getAllReferrals = async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM referrals ORDER BY created_at DESC');
-        res.json(result.rows);
+        const list = await Referral.findAll({
+            order: [['createdAt', 'DESC']]
+        });
+        res.json(list);
     } catch (error) {
+        console.error("Erro ao listar:", error);
         res.status(500).json({ error: 'Erro ao buscar encaminhamentos.' });
     }
 };
