@@ -1903,6 +1903,121 @@ function getActiveExamsString() {
                 loading.classList.add('hidden');
             }
         }
+       
+// 1. Gera PDF Individual de Encaminhamento (Modelo AME)
+        async function generateSingleReferralPDF(specialty, reason) {
+            const wrapper = document.getElementById('pdf-content-wrapper');
+            const now = new Date().toLocaleDateString('pt-BR');
+            
+            // Template HTML estilizado para PDF
+            wrapper.innerHTML = `
+                <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
+                    <div style="border-bottom: 2px solid #6b21a8; padding-bottom: 20px; margin-bottom: 30px;">
+                        <h1 style="color: #6b21a8; font-size: 24px; margin: 0; font-weight: bold;">ENCAMINHAMENTO MÉDICO</h1>
+                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Sistema Conecta Saúde - Regulação</p>
+                    </div>
+
+                    <div style="margin-bottom: 30px;">
+                        <p><strong>Para:</strong> Especialista em <span style="color: #6b21a8; font-weight: bold;">${specialty.toUpperCase()}</span></p>
+                        <p><strong>De:</strong> Dr. Tiago Barros (Clínica Conecta Saúde)</p>
+                        <p><strong>Data:</strong> ${now}</p>
+                    </div>
+
+                    <p style="margin-bottom: 20px;">Prezado(a) Colega,</p>
+                    <p style="margin-bottom: 20px; line-height: 1.6;">
+                        Solicito avaliação especializada para o(a) paciente abaixo identificado(a), devido a alterações clínicas/laboratoriais detectadas em triagem inicial.
+                    </p>
+
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+                        <table style="width: 100%; font-size: 14px;">
+                            <tr>
+                                <td style="padding: 5px; font-weight: bold; width: 100px;">Paciente:</td>
+                                <td style="padding: 5px;">${currentUser.name}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px; font-weight: bold;">CPF:</td>
+                                <td style="padding: 5px;">${currentUser.cpf || 'Não informado'}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px; font-weight: bold;">Idade:</td>
+                                <td style="padding: 5px;">${currentUser.age} anos</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <h3 style="color: #1e3a8a; font-size: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px;">Justificativa Clínica</h3>
+                    <p style="background-color: #fff; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 4px; font-style: italic;">
+                        "${reason}"
+                    </p>
+
+                    <div style="margin-top: 80px; text-align: center;">
+                        <p style="font-weight: bold; margin-bottom: 5px;">Dr. Tiago Barros</p>
+                        <p style="font-size: 12px; color: #666;">CRM 123.456 | Médico Regulador</p>
+                        <p style="font-size: 10px; color: #999; margin-top: 15px;">Assinado eletronicamente em ${now}</p>
+                    </div>
+                </div>
+            `;
+
+            try {
+                // Configuração para captura
+                wrapper.style.position = 'absolute'; wrapper.style.top = '0'; wrapper.style.left = '0'; wrapper.style.opacity = '1'; wrapper.style.zIndex = '-9999';
+                await new Promise(r => setTimeout(r, 800)); // Aguarda renderização
+
+                const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                const imgWidth = 210; 
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+                pdf.save(`Encaminhamento_${specialty}_${currentUser.name.split(' ')[0]}.pdf`);
+                
+                showToast("PDF de Encaminhamento gerado com sucesso!", 'success');
+            } catch(e) {
+                console.error(e);
+                showToast("Erro ao gerar PDF.", "error");
+            } finally {
+                wrapper.innerHTML = ""; // Limpa
+            }
+        }
+// 2. Função de Agendamento (Salva no BD e Gera PDF)
+        async function scheduleAppointment(specialty, reason) {
+            const btn = document.getElementById('btn-schedule-app');
+            if(btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processando...'; }
+
+            try {
+                // A. Salva no Banco de Dados (Backend)
+                showToast("Registrando encaminhamento...", "info");
+                
+                const res = await fetch(`${BACKEND_URL}/api/referrals`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        patientName: currentUser.name,
+                        cpf: currentUser.cpf,
+                        specialty: specialty,
+                        reason: reason
+                    })
+                });
+
+                if(!res.ok) throw new Error("Erro ao salvar no banco.");
+
+                // B. Gera o PDF para o usuário
+                await generateSingleReferralPDF(specialty, reason);
+
+                showToast("Agendamento registrado!", "success");
+
+            } catch(e) {
+                console.error(e);
+                showToast("Erro no agendamento: " + e.message, "error");
+            } finally {
+                if(btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-calendar-check mr-2 text-indigo-600"></i> Agendar Consulta'; }
+            }
+        }
+
+        // 3. Renderiza Resultados Pós-Consulta (Atualizada com Botão de Agendamento)
         function renderDiagnosticResults(data) {
             document.getElementById('ai-summary').innerHTML = data.summary ? data.summary.replace(/\n/g, '<br>') : "";
             
@@ -1921,7 +2036,35 @@ function getActiveExamsString() {
             }
 
             const spec = data.specialist || "Clínico Geral";
-            document.getElementById('specialist-text').textContent = `Sugiro seguimento com: ${spec}.`;
+            const specTextEl = document.getElementById('specialist-text');
+            specTextEl.textContent = `Sugiro seguimento com: ${spec}.`;
+
+            // --- LÓGICA DO BOTÃO NOVO (INÍCIO) ---
+            // Remove botão antigo se existir (para evitar duplicatas se rodar 2x)
+            const existingBtn = document.getElementById('schedule-btn-container');
+            if(existingBtn) existingBtn.remove();
+
+            // Lógica: Só mostra botão se for especialista focal (não Clínico Geral/Médico de Família)
+            const isFocal = spec !== "Clínico Geral" && spec !== "Médico de Família" && spec !== "Nenhum" && spec !== "N/A";
+
+            if(isFocal) {
+                 const safeSpec = spec.replace(/'/g, "\\'");
+                 const safeReason = (data.diagnostic_possibilities || "Avaliação especializada").replace(/'/g, "\\'").replace(/\n/g, " ");
+                 
+                 // Cria elemento span para o botão ao lado do texto
+                 const btnSpan = document.createElement('span');
+                 btnSpan.id = 'schedule-btn-container';
+                 btnSpan.innerHTML = `
+                    <button id="btn-schedule-app" 
+                        onclick="scheduleAppointment('${safeSpec}', '${safeReason}')" 
+                        class="ml-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-1 px-3 rounded border border-slate-300 transition inline-flex items-center shadow-sm align-middle">
+                        <i class="fa-solid fa-calendar-check mr-2 text-indigo-600"></i> Agendar Consulta
+                    </button>
+                `;
+                specTextEl.appendChild(btnSpan);
+            }
+            // --- LÓGICA DO BOTÃO NOVO (FIM) ---
+
             document.getElementById('action-btn').href = `https://www.google.com/maps/search/${encodeURIComponent(spec + " perto de mim")}`;
             
             const procList = document.getElementById('procedures-list');

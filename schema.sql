@@ -207,3 +207,42 @@ CREATE TABLE resultados_exames_itens (
 -- OBS: A tabela 'analises_pre_operatorias' já existe no seu schema original 
 -- e atende bem, mas certifique-se que ela tem a coluna 'status_liberacao'.
 ALTER TABLE analises_pre_operatorias ADD COLUMN IF NOT EXISTS status_liberacao BOOLEAN DEFAULT FALSE;
+
+-- Tabela de Usuários (Existente - Mantida para contexto)
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255),
+  age INTEGER,
+  sex VARCHAR(10),
+  cpf VARCHAR(20),
+  credits INTEGER DEFAULT 0,
+  role VARCHAR(50) DEFAULT 'user',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_recharge DATE,
+  claimed_free_bonus BOOLEAN DEFAULT FALSE,
+  blocked_features JSONB DEFAULT '{"preConsulta": false, "preOp": false}'
+);
+
+-- Tabela de Histórico (Existente - Mantida)
+CREATE TABLE IF NOT EXISTS history (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  service_slug VARCHAR(100),
+  cost INTEGER,
+  details JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- NOVA TABELA: Encaminhamentos (Referrals)
+CREATE TABLE IF NOT EXISTS referrals (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    patient_name VARCHAR(255),
+    cpf VARCHAR(20),
+    specialty VARCHAR(100), -- Especialidade indicada (ex: Cardiologia)
+    reason TEXT,            -- Justificativa clínica
+    status VARCHAR(50) DEFAULT 'pendente', -- pendente, agendado, realizado
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

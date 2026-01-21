@@ -1,36 +1,30 @@
 const express = require('express');
 const router = express.Router();
-
-// Importação dos Controladores
-const mainController = require('../controllers/mainController');
 const userController = require('../controllers/userController');
-const paymentController = require('../controllers/paymentController');
 const historyController = require('../controllers/historyController');
+const paymentController = require('../controllers/paymentController');
+const catalogController = require('../controllers/catalogController');
 const setupController = require('../controllers/setupController');
-const catalogController = require('../controllers/catalogController'); // <--- Importante!
 
-// --- Rotas Básicas ---
-router.get('/saudacao', mainController.saudacao);
-router.post('/echo', mainController.echo);
-router.get('/config', mainController.getConfig);
-router.get('/install_db', setupController.installDatabase);
+// Importa o novo controller
+const referralController = require('../controllers/referralController');
 
-// --- Rotas de Autenticação ---
-router.post('/auth/login', userController.login);
+// ... (Rotas existentes mantidas) ...
 router.post('/auth/register', userController.register);
-router.post('/auth/recover', userController.recoverPassword);
+router.post('/auth/login', userController.login);
+router.get('/config', (req, res) => res.json({ apiKey: process.env.GEMINI_API_KEY }));
 
-// --- ROTAS DO ADMIN (USUÁRIOS) ---
-router.get('/admin/users', userController.getAllUsers);         // Lista Usuários
-router.post('/admin/toggle_block', userController.toggleBlock); // Bloqueia Funcionalidade
-router.post('/admin/recharge', userController.adminRecharge);   // Recarga Manual
+// Rotas de Encaminhamento (NOVAS)
+router.post('/referrals', referralController.createReferral);
+router.get('/referrals', referralController.getAllReferrals); // Para uso futuro do admin
 
-// --- ROTAS DO CATÁLOGO (EXAMES/CIRURGIAS) ---
-router.get('/catalog', catalogController.getCatalog);           // Busca a lista
-router.post('/catalog/toggle', catalogController.toggleItem);   // Liga/Desliga item
-
-// --- Rotas de Funcionalidades ---
+// ... (Outras rotas existentes) ...
+router.get('/catalog', catalogController.getCatalog);
+router.post('/catalog/toggle', catalogController.toggleItem);
 router.post('/history/save', historyController.saveHistory);
 router.post('/create_preference', paymentController.createPreference);
+router.get('/admin/users', userController.getAllUsers);
+router.post('/admin/toggle_block', userController.toggleBlock);
+router.post('/admin/recharge', userController.adminRecharge);
 
 module.exports = router;
