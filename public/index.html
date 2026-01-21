@@ -3,7 +3,7 @@
     PROJETO: Conecta Saúde - Sistema Integrado
     DESCRIÇÃO: Single Page Application (SPA) para gestão de saúde, pré-consulta e análise de exames.
     DATA DE REFATORAÇÃO: 2024
-    STATUS: ATUALIZADO (Botão Laudo Pré-Op + PDF + WhatsApp)
+    STATUS: CORRIGIDO (Funções de Laudo PDF e WhatsApp restauradas)
 -->
 
 <!DOCTYPE html>
@@ -16,7 +16,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- Título da aba do navegador -->
-    <title>Conecta Saúde - Sistema Integrado v2.6 (Laudo Cirúrgico)</title>
+    <title>Conecta Saúde - Sistema Integrado v2.5 (Laudo Restaurado)</title>
     
     <!-- --- IMPORTAÇÃO DE DEPENDÊNCIAS EXTERNAS (CDNs) --- -->
     
@@ -896,21 +896,29 @@
         // Função segura para carregar a chave
         async function loadConfig() {
             try {
+                console.log("Tentando buscar chave em:", `${BACKEND_URL}/api/config`);
                 const response = await fetch(`${BACKEND_URL}/api/config`);
                 if(response.ok) {
                     const data = await response.json();
                     if(data.apiKey) {
                         apiKey = data.apiKey;
                         console.log("✅ Chave de API carregada com segurança.");
+                    } else {
+                        console.warn("⚠️ Backend respondeu, mas sem chave.");
                     }
+                } else {
+                    console.error("❌ Erro no backend:", response.status);
                 }
             } catch (error) {
                 console.error("❌ Falha de conexão na configuração:", error);
+                // Não mostra alert para não travar a experiência, apenas loga
             }
         }
-
 // --- SEÇÃO: CONFIGURAÇÃO GLOBAL DO SISTEMA (CATÁLOGO DINÂMICO) ---
-     
+      
+// LÓGICA DO CATÁLOGO DINÂMICO (FRONTEND)
+// =============================================================================
+
 let SYSTEM_SETTINGS = {
     exams: { lab: [], img: [] },
     surgeries: []
@@ -979,12 +987,97 @@ initializeApp = function(user) {
     document.getElementById('auth-view').classList.add('hidden');
 };
 
+// RENDERIZAÇÃO DAS LISTAS DO ADMIN (COM CHECKBOXES)
+function renderExamList(type, elementId) {
+    const container = document.getElementById(elementId);
+    if(!container) return; // Segurança
+
+    const list = SYSTEM_SETTINGS.exams[type] || [];
+    
+    if(list.length === 0) {
+        container.innerHTML = `<p class="text-gray-400 text-xs col-span-full">Nenhum item nesta categoria.</p>`;
+        return;
+    }
+
+    container.innerHTML = list.map((exam) => `
+        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-slate-50 cursor-pointer bg-white">
+            <input type="checkbox" onchange="toggleItemGlobal(${exam.id}, '${type}', this)" 
+                   ${exam.ativo ? 'checked' : ''} 
+                   class="exam-checkbox rounded text-blue-600 focus:ring-blue-500 h-4 w-4">
+            <span class="exam-label-text text-sm text-slate-700 select-none ${!exam.ativo ? 'line-through text-red-400' : ''}">${exam.nome}</span>
+        </label>
+    `).join('');
+}
+
+function renderSurgeryList() {
+    const container = document.getElementById('adm-list-surg');
+    if(!container) return;
+
+    const list = SYSTEM_SETTINGS.surgeries || [];
+
+    container.innerHTML = list.map((surg) => `
+        <label class="flex items-center space-x-2 p-2 border rounded hover:bg-indigo-50 cursor-pointer bg-white border-indigo-100">
+            <input type="checkbox" onchange="toggleItemGlobal(${surg.id}, 'cirurgia', this)" 
+                   ${surg.ativo ? 'checked' : ''} 
+                   class="exam-checkbox rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+            <span class="exam-label-text text-sm text-indigo-900 select-none font-medium ${!surg.ativo ? 'line-through text-red-400' : ''}">${surg.nome}</span>
+        </label>
+    `).join('');
+}
+
+async function toggleItemGlobal(id, type, checkbox) {
+    const novoStatus = checkbox.checked;
+    const labelSpan = checkbox.nextElementSibling;
+    
+    if(!novoStatus) labelSpan.classList.add('line-through', 'text-red-400');
+    else labelSpan.classList.remove('line-through', 'text-red-400');
+    
+    showToast("Salvando...", "info");
+
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/catalog/toggle`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ id, ativo: novoStatus })
+        });
+
+        if(res.ok) {
+            // Atualiza memória local
+            if(type === 'cirurgia') {
+                const item = SYSTEM_SETTINGS.surgeries.find(x => x.id === id);
+                if(item) item.ativo = novoStatus;
+            } else {
+                const item = SYSTEM_SETTINGS.exams[type].find(x => x.id === id);
+                if(item) item.ativo = novoStatus;
+            }
+            showToast("Item atualizado!", "success");
+        } else throw new Error();
+    } catch(e) {
+        checkbox.checked = !novoStatus;
+        showToast("Erro ao salvar.", "error");
+    }
+}
+
+function getActiveExamsString() {
+    const activeLab = SYSTEM_SETTINGS.exams.lab.filter(e => e.ativo).map(e => e.nome);
+    const activeImg = SYSTEM_SETTINGS.exams.img.filter(e => e.ativo).map(e => e.nome);
+    if(activeLab.length === 0 && activeImg.length === 0) return "NENHUM EXAME DISPONÍVEL.";
+    return [...activeLab, ...activeImg].join(", ");
+}
+
         // --- FILA DE ENCAMINHAMENTOS (MOCK INICIAL) ---
+        // Dados fictícios para popular o Dashboard AME inicial
         let referralQueue = [
             { patientName: "Kellen Fernandes", cpf: "250.995.618-37", specialty: "Cardiologia", reason: "Avaliação de sopro e hipertensão não controlada.", date: "22/12/2025" },
+            { patientName: "Bruno Souza", cpf: "234.567.890-11", specialty: "Cardiologia", reason: "Check-up pós-infarto.", date: "21/12/2025" },
+            { patientName: "Carla Dias", cpf: "345.678.901-22", specialty: "Endocrinologia", reason: "Controle de Diabetes Tipo 2 e obesidade.", date: "20/12/2025" },
+            { patientName: "João Santos", cpf: "012.345.678-99", specialty: "Cardiologia", reason: "Arritmia cardíaca detectada em ECG.", date: "22/12/2025" },
+            { patientName: "Ana Silva", cpf: "123.456.789-00", specialty: "Ginecologia", reason: "Investigação de endometriose.", date: "19/12/2025" },
+            { patientName: "Daniel Oliveira", cpf: "456.789.012-33", specialty: "Cardiologia", reason: "Risco cirúrgico elevado.", date: "22/12/2025" }
         ];
 
         // --- UTILITÁRIO: NOTIFICAÇÕES (TOAST) ---
+        // Cria elementos visuais flutuantes para feedback ao usuário
         function showToast(msg, type='error') {
             const container = document.getElementById('toast-container');
             const el = document.createElement('div');
@@ -992,12 +1085,18 @@ initializeApp = function(user) {
             el.className = `pointer-events-auto transform transition-all duration-300 translate-x-full shadow-lg rounded-lg p-4 text-white font-bold text-sm max-w-sm flex items-center ${type === 'success' ? 'bg-green-600' : (type === 'info' ? 'bg-blue-600' : 'bg-red-500')}`;
             el.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : (type === 'info' ? 'fa-circle-info' : 'fa-triangle-exclamation')} mr-2"></i> <span>${msg}</span>`;
             container.appendChild(el);
+            // Animação de entrada
             requestAnimationFrame(() => el.classList.remove('translate-x-full'));
+            // Remove automaticamente após 3 segundos
             setTimeout(() => { el.classList.add('translate-x-full', 'opacity-0'); setTimeout(() => el.remove(), 300); }, 3000);
         }
 
+        // --- INICIALIZAÇÃO DESACOPLADA (CORREÇÃO DO TRAVAMENTO) ---
         window.addEventListener('load', () => {
+            // 1. Dispara o carregamento da config em paralelo (sem await)
             loadConfig();
+
+            // 2. Garante que o Splash suma após 3 segundos, INDEPENDENTE da config
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 if(splash) {
@@ -1008,16 +1107,59 @@ initializeApp = function(user) {
         });
 
         // --- VARIÁVEIS DE ESTADO GLOBAL ---
-        let currentUser = null; 
-        let currentPreOpFiles = []; 
-        let missingExamsList = []; 
+        let currentUser = null; // Usuário logado
+        let currentPreOpFiles = []; // Arquivos temporários para pré-operatório
+        let missingExamsList = []; // Lista de exames faltantes calculada pela IA
         
-        let inMemoryUsers = []; // Placeholder
+        // --- BANCO DE DADOS MOCK (Memória) ---
+        let inMemoryUsers = [
+            { email: "drtiago.barros@gmail.com", password: "123456", name: "Dr. Tiago Barros", role: 'admin' },
+            { email: "Kellenbastos20@gmail.com", password: "39811899", name: "Kellen Fernandes", age: 45, sex: "F", cpf: "250.995.618-37", role: 'user', credits: 100, claimedFreeBonus: false, lastRecharge: '2024-06-01', blockedFeatures: { preConsulta: false, preOp: false } },
+            { email: "ana.silva@email.com", password: "123", name: "Ana Silva", age: 28, sex: "F", cpf: "123.456.789-00", role: 'user', credits: 20, claimedFreeBonus: true, lastRecharge: '2024-11-01', blockedFeatures: { preConsulta: false, preOp: false } },
+            { email: "bruno.souza@email.com", password: "123", name: "Bruno Souza", age: 35, sex: "M", cpf: "234.567.890-11", role: 'user', credits: 100, claimedFreeBonus: false, lastRecharge: '2025-01-01', blockedFeatures: { preConsulta: false, preOp: false } },
+            { email: "carla.dias@email.com", password: "123", name: "Carla Dias", age: 52, sex: "F", cpf: "345.678.901-22", role: 'user', credits: 100, claimedFreeBonus: false, lastRecharge: '2025-01-01', blockedFeatures: { preConsulta: false, preOp: false } },
+            { email: "daniel.oliveira@email.com", password: "123", name: "Daniel Oliveira", age: 41, sex: "M", cpf: "456.789.012-33", role: 'user', credits: 100, claimedFreeBonus: false, lastRecharge: '2025-01-01', blockedFeatures: { preConsulta: false, preOp: false } },
+            { email: "elena.costa@email.com", password: "123", name: "Elena Costa", age: 65, sex: "F", cpf: "567.890.123-44", role: 'user', credits: 50, claimedFreeBonus: false, lastRecharge: '2024-05-01', blockedFeatures: { preConsulta: false, preOp: false } }, 
+            { email: "fabio.lima@email.com", password: "123", name: "Fabio Lima", age: 22, sex: "M", cpf: "678.901.234-55", role: 'user', credits: 100, claimedFreeBonus: false, lastRecharge: '2025-01-01', blockedFeatures: { preConsulta: false, preOp: false } },
+            { email: "gabriela.rocha@email.com", password: "123", name: "Gabriela Rocha", age: 30, sex: "F", cpf: "789.012.345-66", role: 'user', credits: 100, claimedFreeBonus: false, lastRecharge: '2025-01-01', blockedFeatures: { preConsulta: false, preOp: false } },
+            { email: "hugo.martins@email.com", password: "123", name: "Hugo Martins", age: 55, sex: "M", cpf: "890.123.456-77", role: 'user', credits: 100, claimedFreeBonus: false, lastRecharge: '2025-01-01', blockedFeatures: { preConsulta: false, preOp: false } },
+            { email: "isabela.ferreira@email.com", password: "123", name: "Isabela Ferreira", age: 27, sex: "F", cpf: "901.234.567-88", role: 'user', credits: 100, claimedFreeBonus: false, lastRecharge: '2025-01-01', blockedFeatures: { preConsulta: false, preOp: false } },
+            { email: "joao.santos@email.com", password: "123", name: "João Santos", age: 70, sex: "M", cpf: "012.345.678-99", role: 'user', credits: 100, claimedFreeBonus: false, lastRecharge: '2025-01-01', blockedFeatures: { preConsulta: false, preOp: false } }
+        ];
 
-        // 4. ATUALIZADA: Inicialização do App
+        // Camada de Abstração do Banco de Dados
+        const MockDB = {
+            usersKey: 'conecta_v3_users_secure',
+            // Autenticação simples por email/senha
+            login(e, p) {
+                let users = inMemoryUsers;
+                try {
+                    const stored = localStorage.getItem(this.usersKey);
+                    if(stored) users = JSON.parse(stored);
+                } catch(e) {}
+                return users.find(u => u.email.toLowerCase() === e.toLowerCase() && u.password === p);
+            },
+            // Registro de novo usuário
+            register(u) {
+                u.blockedFeatures = { preConsulta: false, preOp: false }; 
+                u.credits = 100;
+                u.claimedFreeBonus = false; // Novo usuário começa sem ter reclamado o bônus
+                u.lastRecharge = new Date().toISOString().split('T')[0];
+                inMemoryUsers.push(u);
+                return u;
+            }
+        };
+
+    // 4. ATUALIZADA: Inicialização do App
+        // Adicione a chamada do fetchCatalog na inicialização do App
         function initializeApp(user) {
+            // Define usuário global
             currentUser = user; 
+            
+            // Busca dados atualizados do banco ANTES de mostrar a tela
             fetchCatalog().then(() => {
+                
+                // Lógica de Roteamento (Admin vs User)
                 if(user.role === 'admin') {
                     document.getElementById('admin-view').classList.remove('hidden');
                     renderAdminPanel();
@@ -1027,8 +1169,9 @@ initializeApp = function(user) {
                     updateCreditDisplay();
                     safeSetValue('pre-name', user.name); safeSetValue('pre-age', user.age); safeSetValue('op-name', user.name);
                     
-                    populateSurgeryDropdown(); 
+                    populateSurgeryDropdown(); // <--- CHAMA AQUI COM DADOS DO BANCO
 
+                    // Lógica de sexo, etc... (Mantém o original)
                     const lblPreg = document.getElementById('lbl-pregnancy');
                     if(lblPreg) {
                         if (user.sex === 'F') lblPreg.classList.remove('hidden');
@@ -1036,7 +1179,10 @@ initializeApp = function(user) {
                     }
                 }
             });
+            
             document.getElementById('auth-view').classList.add('hidden');
+            
+            // Lógica de Recarga Automática (Se existir)
             if(typeof checkAutoRecharge === 'function' && user.role !== 'admin') checkAutoRecharge(user);
         }
 
@@ -1046,11 +1192,14 @@ initializeApp = function(user) {
             const p = document.getElementById('login-password').value;
             const btn = document.querySelector('#form-login button[type="submit"]');
             
+            // Feedback visual de carregamento
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ACESSANDO...';
             btn.disabled = true;
             
             try {
+                // Tenta login direto na API (Backend Real)
+                console.log("Tentando login no backend:", BACKEND_URL);
                 const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
                     method: 'POST', 
                     headers: {'Content-Type': 'application/json'},
@@ -1061,7 +1210,11 @@ initializeApp = function(user) {
                 
                 if(res.ok) {
                     showToast(`Bem-vindo de volta, ${data.name}!`, 'success');
+                    
+                    // Salva sessão (opcional, mas bom para UX)
                     localStorage.setItem('conecta_user', JSON.stringify(data));
+                    
+                    // Inicializa a UI
                     initializeApp(data);
                 } else {
                     console.warn("Login falhou:", data);
@@ -1071,6 +1224,7 @@ initializeApp = function(user) {
                 console.error("Erro fatal no login:", err);
                 showToast("Erro de conexão com o servidor.", 'error'); 
             } finally {
+                // Restaura botão
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
@@ -1107,6 +1261,7 @@ initializeApp = function(user) {
         
         // --- SEÇÃO: SISTEMA DE CRÉDITOS E RECARGA ---
 
+        // Verifica se o usuário tem direito a renovação de cota
         function checkAutoRecharge(user) {
             if (user.role === 'admin') return;
 
@@ -1117,6 +1272,7 @@ initializeApp = function(user) {
             
             let recharged = false;
 
+            // Regra de Negócio: Idosos renovam a cada 6 meses, outros a cada 1 ano
             if (user.age > 60) {
                 if (diffDays >= 180) recharged = true;
             } else {
@@ -1130,23 +1286,28 @@ initializeApp = function(user) {
             }
         }
 
+        // Atualiza a UI com o saldo atual
         function updateCreditDisplay() {
             const el = document.getElementById('credit-val');
             const container = document.getElementById('credit-display');
             if (el && currentUser) {
                 el.textContent = currentUser.credits;
+                // Muda a cor do badge baseado na quantidade
                 container.className = "credits-badge " + 
                     (currentUser.credits > 50 ? "credits-high" : (currentUser.credits > 20 ? "credits-med" : "credits-low"));
                 
+                // Atualiza também no modal se estiver aberto
                 const modalEl = document.getElementById('modal-credit-val');
                 if(modalEl) modalEl.textContent = currentUser.credits;
             }
         }
 
+        // Abre o modal e gerencia estado dos botões
         function openRechargeModal() {
             const modal = document.getElementById('recharge-modal');
             const btnBonus = document.getElementById('btn-claim-bonus');
             
+            // Verifica se bônus já foi usado
             if(currentUser.claimedFreeBonus) {
                 btnBonus.textContent = "JÁ RESGATADO";
                 btnBonus.disabled = true;
@@ -1165,12 +1326,15 @@ initializeApp = function(user) {
             document.getElementById('recharge-modal').classList.remove('active');
         }
 
+        // Lógica de resgate de bônus gratuito
         function claimFreeBonus() {
             if(currentUser.claimedFreeBonus) return;
+            
             currentUser.credits += 50;
             currentUser.claimedFreeBonus = true;
+            
             updateCreditDisplay();
-            openRechargeModal(); 
+            openRechargeModal(); // Re-render button state
             showToast("Bônus de 50 créditos resgatado com sucesso!", "success");
         }
 
@@ -1178,11 +1342,14 @@ initializeApp = function(user) {
         async function initiatePayment(planId, price) {
             const btnText = event.currentTarget.innerHTML;
             const btn = event.currentTarget;
+            // Estado de carregamento no botão
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Conectando...`;
             btn.disabled = true;
 
             try {
+                // Tenta conectar ao backend real para gerar preferência de pagamento
                 console.log("Tentando conectar ao backend em:", BACKEND_URL);
+                
                 const response = await fetch(`${BACKEND_URL}/create_preference`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -1193,13 +1360,18 @@ initializeApp = function(user) {
                     })
                 });
 
-                if (!response.ok) throw new Error("Falha na conexão com o backend");
+                if (!response.ok) {
+                    throw new Error("Falha na conexão com o backend");
+                }
 
                 const preference = await response.json();
                 
+                // Abre o checkout do Mercado Pago com o ID recebido
                 if(mp) {
                     mp.checkout({
-                        preference: { id: preference.id },
+                        preference: {
+                            id: preference.id
+                        },
                         autoOpen: true
                     });
                 } else {
@@ -1207,10 +1379,13 @@ initializeApp = function(user) {
                 }
 
             } catch (error) {
+                // --- FALLBACK: MODO SIMULAÇÃO ---
+                // Se não houver backend (ex: rodando local sem servidor), simula o sucesso
                 console.warn("Backend não encontrado, usando modo simulação para demonstração.", error);
+                
                 showToast(`Backend off. Simulando Checkout Mercado Pago...`, "info");
                 
-                await new Promise(resolve => setTimeout(resolve, 2000)); 
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Delay artificial
 
                 let creditsToAdd = 0;
                 if(planId === 'basic_50') creditsToAdd = 50;
@@ -1221,14 +1396,17 @@ initializeApp = function(user) {
                 closeRechargeModal();
                 showToast(`Pagamento SIMULADO aprovado! +${creditsToAdd} créditos.`, "success");
             } finally {
+                // Restaura o botão
                 btn.innerHTML = btnText;
                 btn.disabled = false;
             }
         }
 
+        // Verifica saldo antes de executar ação
         function hasCredits(cost) {
             if (currentUser.credits >= cost) return true;
             showToast(`Saldo insuficiente (${currentUser.credits}). Necessário: ${cost} créditos.`, "error");
+            // Sugere recarga se falhar
             setTimeout(() => {
                 if(confirm("Saldo insuficiente. Deseja recarregar créditos?")) {
                     openRechargeModal();
@@ -1242,14 +1420,17 @@ initializeApp = function(user) {
             updateCreditDisplay();
         }
         
+        // Utilitários de UI
         function safeSetValue(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
         function handleLogout() { location.reload(); }
         
+        // Controle de Abas da UI Principal
         function switchTab(id) {
             [0,1,2].forEach(i => { document.getElementById(`page-${i}`).classList.add('hidden'); document.getElementById(`btn-tab-${i}`).className="tab-inactive flex-1 py-3 text-sm font-bold border-b-2 uppercase tracking-wide flex justify-center items-center whitespace-nowrap px-4 transition"; });
             document.getElementById(`page-${id}`).classList.remove('hidden'); document.getElementById(`btn-tab-${id}`).className="tab-active flex-1 py-3 text-sm font-bold border-b-2 uppercase tracking-wide flex justify-center items-center whitespace-nowrap px-4 transition";
         }
         
+        // Controle de Abas de Autenticação
         function switchAuthTab(tab) {
             if(tab==='login') { document.getElementById('form-login').classList.remove('hidden'); document.getElementById('form-register').classList.add('hidden'); document.getElementById('tab-login').className="w-1/2 py-3 font-bold text-blue-900 bg-blue-50 border-b-2 border-blue-900"; document.getElementById('tab-register').className="w-1/2 py-3 text-gray-500 hover:text-blue-700"; }
             else { document.getElementById('form-login').classList.add('hidden'); document.getElementById('form-register').classList.remove('hidden'); document.getElementById('tab-register').className="w-1/2 py-3 font-bold text-blue-900 bg-blue-50 border-b-2 border-blue-900"; document.getElementById('tab-login').className="w-1/2 py-3 text-gray-500 hover:text-blue-700"; }
@@ -1264,9 +1445,11 @@ initializeApp = function(user) {
             renderSurgeryList();
         }
 
+        // Renderiza a Tabela de Encaminhamentos (AME Dashboard)
         function renderReferralDashboard() {
             const container = document.getElementById('referral-dashboard-body');
             
+            // Agrupa pacientes por especialidade
             const grouped = referralQueue.reduce((acc, curr) => {
                 acc[curr.specialty] = acc[curr.specialty] || [];
                 acc[curr.specialty].push(curr);
@@ -1299,68 +1482,225 @@ initializeApp = function(user) {
             }).join('');
         }
 
+        // Gera PDF de Encaminhamento em Lote (Lógica complexa de renderização HTML -> Canvas -> PDF)
         async function generateReferralEmailPDF(specialty) {
-            // ... (Lógica de PDF Admin Mantida)
-            showToast("Funcionalidade em desenvolvimento.", "info");
+            const patients = referralQueue.filter(p => p.specialty === specialty);
+            if (patients.length === 0) return showToast("Erro: Nenhum paciente encontrado.", "error");
+
+            const wrapper = document.getElementById('pdf-content-wrapper');
+            const now = new Date().toLocaleDateString('pt-BR');
+
+            // Template HTML do PDF
+            wrapper.innerHTML = `
+                <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
+                    <!-- Cabeçalho -->
+                    <div style="border-bottom: 2px solid #6b21a8; padding-bottom: 20px; margin-bottom: 30px;">
+                        <h1 style="color: #6b21a8; font-size: 24px; margin: 0; font-weight: bold;">ENCAMINHAMENTO MÉDICO - AME</h1>
+                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Sistema Conecta Saúde - Solicitação de Vagas</p>
+                    </div>
+
+                    <div style="margin-bottom: 30px;">
+                        <p><strong>Para:</strong> Central de Regulação AME (Ambulatório Médico de Especialidades)</p>
+                        <p><strong>De:</strong> Dr. Tiago Barros (Médico Regulador)</p>
+                        <p><strong>Data:</strong> ${now}</p>
+                        <p><strong>Assunto:</strong> Solicitação de Agendamento em Lote - <span style="color: #6b21a8; font-weight: bold;">${specialty.toUpperCase()}</span></p>
+                    </div>
+
+                    <p style="margin-bottom: 20px;">Prezados,</p>
+                    <p style="margin-bottom: 20px;">Solicito a gentileza de agendar consulta para os pacientes listados abaixo, triados pelo sistema Conecta Saúde com indicação clínica para a especialidade de <strong>${specialty}</strong>.</p>
+
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px;">
+                        <thead>
+                            <tr style="background-color: #f3e8ff; color: #4c1d95;">
+                                <th style="border: 1px solid #ddd; padding: 10px; text-align: left;">Paciente / CPF</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; text-align: left;">Justificativa Clínica</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${patients.map(p => `
+                                <tr>
+                                    <td style="border: 1px solid #ddd; padding: 10px;">
+                                        <strong>${p.patientName}</strong><br>
+                                        CPF: ${p.cpf}
+                                    </td>
+                                    <td style="border: 1px solid #ddd; padding: 10px;">${p.reason}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top: 50px; text-align: center;">
+                        <p style="font-size: 12px; color: #999;">Documento gerado automaticamente pelo Sistema Conecta Saúde.</p>
+                        <p style="font-weight: bold; margin-top: 20px;">Dr. Tiago Barros</p>
+                        <p style="font-size: 12px;">CRM 123.456</p>
+                    </div>
+                </div>
+            `;
+
+            try {
+                // Prepara wrapper para captura
+                wrapper.style.position = 'absolute';
+                wrapper.style.top = '0';
+                wrapper.style.left = '0';
+                wrapper.style.opacity = '1'; 
+                wrapper.style.zIndex = '-9999';
+
+                await new Promise(r => setTimeout(r, 800)); // Espera renderização
+
+                // Converte HTML em Canvas
+                const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                const imgWidth = 210; // A4 Width
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+                pdf.save(`Encaminhamento_AME_${specialty}_${now.replace(/\//g, '-')}.pdf`);
+                showToast("Encaminhamento gerado com sucesso!", 'success');
+            } catch(e) {
+                console.error(e);
+                showToast("Erro ao gerar PDF.", "error");
+            } finally {
+                // Limpa
+                wrapper.style.opacity = '0';
+                wrapper.style.left = '-9999px';
+                wrapper.innerHTML = "";
+            }
         }
 
+        // Renderiza lista de usuários para Admin com controles de bloqueio
+        let dbUsersList = [];
+
+        async function fetchAdminUsers() {
+            try {
+                const btn = document.querySelector('input[placeholder="Buscar paciente..."]');
+                if(btn) btn.disabled = true;
+                
+                const res = await fetch(`${BACKEND_URL}/api/admin/users`);
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || "Erro ao buscar usuários");
+                }
+                
+                dbUsersList = await res.json();
+                renderUserList();
+                
+                if(btn) btn.disabled = false;
+            } catch (error) {
+                console.error(error);
+                showToast("Erro ao carregar lista: " + error.message, "error");
+            }
+        }
+
+        // Renderiza a tabela (CORRIGIDO: usa user.credits)
         function renderUserList(filter = '') {
-            // ... (Lógica de Lista de Usuários Mantida)
+            const container = document.getElementById('admin-users-list');
+            
+            const users = dbUsersList.filter(u => 
+                (u.name.toLowerCase().includes(filter.toLowerCase()) || 
+                u.email.toLowerCase().includes(filter.toLowerCase()))
+            );
+            
+            container.innerHTML = users.map(user => {
+                const blocks = user.blocked_features || { preConsulta: false, preOp: false };
+                
+                return `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                        ${user.name}
+                        <div class="text-xs text-gray-400 font-normal">${user.email}</div>
+                        <div class="text-xs text-gray-400 font-normal">CPF: ${user.cpf || 'N/A'}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.credits > 20 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${user.credits} Créditos
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="adminRecharge('${user.email}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1 px-3 rounded shadow transition transform active:scale-95">
+                            <i class="fa-solid fa-bolt mr-1"></i> +100
+                        </button>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" id="toggle-pre-${user.id}" 
+                                class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" 
+                                ${blocks.preConsulta ? 'checked' : ''} 
+                                onchange="toggleUserBlock('${user.email}', 'preConsulta', this)"/>
+                            <label for="toggle-pre-${user.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" id="toggle-op-${user.id}" 
+                                class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer" 
+                                ${blocks.preOp ? 'checked' : ''} 
+                                onchange="toggleUserBlock('${user.email}', 'preOp', this)"/>
+                            <label for="toggle-op-${user.id}" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                    </td>
+                </tr>
+            `}).join('');
         }
         
-        function adminRecharge(email) {
-            // ... (Lógica de Recarga Admin Mantida)
+        // Bloqueio Real
+        async function toggleUserBlock(email, feature, checkboxElement) {
+            const isBlocked = checkboxElement.checked;
+            showToast(`Atualizando permissão...`, 'info');
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/admin/toggle_block`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, feature, isBlocked })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    const userIndex = dbUsersList.findIndex(u => u.email === email);
+                    if(userIndex > -1) {
+                        if(!dbUsersList[userIndex].blocked_features) dbUsersList[userIndex].blocked_features = {};
+                        dbUsersList[userIndex].blocked_features[feature] = isBlocked;
+                    }
+                    showToast(`Permissão ${isBlocked ? 'BLOQUEADA' : 'LIBERADA'} com sucesso!`, "success");
+                } else {
+                    throw new Error(data.message || "Erro ao atualizar");
+                }
+            } catch (error) {
+                checkboxElement.checked = !isBlocked;
+                showToast("Falha ao salvar no banco.", "error");
+            }
+        }
+
+        // Recarga Real
+        async function adminRecharge(email) {
+            if(!confirm(`Confirma adicionar 100 créditos para ${email}?`)) return;
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/admin/recharge`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, amount: 100 })
+                });
+                if(res.ok) {
+                    showToast("Recarga realizada!", "success");
+                    fetchAdminUsers(); 
+                } else {
+                    showToast("Erro na recarga.", "error");
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // Renderização Geral (ADMIN)
+        function renderAdminPanel() {
+            renderReferralDashboard();
+            fetchAdminUsers();
+            renderExamList('lab', 'adm-list-lab');
+            renderExamList('img', 'adm-list-img');
+            renderSurgeryList();
         }
 
         function filterUsers(val) { renderUserList(val); }
-
-        function toggleUserBlock(email, feature) {
-            // ... (Lógica de Bloqueio Mantida)
-        }
-
-        function renderExamList(type, elementId) {
-            const container = document.getElementById(elementId);
-            const list = SYSTEM_SETTINGS.exams[type]; 
-            
-            if(!list) return;
-
-            container.innerHTML = list.map((exam) => `
-                <label class="flex items-center space-x-2 p-2 border rounded hover:bg-slate-50 cursor-pointer bg-white">
-                    <input type="checkbox" onchange="toggleItemGlobal(${exam.id}, '${type}', this)" 
-                        ${exam.ativo ? 'checked' : ''} 
-                        class="exam-checkbox rounded text-blue-600 focus:ring-blue-500 h-4 w-4">
-                    <span class="exam-label-text text-sm text-slate-700 select-none ${!exam.ativo ? 'line-through text-red-400' : ''}">${exam.nome}</span>
-                </label>
-            `).join('');
-        }
-
-        function renderSurgeryList() {
-            const container = document.getElementById('adm-list-surg');
-            const list = SYSTEM_SETTINGS.surgeries;
-
-            if(!list) return;
-
-            container.innerHTML = list.map((surg) => `
-                <label class="flex items-center space-x-2 p-2 border rounded hover:bg-indigo-50 cursor-pointer bg-white border-indigo-100">
-                    <input type="checkbox" onchange="toggleItemGlobal(${surg.id}, 'cirurgia', this)" 
-                        ${surg.ativo ? 'checked' : ''} 
-                        class="exam-checkbox rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
-                    <span class="exam-label-text text-sm text-indigo-900 select-none font-medium ${!surg.ativo ? 'line-through text-red-400' : ''}">${surg.nome}</span>
-                </label>
-            `).join('');
-        }
-
-        async function toggleItemGlobal(id, type, checkbox) {
-             // ... (Lógica de Toggle Mantida)
-        }
-
-        function switchAdminTab(tab) {
-             // ... (Lógica de Tab Admin Mantida)
-        }
-
-        function saveAdminSettings() {
-            showToast("Configurações salvas com sucesso!", "success");
-        }
 
         // --- SEÇÃO: LÓGICA PRÉ-CONSULTA ---
         function unlockPreConsulta() {
@@ -1370,6 +1710,7 @@ initializeApp = function(user) {
         }
     
       async function generateRationalExams() {
+            // 1. Verificações de bloqueio e saldo
             if (currentUser.blocked_features && currentUser.blocked_features.preConsulta) {
                 return showToast("Funcionalidade bloqueada pelo administrador.", "error");
             }
@@ -1380,17 +1721,22 @@ initializeApp = function(user) {
             btn.disabled = true;
             
             try {
+                // 3. Coleta de dados
                 const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c=>c.value);
                 const other = document.getElementById('pre-other-comorb').value; if(other) comorbs.push(other);
                 const routine = document.getElementById('check-routine').checked;
                 const std = document.getElementById('check-std').checked;
                 const pregnancy = document.getElementById('check-pregnancy').checked;
 
+                // 4. Lista ATIVA (O que a IA pode pedir)
+                // Pega os objetos reais do SYSTEM_SETTINGS para validação posterior
                 const activeLabItems = SYSTEM_SETTINGS.exams.lab.filter(e => e.ativo);
                 const activeImgItems = SYSTEM_SETTINGS.exams.img.filter(e => e.ativo);
                 const activeNamesList = [...activeLabItems, ...activeImgItems].map(e => e.nome);
                 
+                // String para o prompt
                 const menuString = activeNamesList.join(", ");
+
                 if (!menuString) throw new Error("Nenhum exame disponível no catálogo (Contate o Admin).");
 
                 const prompt = `
@@ -1418,32 +1764,47 @@ initializeApp = function(user) {
                 Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
             `;
                 
+                // 5. Chamada à IA
                 const res = await callGemini(prompt, true);
                 
+                // --- CORREÇÃO DA VALIDAÇÃO (O PULO DO GATO) ---
+                // Verifica se o exame da IA "bate" com algum do catálogo, mesmo parcialmente
                 const validExams = [];
+                
                 if (res.exams && Array.isArray(res.exams)) {
                     res.exams.forEach(aiExam => {
+                        // Tenta encontrar um match no catálogo ativo
                         const match = activeNamesList.find(activeName => 
+                            // Verifica igualdade ou se um contém o outro (case insensitive)
                             activeName.toLowerCase() === aiExam.toLowerCase() ||
                             activeName.toLowerCase().includes(aiExam.toLowerCase()) ||
                             aiExam.toLowerCase().includes(activeName.toLowerCase())
                         );
-                        if (match) validExams.push(match); 
+
+                        if (match) {
+                            validExams.push(match); // Usa o nome oficial do catálogo
+                        }
                     });
                 }
+                
+                // Remove duplicatas
                 const finalExams = [...new Set(validExams)];
 
-                if (finalExams.length === 0) throw new Error("A IA não sugeriu exames compatíveis com o catálogo ativo.");
+                if (finalExams.length === 0) {
+                    throw new Error("A IA não sugeriu exames compatíveis com o catálogo ativo.");
+                }
 
                 deductCredits(80); 
                 currentUser.lastGeneratedExams = finalExams;
 
+                // Salva no Backend
                 saveHistoryToBackend('pre_consulta', 80, {
                     comorbidades: comorbs,
                     exames: finalExams,
                     flags: { rotina: routine, dst: std, gravidez: pregnancy }
                 });
                 
+                // 6. Renderização
                 const ul = document.getElementById('generated-exam-list'); 
                 ul.innerHTML = finalExams.map(e=>`<li class="py-1 border-b border-gray-100 last:border-0 flex items-center text-sm"><i class="fa-solid fa-check text-green-500 mr-2"></i>${e}</li>`).join('');
                 
@@ -1460,6 +1821,7 @@ initializeApp = function(user) {
         }
             // --- SEÇÃO: LÓGICA PÓS-CONSULTA (Processamento de Arquivos) ---
         async function processDiagnosisFiles(files) {
+            // Check de Creditos
             if (!hasCredits(10)) return;
 
             const loading = document.getElementById('loading-1');
@@ -1471,6 +1833,7 @@ initializeApp = function(user) {
             loadText.textContent = `Lendo ${files.length} arquivos...`;
 
             try {
+                // OCR e Extração de Texto
                 let combinedText = "";
                 for(let file of files) {
                     let text = "";
@@ -1483,33 +1846,54 @@ initializeApp = function(user) {
 
                 loadText.textContent = "Analisando...";
                 
+                // --- PROMPT REFINADO COM LÓGICA DE RETORNO (MEDICO FAMILIA vs ESPECIALISTA) ---
                 const prompt = `
                     Atue como um Médico Clínico Geral Sênior do "Conecta Saúde".
                     PACIENTE: ${currentUser.name}.
                     TEXTO DOS EXAMES: "${combinedText.substring(0, 30000)}"
                     
-                    DIRETRIZES DE CONDUTA:
-                    1. Se alterações LEVES: Atenção Primária.
-                    2. Se alterações GRAVES: Especialista Focal.
+                    DIRETRIZES DE CONDUTA (IMPORTANTE):
+                    1. Se as alterações forem LEVES (ex: colesterol levemente alto, glicemia limítrofe, falta de vitamina), o caso deve ser manejado na Atenção Primária.
+                    2. Se as alterações forem GRAVES/ALARMANTES (ex: troponina alta, suspeita de câncer, lesão aguda), encaminhe para Especialista Focal.
 
                     RESPONDA APENAS NESTE JSON:
                     {
-                        "patient_name_found": "Nome achado",
+                        "patient_name_found": "Nome achado no texto",
                         "summary": "Resumo clínico acolhedor (Markdown). Comece com 'Olá [Nome]'.",
-                        "diagnostic_possibilities": "Texto explicativo.",
-                        "findings": [ {"item": "Nome exame", "value": "Valor", "status": "Normal/Alterado", "explanation": "Explicação"} ],
-                        "specialist": "Especialista recomendado",
+                        "diagnostic_possibilities": "Texto explicativo sobre as hipóteses diagnósticas.",
+                        "findings": [ {"item": "Nome exame", "value": "Valor", "status": "Normal/Alterado", "explanation": "Explicação para leigos"} ],
+                        
+                        "specialist": "Especialista recomendado (Se for leve, preencha 'Médico de Família'. Se for grave, preencha a especialidade: Cardiologia, etc)",
+                        
                         "recommended_procedures": ["Exame 1", "Exame 2"],
-                        "follow_up": "Texto curto de orientação."
+                        
+                        "follow_up": "Texto curto de orientação. REGRA OBRIGATÓRIA: Se LEVE: escrever 'Acompanhamento com Médico de Família em 1 ano'. Se GRAVE: escrever 'Busca por Especialista'."
                     }
                 `;
 
                 const data = await callGemini(prompt, true);
 
+                // SALVAR
                 saveHistoryToBackend('pos_consulta', 10, { aiResult: data });
+                
                 deductCredits(10); 
                 renderDiagnosticResults(data);
                 showToast("Análise concluída!", 'success');
+
+                // Integração com Encaminhamento Automático AME
+                // Só encaminha para fila de regulação se NÃO for Médico de Família (ou seja, se for grave)
+                if (data.specialist && data.specialist !== "Nenhum" && data.specialist !== "Médico de Família" && data.specialist !== "Clínico Geral") {
+                    referralQueue.push({
+                        patientName: currentUser.name,
+                        cpf: currentUser.cpf || "Não informado",
+                        specialty: data.specialist,
+                        reason: data.diagnostic_possibilities || "Avaliação especializada solicitada.",
+                        date: new Date().toLocaleDateString('pt-BR')
+                    });
+                }
+
+                renderDiagnosticResults(data);
+                showToast("Análise clínica concluída!", 'success');
 
             } catch(e) {
                 errorBox.classList.remove('hidden');
@@ -1520,7 +1904,6 @@ initializeApp = function(user) {
             }
         }
         function renderDiagnosticResults(data) {
-             // ... (Lógica de Render Pós-Consulta Mantida)
             document.getElementById('ai-summary').innerHTML = data.summary ? data.summary.replace(/\n/g, '<br>') : "";
             
             const possDiv = document.getElementById('ai-possibilities');
@@ -1536,19 +1919,35 @@ initializeApp = function(user) {
                     findingsDiv.innerHTML += `<div class="bg-orange-50 border-l-4 border-orange-400 p-3 rounded"><p class="font-bold text-orange-800">${f.item} <span class="font-normal text-sm">(${f.value})</span></p><p class="text-sm text-slate-700">${f.explanation}</p></div>`;
                 });
             }
-            document.getElementById('specialist-text').textContent = `Sugiro seguimento com: ${data.specialist || "Clínico Geral"}.`;
+
+            const spec = data.specialist || "Clínico Geral";
+            document.getElementById('specialist-text').textContent = `Sugiro seguimento com: ${spec}.`;
+            document.getElementById('action-btn').href = `https://www.google.com/maps/search/${encodeURIComponent(spec + " perto de mim")}`;
+            
+            const procList = document.getElementById('procedures-list');
+            procList.innerHTML = '';
+            if(data.recommended_procedures) data.recommended_procedures.forEach(p => procList.innerHTML += `<li>${p}</li>`);
+            
+            // TTS
+            const fullText = `${data.summary || ''}. ${data.diagnostic_possibilities || ''}. Encontramos os seguintes achados: ${data.findings ? data.findings.map(f => f.item + ' ' + f.value + ', ' + f.explanation).join('. ') : ''}.`;
+            document.getElementById('btn-speak-result').onclick = () => speakText(fullText, true);
+
             document.getElementById('results-1').classList.remove('hidden');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
 
-        // --- LÓGICA PRÉ-OPERATÓRIO ---
+        // --- LÓGICA PRÉ-OPERATÓRIO (Atualizada para Liberação e PDF) ---
         async function processPreOp() {
+            // 1. Normalização de segurança
             const safeUser = normalizeUser(currentUser); 
             
+            // 2. Verificações de Bloqueio e Saldo
             if (safeUser.blockedFeatures && safeUser.blockedFeatures.preOp) {
                 return showToast("Funcionalidade bloqueada pelo administrador.", "error");
             }
             if (!hasCredits(100)) return;
 
+            // 3. Captura e Conversão do ID
             const surgerySelect = document.getElementById('surgery-type');
             const surgeryId = parseInt(surgerySelect.value);
 
@@ -1557,6 +1956,7 @@ initializeApp = function(user) {
             const surgeryObj = SYSTEM_SETTINGS.surgeries.find(s => s.id === surgeryId);
             if (!surgeryObj || !surgeryObj.ativo) return showToast(`A cirurgia selecionada não está disponível.`, "error");
 
+            // 4. Feedback Visual
             const btn = document.querySelector('#preop-form button[type="submit"]');
             const originalBtnText = btn.innerHTML;
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Analisando Risco...`;
@@ -1566,6 +1966,7 @@ initializeApp = function(user) {
             document.getElementById('results-2').classList.add('hidden');
             
             try {
+                // 5. Coleta de Contexto
                 const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c => c.value);
                 const otherComorb = document.getElementById('pre-other-comorb').value;
                 if(otherComorb) comorbs.push(otherComorb);
@@ -1583,7 +1984,7 @@ initializeApp = function(user) {
                     examsText = "Nenhum arquivo de exame foi anexado.";
                 }
 
-                // 6. Prompt de Engenharia para o Gemini (Risco Cirúrgico)
+                // 6. Prompt Atualizado (Pede instruções e mensagem de liberação)
                 const prompt = `
                     Atue como um Anestesiologista Sênior e Cardiologista avaliando risco perioperatório.
                     
@@ -1677,7 +2078,8 @@ initializeApp = function(user) {
             try {
                 if (currentUser.role === 'admin') return;
                 if (!currentUser.id) return;
-                await fetch(`${BACKEND_URL}/api/history/save`, {
+                console.log(`📡 Salvando histórico: ${serviceSlug}...`);
+                const res = await fetch(`${BACKEND_URL}/api/history/save`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1687,28 +2089,45 @@ initializeApp = function(user) {
                         details: details
                     })
                 });
+                const data = await res.json();
+                if (data.success && data.newCredits !== undefined) {
+                    currentUser.credits = data.newCredits;
+                    updateCreditDisplay();
+                }
             } catch (e) { console.error("Erro ao salvar:", e); }
         }
      
         async function handleFiles(files, pageId) {
-            // Lógica de Upload Mantida
+            // Página 1: Pós-consulta
             if(pageId === 1) return processDiagnosisFiles(files);
+            
+            // Página 2: Pré-operatório
             if(pageId === 2) {
                 const newFiles = Array.from(files);
                 const totalTentativa = currentPreOpFiles.length + newFiles.length;
+                
                 if (totalTentativa > 10) {
+                    showToast(`Limite de 10 arquivos! Adicionamos apenas o que coube.`, "error");
                     const slotsLivres = 10 - currentPreOpFiles.length;
-                    if(slotsLivres > 0) currentPreOpFiles = [...currentPreOpFiles, ...newFiles.slice(0, slotsLivres)];
+                    if(slotsLivres > 0) {
+                        const arquivosQueCabem = newFiles.slice(0, slotsLivres);
+                        currentPreOpFiles = [...currentPreOpFiles, ...arquivosQueCabem];
+                    }
                 } else {
                     currentPreOpFiles = [...currentPreOpFiles, ...newFiles];
                 }
+
                 const count = currentPreOpFiles.length;
                 const fileNames = currentPreOpFiles.map(f => f.name).join(", ");
                 const displayNames = fileNames.length > 50 ? fileNames.substring(0, 50) + "..." : fileNames;
-                document.getElementById('file-count-2').innerHTML = `
+
+                const displayEl = document.getElementById('file-count-2');
+                displayEl.innerHTML = `
                     <span class="font-bold ${count === 10 ? 'text-red-600' : 'text-blue-800'}">${count} / 10 Arquivos prontos</span>
                     <br><span class="text-[10px] text-slate-500 italic leading-tight block mt-1">${displayNames || "Aguardando..."}</span>
+                    ${count > 0 ? `<button onclick="event.stopPropagation(); currentPreOpFiles=[]; document.getElementById('file-count-2').textContent='Nenhum arquivo'; showToast('Lista limpa!', 'info');" class="text-[10px] text-red-500 underline mt-1 hover:text-red-700">Limpar lista</button>` : ''}
                 `;
+                if(newFiles.length > 0) showToast(`+${newFiles.length} arquivo(s) adicionado(s).`, "success");
             }
         }
 
@@ -1777,17 +2196,13 @@ initializeApp = function(user) {
 
             // 3. Fallback para Texto/Link (Desktop ou Mobile sem suporte a arquivo direto)
             if(fileToShare) {
-                // Se temos o arquivo mas não conseguimos enviar via API nativa (ex: Desktop)
-                // O usuário deve baixar e enviar manualmente.
                 showToast("Seu navegador não suporta envio direto de PDF. Baixe o arquivo e anexe no WhatsApp.", "info");
                 downloadPDF(type); // Força download
                 
-                // Abre o WhatsApp apenas com o texto de aviso
                 const finalMsg = `*${title}*\nPaciente: ${currentUser.name}\n\nO laudo PDF foi gerado e baixado no seu dispositivo. Por favor, anexe-o a esta conversa.`;
                 const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(finalMsg)}`;
                 window.open(whatsappUrl, '_blank');
             } else {
-                // Compartilhamento apenas de texto (Listas simples)
                 const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
                 window.open(whatsappUrl, '_blank');
             }
@@ -1808,7 +2223,6 @@ initializeApp = function(user) {
                 return;
             }
             try {
-                // ... (Lógica TTS API Mantida)
                  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1835,7 +2249,6 @@ initializeApp = function(user) {
             }
         }
         function pauseSpeech() {
-             // ... (Lógica Pause Mantida)
             if (currentAudioObj) {
                 if (currentAudioObj.paused) currentAudioObj.play(); else currentAudioObj.pause();
             } else if (window.speechSynthesis.speaking) {
@@ -1843,8 +2256,7 @@ initializeApp = function(user) {
             }
         }
         function pcmToWav(pcmData, sampleRate) {
-             // ... (Lógica WAV Mantida)
-             return new ArrayBuffer(44 + pcmData.length); // Placeholder simples
+             const numChannels = 1; const bitsPerSample = 16; const byteRate = sampleRate * numChannels * bitsPerSample / 8; const blockAlign = numChannels * bitsPerSample / 8; const dataSize = pcmData.length; const buffer = new ArrayBuffer(44 + dataSize); const view = new DataView(buffer); writeString(view, 0, 'RIFF'); view.setUint32(4, 36 + dataSize, true); writeString(view, 8, 'WAVE'); writeString(view, 12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, numChannels, true); view.setUint32(24, sampleRate, true); view.setUint32(28, byteRate, true); view.setUint16(32, blockAlign, true); view.setUint16(34, bitsPerSample, true); writeString(view, 36, 'data'); view.setUint32(40, dataSize, true); const pcmView = new Uint8Array(buffer, 44); pcmView.set(pcmData); return buffer;
         }
         function writeString(view, offset, string) {
             for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
@@ -1924,7 +2336,6 @@ initializeApp = function(user) {
                     </div>
                 `;
             } else {
-                // ... Outros tipos (PRE, PENDING)
                 title = type === 'PRE' ? "SOLICITAÇÃO DE EXAMES" : "PENDÊNCIAS PRÉ-OPERATÓRIAS";
                 const list = type === 'PRE' ? currentUser.lastGeneratedExams : missingExamsList;
                 bodyContent = `<ul style="list-style-type: none; padding-left: 0;">${list.map(e => `<li style="margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 5px;">• ${e}</li>`).join('')}</ul>`;
@@ -1961,9 +2372,8 @@ initializeApp = function(user) {
             try {
                 wrapper.innerHTML = getPDFHtmlContent(type, data);
                 
-                // Configura wrapper
                 wrapper.style.position = 'absolute'; wrapper.style.top = '0'; wrapper.style.left = '0'; wrapper.style.opacity = '1'; wrapper.style.zIndex = '-9999';
-                await new Promise(r => setTimeout(r, 500)); // Espera render
+                await new Promise(r => setTimeout(r, 500));
 
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('p', 'mm', 'a4');
@@ -2017,10 +2427,8 @@ initializeApp = function(user) {
 
         let recoveryStep = 1;
         async function handleRecoveryStep() {
-             // ... (Lógica Recovery Mantida)
-             // (O código de recuperação estava perfeito, mantido logicamente)
              const cpfInput = document.getElementById('recover-cpf');
-             // Simulação de sucesso
+             // Simulação
              closeRecoverModal();
              showToast("Simulação: Senha alterada!", "success");
         }
@@ -2029,10 +2437,14 @@ initializeApp = function(user) {
             document.getElementById('recover-modal').classList.remove('active');
         }
 
+        // FUNÇÃO DE NORMALIZAÇÃO DE DADOS (CRUCIAL PARA O FIX)
         function normalizeUser(u) {
             if (!u) return null;
             const rawBlocks = u.blockedFeatures || u.blocked_features || {};
-            u.blockedFeatures = { preConsulta: !!rawBlocks.preConsulta, preOp: !!rawBlocks.preOp };
+            u.blockedFeatures = {
+                preConsulta: !!rawBlocks.preConsulta,
+                preOp: !!rawBlocks.preOp
+            };
             return u;
         }
 
