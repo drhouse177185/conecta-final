@@ -512,14 +512,20 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
                            <div>
-    <h3 class="font-bold text-slate-800 text-md flex items-center mb-2"><i data-lucide="user-plus" class="w-5 h-5 mr-2 text-green-600"></i>Profissional Recomendado</h3>
-    <!-- Texto do Especialista -->
-    <p class="text-slate-800 text-sm font-bold mb-1" id="specialist-text"></p>
-    
-    <!-- NOVO: Área Exclusiva para o Botão -->
-    <div id="schedule-btn-container" class="mb-4 min-h-[30px] flex items-center">
-        <!-- O botão será injetado aqui pelo JS -->
+    <!-- Cabeçalho Flexível: Texto na esquerda, Botão na direita -->
+    <div id="specialist-header" class="flex items-center justify-between mb-2">
+        <h3 class="font-bold text-slate-800 text-md flex items-center">
+            <i data-lucide="user-plus" class="w-5 h-5 mr-2 text-green-600"></i>
+            Profissional Recomendado
+        </h3>
+        <!-- O JS vai injetar o botão AQUI -->
     </div>
+    
+    <!-- Texto de orientação (Sugiro seguimento...) -->
+    <p class="text-slate-700 text-sm font-medium pl-1 border-l-4 border-green-200" id="specialist-text">
+        Aguardando análise...
+    </p>
+</div>
 </div>
                             <a id="action-btn" href="#" target="_blank" class="w-full text-center px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors shadow-sm">Encontrar Especialista</a>
                         </div>
