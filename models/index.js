@@ -1,12 +1,15 @@
 const sequelize = require('../config/database');
 const User = require('./User');
-// --- ADICIONADO: Importar o novo modelo ---
-const Referral = require('./Referral');
+const Referral = require('./Referral'); // Importa o novo modelo
+
+// Define relacionamentos
+Referral.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(Referral, { foreignKey: 'userId', as: 'referrals' });
 
 const db = {
     sequelize,
     User,
-    Referral // --- ADICIONADO: Exportar o novo modelo
+    Referral // Exporta o novo modelo
 };
 
 // Função para sincronizar o banco de dados

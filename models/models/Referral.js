@@ -43,7 +43,7 @@ const Referral = sequelize.define('Referral', {
     underscored: true      // Usa snake_case nas colunas automáticas
 });
 
-// Define o relacionamento
-Referral.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+// Define o relacionamento se necessário, mas o index.js geralmente cuida das associações finais
+// Referral.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 module.exports = Referral;
