@@ -2153,30 +2153,35 @@ function getActiveExamsString() {
             } catch(e) { return "Erro OCR."; }
         }
 
-        // --- COMPARTILHAMENTO WHATSAPP ATUALIZADO (SUPORTE A PDF) ---
+        // --- COMPARTILHAMENTO WHATSAPP ATUALIZADO (SUPORTE A PDF EM TUDO) ---
         async function shareWhatsApp(type) {
             let title = "";
             let message = "";
             let fileToShare = null;
             
-            // 1. Gera o PDF dinamicamente para obter o Blob
-            if(type === 'PREOP_CLEARANCE') {
-                title = "Laudo de Liberação Cirúrgica";
-                showToast("Gerando PDF para envio...", "info");
-                try {
-                    // Chama uma versão especial do download que retorna o BLOB
-                    fileToShare = await generatePDFBlob(type);
-                } catch(e) {
-                    console.error("Erro ao gerar blob:", e);
-                    showToast("Erro ao criar arquivo para envio.", "error");
-                    return;
-                }
-            } else if(type === 'PRE') {
-                title = "Pedido de Exames";
-                message = `*${title}*\nPaciente: ${currentUser.name}\nLista: ${currentUser.lastGeneratedExams.join(', ')}`;
+            // Configuração dos Títulos
+            if(type === 'PREOP_CLEARANCE') title = "Laudo de Liberação Cirúrgica";
+            else if(type === 'PRE') title = "Pedido de Exames de Rotina";
+            else if(type === 'PENDING') title = "Pendências Pré-Operatórias";
+
+            // 1. Gera o PDF dinamicamente para obter o Blob (Para TODOS os tipos agora)
+            showToast("Gerando PDF para envio...", "info");
+            try {
+                // Reutiliza a lógica centralizada de geração de PDF
+                fileToShare = await generatePDFBlob(type);
+            } catch(e) {
+                console.error("Erro ao gerar blob:", e);
+                showToast("Erro ao criar arquivo. Tentando envio de texto.", "error");
+                // Não retorna, tenta fallback de texto
+            }
+
+            // Mensagem de Texto (Fallback ou Legenda)
+            if(type === 'PRE') {
+                message = `*${title}*\nPaciente: ${currentUser.name}\nLista resumida: ${currentUser.lastGeneratedExams.join(', ')}`;
             } else if(type === 'PENDING') {
-                title = "Pendências de Exames";
                 message = `*${title}*\nPaciente: ${currentUser.name}\nFaltam: ${missingExamsList.join(', ')}`;
+            } else {
+                message = `*${title}*\nPaciente: ${currentUser.name}\nSegue laudo em anexo.`;
             }
 
             // 2. Tenta compartilhar via Navigator Share (Mobile com suporte a arquivos)
@@ -2190,19 +2195,20 @@ function getActiveExamsString() {
                     showToast("PDF enviado com sucesso!", "success");
                     return;
                 } catch (err) {
-                    console.log("Compartilhamento de arquivo cancelado/falhou. Tentando texto.", err);
+                    console.log("Compartilhamento nativo cancelado/falhou. Tentando método Web.", err);
                 }
             }
 
             // 3. Fallback para Texto/Link (Desktop ou Mobile sem suporte a arquivo direto)
             if(fileToShare) {
-                showToast("Seu navegador não suporta envio direto de PDF. Baixe o arquivo e anexe no WhatsApp.", "info");
-                downloadPDF(type); // Força download
+                showToast("Seu navegador não suporta envio direto. Baixando PDF...", "info");
+                downloadPDF(type); // Força download para o usuário anexar manualmente
                 
-                const finalMsg = `*${title}*\nPaciente: ${currentUser.name}\n\nO laudo PDF foi gerado e baixado no seu dispositivo. Por favor, anexe-o a esta conversa.`;
+                const finalMsg = `*${title}*\nPaciente: ${currentUser.name}\n\nO PDF oficial foi gerado e baixado no seu dispositivo. Por favor, anexe-o a esta conversa.`;
                 const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(finalMsg)}`;
                 window.open(whatsappUrl, '_blank');
             } else {
+                // Último recurso: Só texto
                 const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
                 window.open(whatsappUrl, '_blank');
             }
