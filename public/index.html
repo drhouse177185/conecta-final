@@ -2014,12 +2014,12 @@ function getActiveExamsString() {
             const scheduledDate = futureDate.toLocaleDateString('pt-BR');
 
             if (isRoutineCheckup) {
-                // PDF de Laudo de Risco Cirúrgico e Liberação (Modelo 22222222.pdf)
+                // PDF de Orientação de Saúde e Encaminhamento (Layout Profissional + Texto Tranquilizador)
                 wrapper.innerHTML = `
                     <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
                         <div style="text-align: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
                             <h1 style="color: #1e3a8a; font-size: 22px; margin: 0; font-weight: bold;">Dr. Tiago Fernandes</h1>
-                            <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Anestesiologia e Clínica Médica</p>
+                            <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Clínica Médica e Nefrologia</p>
                         </div>
 
                         <div style="margin-bottom: 20px;">
@@ -2028,62 +2028,56 @@ function getActiveExamsString() {
                         </div>
 
                         <div style="background: #2c5aa0; color: white; padding: 12px 20px; margin-bottom: 20px; font-weight: bold; font-size: 15px;">
-                            LAUDO DE RISCO CIRÚRGICO E LIBERAÇÃO
+                            ORIENTAÇÃO DE SAÚDE E ENCAMINHAMENTO
                         </div>
 
                         <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 20px; margin-bottom: 25px;">
-                            <p style="color: #155724; font-size: 13px; font-weight: bold; margin: 0 0 10px 0;">PACIENTE APTO PARA O PROCEDIMENTO</p>
-                            <p style="color: #155724; font-size: 13px; line-height: 1.6; margin: 0; font-style: italic;">
-                                "Apto para o procedimento com segurança. Paciente ASA I submetido a cirurgia de baixo risco. Não são
-                                necessários exames pré-operatórios complementares conforme as diretrizes atuais de manejo perioperatório."
+                            <p style="color: #155724; font-size: 13px; font-weight: bold; margin: 0 0 10px 0;">RESULTADO DA AVALIAÇÃO</p>
+                            <p style="color: #155724; font-size: 13px; line-height: 1.7; margin: 0;">
+                                Prezado(a) Sr(a). <strong>${currentUser.name}</strong>, após análise criteriosa dos dados clínicos apresentados,
+                                informamos que não foram identificadas alterações que demandem intervenção médica imediata.
+                                Os parâmetros avaliados encontram-se dentro dos limites da normalidade clínica.
                             </p>
                         </div>
 
-                        <div style="display: flex; gap: 20px; margin-bottom: 25px;">
-                            <div style="flex: 1; border: 1px solid #ddd; padding: 15px; background: #f9f9f9;">
-                                <p style="margin: 0; font-size: 14px;"><strong>Classificação ASA:</strong> ASA I</p>
-                            </div>
-                            <div style="flex: 1; border: 1px solid #ddd; padding: 15px; background: #f9f9f9;">
-                                <p style="margin: 0; font-size: 14px;"><strong>Índice de Lee (RCRI):</strong> Classe I (0 pontos)</p>
-                            </div>
-                        </div>
-
                         <div style="margin-bottom: 20px;">
-                            <p style="color: #2c5aa0; font-size: 14px; font-weight: bold; margin: 0 0 10px 0;">Cirurgia Proposta</p>
-                            <p style="margin: 0; font-size: 14px;">Procedimento de baixo risco cirúrgico</p>
+                            <p style="color: #2c5aa0; font-size: 14px; font-weight: bold; margin: 0 0 10px 0;">Conduta Médica Recomendada</p>
+                            <p style="font-size: 13px; line-height: 1.7; margin: 0;">
+                                Conforme protocolo de medicina preventiva, recomenda-se acompanhamento periódico com <strong>${specialty}</strong>
+                                para manutenção do estado de saúde e detecção precoce de eventuais alterações. O intervalo sugerido
+                                para reavaliação é de <strong>${monthsAhead} meses</strong>.
+                            </p>
                         </div>
 
-                        <div style="margin-bottom: 20px;">
-                            <p style="color: #2c5aa0; font-size: 14px; font-weight: bold; margin: 0 0 10px 0;">Orientações Pré-Operatórias</p>
-                            <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.8;">
-                                <li>Jejum absoluto de 8 horas (inclusive líquidos) antes do horário agendado para a cirurgia.</li>
-                                <li>Não suspender medicações de uso crônico, salvo orientações específicas. (Como paciente nega uso, esta instrução é preventiva).</li>
-                                <li>Evitar maquiagem, esmalte escuro e joias no dia da cirurgia.</li>
-                                <li>Trazer um acompanhante adulto responsável para o momento da alta.</li>
-                            </ul>
-                        </div>
-
-                        <div style="margin-bottom: 25px;">
-                            <p style="color: #2c5aa0; font-size: 14px; font-weight: bold; margin: 0 0 10px 0;">Planejamento Pós-Operatório</p>
-                            <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.8;">
-                                <li>Manter repouso relativo por 48 horas e evitar esforços físicos, levantar peso ou inclinar a cabeça.</li>
-                                <li>Utilizar os colírios prescritos pelo cirurgião rigorosamente nos horários indicados.</li>
-                                <li>Evitar esfregar ou pressionar o olho operado.</li>
-                                <li>Em caso de dor intensa súbita, perda de visão ou vermelhidão excessiva, contatar imediatamente a equipe médica.</li>
-                            </ul>
+                        <div style="border: 1px solid #cbd5e1; padding: 15px; margin-bottom: 20px; background: #f9fafb;">
+                            <p style="font-size: 13px; margin: 0;"><strong>Data prevista para retorno:</strong> <span style="color: #1e3a8a; font-weight: bold;">${scheduledDate}</span></p>
+                            <p style="font-size: 13px; margin: 5px 0 0 0;"><strong>Especialidade:</strong> ${specialty}</p>
                         </div>
 
                         <div style="background: #f0fdf4; border-left: 3px solid #16a34a; padding: 15px; margin-bottom: 25px;">
-                            <p style="color: #166534; font-size: 13px; line-height: 1.6; margin: 0;">
-                                <strong>Importante:</strong> Nossa equipe realizará o pré-agendamento da sua consulta pós-operatória e
-                                você receberá uma notificação por e-mail quando a data programada estiver se aproximando.
-                                Retorno previsto para: <strong>${scheduledDate}</strong>
+                            <p style="color: #166534; font-size: 13px; line-height: 1.7; margin: 0 0 10px 0;">
+                                <strong>Orientações Importantes:</strong>
+                            </p>
+                            <p style="color: #166534; font-size: 13px; line-height: 1.7; margin: 0;">
+                                Não há necessidade de preocupação no momento. Mantenha hábitos de vida saudáveis, incluindo alimentação equilibrada,
+                                prática regular de atividades físicas e hidratação adequada. Estas medidas são fundamentais para a manutenção
+                                da sua qualidade de vida e bem-estar.
                             </p>
                         </div>
 
-                        <div style="margin-top: 60px; text-align: center; border-top: 1px solid #ccc; padding-top: 20px;">
+                        <div style="background: #e0f2fe; border: 1px solid #0284c7; padding: 15px; margin-bottom: 25px;">
+                            <p style="color: #0c4a6e; font-size: 13px; line-height: 1.6; margin: 0;">
+                                <strong>Importante:</strong> Nossa equipe realizará o pré-agendamento da sua consulta de acompanhamento e
+                                você receberá uma notificação por e-mail quando a data programada estiver se aproximando.
+                                Não é necessário tomar nenhuma providência neste momento.
+                            </p>
+                        </div>
+
+                        <div style="margin-top: 60px; text-align: center; padding-top: 20px;">
+                            <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjYwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0gNTAgNDAgUSA4MCAyNSAxMjAgNDAgVCAxOTAgNDAgVCAyNTAgMzUiIHN0cm9rZT0iIzAwMzM5OSIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PHRleHQgeD0iMTUwIiB5PSIyNSIgZm9udC1mYW1pbHk9IkN1cnNpdmUiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiMwMDMzOTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkRyLiBUaWFnbyBGPC90ZXh0Pjwvc3ZnPg==" style="width: 300px; height: auto; margin: 0 auto 10px auto;" />
+                            <div style="border-top: 2px solid #000; width: 300px; margin: 0 auto 10px auto;"></div>
                             <p style="font-weight: bold; font-size: 14px; margin: 5px 0; color: #000;">Dr. Tiago Fernandes</p>
-                            <p style="font-size: 12px; color: #666; margin: 5px 0;">CRM 177.185 | RQE 45.678</p>
+                            <p style="font-size: 12px; color: #666; margin: 5px 0;">CRM 177.185</p>
                             <p style="font-size: 11px; color: #999; margin: 15px 0 0 0; font-style: italic;">
                                 Documento assinado digitalmente. Hash: Q9AEH
                             </p>
@@ -2091,30 +2085,53 @@ function getActiveExamsString() {
                     </div>
                 `;
             } else {
-                // PDF de Encaminhamento Especializado (Original)
+                // PDF de Encaminhamento Especializado (Padrão Profissional)
                 wrapper.innerHTML = `
                     <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
-                        <div style="border-bottom: 2px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
-                            <h1 style="color: #1e3a8a; font-size: 24px; margin: 0; font-weight: bold;">ENCAMINHAMENTO MÉDICO</h1>
-                            <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Sistema Conecta Saúde - Regulação</p>
+                        <div style="text-align: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
+                            <h1 style="color: #1e3a8a; font-size: 22px; margin: 0; font-weight: bold;">Dr. Tiago Fernandes</h1>
+                            <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Clínica Médica e Nefrologia</p>
                         </div>
-                        <div style="margin-bottom: 30px;">
-                            <p><strong>Para:</strong> Especialista em <span style="color: #1e3a8a; font-weight: bold;">${specialty.toUpperCase()}</span></p>
-                            <p><strong>De:</strong> Dr. Tiago Barros (Clínica Conecta Saúde)</p>
-                            <p><strong>Data:</strong> ${now}</p>
+
+                        <div style="margin-bottom: 20px;">
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Paciente:</strong> ${currentUser.name}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>CPF:</strong> ${currentUser.cpf || 'Não informado'} | <strong>Data:</strong> ${now}</p>
                         </div>
-                        <p style="margin-bottom: 20px;">Prezado(a) Colega,</p>
-                        <p style="margin-bottom: 20px; line-height: 1.6;">Solicito avaliação especializada para o(a) paciente abaixo identificado(a).</p>
-                        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
-                            <table style="width: 100%; font-size: 14px;">
-                                <tr><td style="padding: 5px; font-weight: bold; width: 100px;">Paciente:</td><td style="padding: 5px;">${currentUser.name}</td></tr>
-                                <tr><td style="padding: 5px; font-weight: bold;">CPF:</td><td style="padding: 5px;">${currentUser.cpf || 'Não informado'}</td></tr>
-                                <tr><td style="padding: 5px; font-weight: bold;">Idade:</td><td style="padding: 5px;">${userAge} anos</td></tr>
-                            </table>
+
+                        <div style="background: #2c5aa0; color: white; padding: 12px 20px; margin-bottom: 20px; font-weight: bold; font-size: 15px;">
+                            ENCAMINHAMENTO MÉDICO
                         </div>
-                        <h3 style="color: #1e3a8a; font-size: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px;">Justificativa Clínica</h3>
-                        <p style="background-color: #fff; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 4px; font-style: italic;">"${reason}"</p>
-                        <div style="margin-top: 80px; text-align: center;"><p style="font-weight: bold;">Dr. Tiago Barros</p><p style="font-size: 12px; color: #666;">CRM 123.456</p></div>
+
+                        <div style="margin-bottom: 20px;">
+                            <p style="font-size: 14px; margin: 5px 0;"><strong>Para:</strong> Especialista em <span style="color: #1e3a8a; font-weight: bold;">${specialty.toUpperCase()}</span></p>
+                            <p style="font-size: 14px; margin: 5px 0;"><strong>De:</strong> Dr. Tiago Fernandes (Clínica Conecta Saúde)</p>
+                        </div>
+
+                        <p style="margin-bottom: 15px; font-size: 13px;">Prezado(a) Colega,</p>
+                        <p style="margin-bottom: 20px; line-height: 1.7; font-size: 13px;">Solicito avaliação especializada para o(a) paciente acima identificado(a).</p>
+
+                        <div style="margin-bottom: 20px;">
+                            <p style="color: #2c5aa0; font-size: 14px; font-weight: bold; margin: 0 0 10px 0;">Justificativa Clínica</p>
+                            <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 4px;">
+                                <p style="font-size: 13px; line-height: 1.6; margin: 0; font-style: italic;">"${reason}"</p>
+                            </div>
+                        </div>
+
+                        <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 12px; margin-bottom: 25px; border-radius: 4px;">
+                            <p style="font-size: 12px; color: #856404; margin: 0;">
+                                <strong>Urgência:</strong> Solicito avaliação em caráter de prioridade conforme disponibilidade da agenda especializada.
+                            </p>
+                        </div>
+
+                        <div style="margin-top: 80px; text-align: center; padding-top: 20px;">
+                            <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjYwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0gNTAgNDAgUSA4MCAyNSAxMjAgNDAgVCAxOTAgNDAgVCAyNTAgMzUiIHN0cm9rZT0iIzAwMzM5OSIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PHRleHQgeD0iMTUwIiB5PSIyNSIgZm9udC1mYW1pbHk9IkN1cnNpdmUiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiMwMDMzOTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkRyLiBUaWFnbyBGPC90ZXh0Pjwvc3ZnPg==" style="width: 300px; height: auto; margin: 0 auto 10px auto;" />
+                            <div style="border-top: 2px solid #000; width: 300px; margin: 0 auto 10px auto;"></div>
+                            <p style="font-weight: bold; font-size: 14px; margin: 5px 0; color: #000;">Dr. Tiago Fernandes</p>
+                            <p style="font-size: 12px; color: #666; margin: 5px 0;">CRM 177.185</p>
+                            <p style="font-size: 11px; color: #999; margin: 15px 0 0 0; font-style: italic;">
+                                Documento assinado digitalmente. Hash: Q9AEH
+                            </p>
+                        </div>
                     </div>
                 `;
             }
@@ -2130,11 +2147,11 @@ function getActiveExamsString() {
                 pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
 
                 const fileName = isRoutineCheckup
-                    ? `Laudo_Liberacao_${currentUser.name.split(' ')[0]}.pdf`
+                    ? `Orientacao_Saude_${currentUser.name.split(' ')[0]}.pdf`
                     : `Encaminhamento_${specialty}_${currentUser.name.split(' ')[0]}.pdf`;
                 pdf.save(fileName);
 
-                showToast(isRoutineCheckup ? "Laudo de liberação gerado!" : "PDF gerado com sucesso!", 'success');
+                showToast(isRoutineCheckup ? "Orientação de saúde gerada!" : "Encaminhamento gerado com sucesso!", 'success');
             } catch(e) { console.error(e); showToast("Erro ao gerar PDF.", "error"); }
             finally { wrapper.innerHTML = ""; }
         }
@@ -2230,8 +2247,8 @@ function getActiveExamsString() {
                 btnDiv.innerHTML = `
                     <button id="btn-schedule-app"
                         onclick="scheduleAppointment('${safeSpec}', '${safeReason}')"
-                        class="${buttonClass} text-[10px] uppercase font-bold py-1.5 px-3 rounded-full border transition flex items-center shadow-sm whitespace-nowrap">
-                        <i class="fa-solid fa-calendar-plus mr-1"></i> Agendar Consulta
+                        class="${buttonClass} text-[10px] font-bold py-1.5 px-3 rounded-full border transition flex items-center shadow-sm whitespace-nowrap">
+                        <i class="fa-solid fa-calendar-plus mr-1"></i> AGENDAR CONSULTA
                     </button>
                 `;
                 headerEl.appendChild(btnDiv);
@@ -2257,8 +2274,8 @@ function getActiveExamsString() {
                 examBtnDiv.innerHTML = `
                     <button id="btn-specific-exams"
                         onclick="openExamConfirmationModal()"
-                        class="bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] uppercase font-bold py-1.5 px-3 rounded-full border border-blue-200 transition flex items-center shadow-sm whitespace-nowrap">
-                        <i class="fa-solid fa-vial-circle-check mr-1"></i> Exames Específicos
+                        class="bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold py-1.5 px-3 rounded-full border border-blue-200 transition flex items-center shadow-sm whitespace-nowrap">
+                        <i class="fa-solid fa-vial-circle-check mr-1"></i> EXAMES ESPECÍFICOS
                     </button>
                 `;
                 procHeader.appendChild(examBtnDiv);
@@ -2395,9 +2412,36 @@ function getActiveExamsString() {
             const wrapper = document.getElementById('pdf-content-wrapper');
             const now = new Date().toLocaleDateString('pt-BR');
 
+            // Lista de exames comuns de check-up/rotina que devem ser filtrados
+            const routineExams = [
+                'hemograma', 'glicemia', 'colesterol', 'triglicerideos', 'triglicerídeos',
+                'creatinina', 'ureia', 'tgo', 'tgp', 'ast', 'alt', 'urina', 'eas',
+                'tsh', 'vitamina d', 't4', 'hba1c', 'hemoglobina glicada',
+                'eletrocardiograma', 'ecg', 'raio-x', 'raio x', 'rx', 'mamografia'
+            ];
+
+            // Filtra exames removendo os de rotina e "reavaliação"
+            const filteredExams = window.currentExamList.filter(exam => {
+                const lowerExam = exam.toLowerCase();
+
+                // Remove se contém "reavaliação" ou "repetir"
+                if (lowerExam.includes('reavaliação') || lowerExam.includes('repetir')) {
+                    return false;
+                }
+
+                // Remove se é exame de rotina
+                const isRoutine = routineExams.some(routine => lowerExam.includes(routine));
+                return !isRoutine;
+            });
+
+            // Remove explicações entre parênteses
+            const cleanExams = filteredExams.map(exam => {
+                return exam.replace(/\s*\([^)]*\)/g, '').trim();
+            });
+
             // Monta lista de exames com bullets simples
             let examListHTML = '';
-            window.currentExamList.forEach(exam => {
+            cleanExams.forEach(exam => {
                 examListHTML += `<p style="margin: 8px 0; padding-bottom: 8px; border-bottom: 1px dotted #ddd;">• ${exam}</p>`;
             });
 
@@ -2405,7 +2449,7 @@ function getActiveExamsString() {
                 <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
                     <div style="text-align: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
                         <h1 style="color: #1e3a8a; font-size: 22px; margin: 0; font-weight: bold;">Dr. Tiago Fernandes</h1>
-                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Anestesiologia e Clínica Médica</p>
+                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Clínica Médica e Nefrologia</p>
                     </div>
 
                     <div style="margin-bottom: 25px;">
@@ -2422,9 +2466,10 @@ function getActiveExamsString() {
                     </div>
 
                     <div style="margin-top: 100px; text-align: center; padding-top: 30px;">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjYwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0gNTAgNDAgUSA4MCAyNSAxMjAgNDAgVCAxOTAgNDAgVCAyNTAgMzUiIHN0cm9rZT0iIzAwMzM5OSIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+PHRleHQgeD0iMTUwIiB5PSIyNSIgZm9udC1mYW1pbHk9IkN1cnNpdmUiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiMwMDMzOTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkRyLiBUaWFnbyBGPC90ZXh0Pjwvc3ZnPg==" style="width: 300px; height: auto; margin: 0 auto 10px auto;" />
                         <div style="border-top: 2px solid #000; width: 300px; margin: 0 auto 10px auto;"></div>
                         <p style="font-weight: bold; font-size: 14px; margin: 5px 0; color: #000;">Dr. Tiago Fernandes</p>
-                        <p style="font-size: 12px; color: #666; margin: 5px 0;">CRM 177.185 | RQE 45.678</p>
+                        <p style="font-size: 12px; color: #666; margin: 5px 0;">CRM 177.185</p>
                         <p style="font-size: 11px; color: #999; margin: 15px 0 0 0; font-style: italic;">
                             Documento assinado digitalmente. Hash: DEDEIC
                         </p>
