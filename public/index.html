@@ -511,7 +511,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
                             <div>
-                                <h3 class="font-bold text-slate-800 text-md flex items-center mb-2"><i data-lucide="user-plus" class="w-5 h-5 mr-2 text-green-600"></i>Profissional Recomendado</h3>
+                                <h3 id="specialist-header" class="font-bold text-slate-800 text-md flex items-center justify-between mb-2">
+                                    <span class="flex items-center">
+                                        <i data-lucide="user-plus" class="w-5 h-5 mr-2 text-green-600"></i>Profissional Recomendado
+                                    </span>
+                                </h3>
                                 <p class="text-slate-600 text-sm mb-4" id="specialist-text"></p>
                             </div>
                             <a id="action-btn" href="#" target="_blank" class="w-full text-center px-4 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors shadow-sm">Encontrar Especialista</a>
@@ -1903,15 +1907,184 @@ function getActiveExamsString() {
                 loading.classList.add('hidden');
             }
         }
+
+        // 1. Gera PDF Individual de Encaminhamento (Modelo AME)
+        async function generateSingleReferralPDF(specialty, reason) {
+            const wrapper = document.getElementById('pdf-content-wrapper');
+            const now = new Date().toLocaleDateString('pt-BR');
+
+            // Detecta se é consulta de rotina (Clínico Geral ou Médico de Família)
+            const isRoutineCheckup = specialty.toLowerCase().includes("clínico geral") ||
+                                     specialty.toLowerCase().includes("médico de família");
+
+            // Calcula prazo baseado na idade
+            const userAge = currentUser.age || 0;
+            const monthsAhead = userAge >= 60 ? 6 : 12;
+            const futureDate = new Date();
+            futureDate.setMonth(futureDate.getMonth() + monthsAhead);
+            const scheduledDate = futureDate.toLocaleDateString('pt-BR');
+
+            if (isRoutineCheckup) {
+                // PDF de Consulta de Rotina (Tranquilizador)
+                wrapper.innerHTML = `
+                    <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
+                        <div style="border-bottom: 3px solid #10b981; padding-bottom: 20px; margin-bottom: 30px;">
+                            <h1 style="color: #10b981; font-size: 24px; margin: 0; font-weight: bold;">✓ ORIENTAÇÃO DE SAÚDE</h1>
+                            <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Sistema Conecta Saúde - Acompanhamento Preventivo</p>
+                        </div>
+
+                        <div style="background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius: 12px; padding: 25px; margin-bottom: 30px; border-left: 5px solid #10b981;">
+                            <h2 style="color: #065f46; font-size: 20px; margin: 0 0 15px 0; font-weight: bold;">🎉 Ótimas Notícias!</h2>
+                            <p style="color: #047857; font-size: 16px; line-height: 1.8; margin: 0;">
+                                Olá <strong>${currentUser.name}</strong>, ficamos felizes em informar que sua análise não apresentou alterações que necessitem atenção médica imediata.
+                                Você está no caminho certo para manter sua saúde em dia!
+                            </p>
+                        </div>
+
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="color: #1e3a8a; font-size: 16px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 15px;">
+                                📋 Dados do Paciente
+                            </h3>
+                            <table style="width: 100%; font-size: 14px; background: #f9fafb; padding: 15px; border-radius: 8px;">
+                                <tr><td style="padding: 8px; font-weight: bold; width: 150px;">Nome:</td><td style="padding: 8px;">${currentUser.name}</td></tr>
+                                <tr><td style="padding: 8px; font-weight: bold;">CPF:</td><td style="padding: 8px;">${currentUser.cpf || 'Não informado'}</td></tr>
+                                <tr><td style="padding: 8px; font-weight: bold;">Idade:</td><td style="padding: 8px;">${userAge} anos</td></tr>
+                                <tr><td style="padding: 8px; font-weight: bold;">Data da Análise:</td><td style="padding: 8px;">${now}</td></tr>
+                            </table>
+                        </div>
+
+                        <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                            <h3 style="color: #92400e; font-size: 16px; margin: 0 0 10px 0;">💡 Recomendação de Acompanhamento</h3>
+                            <p style="color: #78350f; font-size: 14px; line-height: 1.7; margin: 0;">
+                                Como medida preventiva e para manter sua saúde sempre monitorada, recomendamos uma <strong>consulta de rotina
+                                com ${specialty}</strong> em aproximadamente <strong>${monthsAhead} ${monthsAhead === 6 ? 'meses' : 'meses'}</strong>.
+                            </p>
+                        </div>
+
+                        <div style="background: #ede9fe; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                            <h3 style="color: #5b21b6; font-size: 16px; margin: 0 0 12px 0;">📅 Data Sugerida para Consulta</h3>
+                            <p style="font-size: 18px; color: #6d28d9; font-weight: bold; margin: 0;">
+                                ${scheduledDate}
+                            </p>
+                            <p style="color: #7c3aed; font-size: 13px; margin: 10px 0 0 0; font-style: italic;">
+                                (Agendamento sugerido - não é obrigatório comparecer exatamente nesta data)
+                            </p>
+                        </div>
+
+                        <div style="border: 2px dashed #cbd5e1; border-radius: 8px; padding: 20px; background: #f8fafc; margin-bottom: 25px;">
+                            <h3 style="color: #1e40af; font-size: 15px; margin: 0 0 12px 0;">🌟 Mensagem Importante</h3>
+                            <p style="color: #1e3a8a; font-size: 14px; line-height: 1.8; margin: 0;">
+                                <strong style="color: #059669;">Você não precisa se preocupar agora!</strong>
+                                Continue cuidando da sua saúde com hábitos saudáveis: alimentação balanceada, exercícios físicos regulares e boa hidratação.
+                                Quando estiver se aproximando da data sugerida acima (${scheduledDate}), agende sua consulta de rotina para um check-up preventivo.
+                            </p>
+                        </div>
+
+                        <div style="background: #dbeafe; padding: 15px; border-radius: 8px; margin-bottom: 30px;">
+                            <p style="color: #1e40af; font-size: 13px; margin: 0; line-height: 1.6;">
+                                <strong>Observação:</strong> ${reason || "Manter acompanhamento preventivo de rotina."}
+                            </p>
+                        </div>
+
+                        <div style="margin-top: 60px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                            <p style="font-weight: bold; font-size: 14px; margin: 5px 0;">Dr. Tiago Barros</p>
+                            <p style="font-size: 12px; color: #666; margin: 5px 0;">CRM 123.456</p>
+                            <p style="font-size: 11px; color: #94a3b8; margin: 15px 0 0 0;">Sistema Conecta Saúde - Documento gerado eletronicamente</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // PDF de Encaminhamento Especializado (Original)
+                wrapper.innerHTML = `
+                    <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
+                        <div style="border-bottom: 2px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
+                            <h1 style="color: #1e3a8a; font-size: 24px; margin: 0; font-weight: bold;">ENCAMINHAMENTO MÉDICO</h1>
+                            <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Sistema Conecta Saúde - Regulação</p>
+                        </div>
+                        <div style="margin-bottom: 30px;">
+                            <p><strong>Para:</strong> Especialista em <span style="color: #1e3a8a; font-weight: bold;">${specialty.toUpperCase()}</span></p>
+                            <p><strong>De:</strong> Dr. Tiago Barros (Clínica Conecta Saúde)</p>
+                            <p><strong>Data:</strong> ${now}</p>
+                        </div>
+                        <p style="margin-bottom: 20px;">Prezado(a) Colega,</p>
+                        <p style="margin-bottom: 20px; line-height: 1.6;">Solicito avaliação especializada para o(a) paciente abaixo identificado(a).</p>
+                        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+                            <table style="width: 100%; font-size: 14px;">
+                                <tr><td style="padding: 5px; font-weight: bold; width: 100px;">Paciente:</td><td style="padding: 5px;">${currentUser.name}</td></tr>
+                                <tr><td style="padding: 5px; font-weight: bold;">CPF:</td><td style="padding: 5px;">${currentUser.cpf || 'Não informado'}</td></tr>
+                                <tr><td style="padding: 5px; font-weight: bold;">Idade:</td><td style="padding: 5px;">${userAge} anos</td></tr>
+                            </table>
+                        </div>
+                        <h3 style="color: #1e3a8a; font-size: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px;">Justificativa Clínica</h3>
+                        <p style="background-color: #fff; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 4px; font-style: italic;">"${reason}"</p>
+                        <div style="margin-top: 80px; text-align: center;"><p style="font-weight: bold;">Dr. Tiago Barros</p><p style="font-size: 12px; color: #666;">CRM 123.456</p></div>
+                    </div>
+                `;
+            }
+
+            try {
+                wrapper.style.position = 'absolute'; wrapper.style.top = '0'; wrapper.style.left = '0'; wrapper.style.opacity = '1'; wrapper.style.zIndex = '-9999';
+                await new Promise(r => setTimeout(r, 800));
+                const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                const imgHeight = (canvas.height * 210) / canvas.width;
+                pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
+
+                const fileName = isRoutineCheckup
+                    ? `Orientacao_Saude_${currentUser.name.split(' ')[0]}.pdf`
+                    : `Encaminhamento_${specialty}_${currentUser.name.split(' ')[0]}.pdf`;
+                pdf.save(fileName);
+
+                showToast(isRoutineCheckup ? "Orientação de saúde gerada!" : "PDF gerado com sucesso!", 'success');
+            } catch(e) { console.error(e); showToast("Erro ao gerar PDF.", "error"); }
+            finally { wrapper.innerHTML = ""; }
+        }
+
+        // 2. Função de Agendamento (Salva BD e Baixa PDF)
+        async function scheduleAppointment(specialty, reason) {
+            const btn = document.getElementById('btn-schedule-app');
+            if(btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ...';
+            }
+
+            try {
+                // 1. Salva no Banco
+                await fetch(`${BACKEND_URL}/api/referrals`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        patientName: currentUser.name,
+                        cpf: currentUser.cpf,
+                        specialty: specialty,
+                        reason: reason
+                    })
+                });
+
+                // 2. Gera o PDF
+                await generateSingleReferralPDF(specialty, reason);
+                showToast("Agendamento registrado!", "success");
+
+            } catch(e) {
+                console.error(e);
+                showToast("Erro de conexão, gerando PDF offline...", "info");
+                await generateSingleReferralPDF(specialty, reason);
+            } finally {
+                if(btn) {
+                    btn.className = "bg-green-100 text-green-700 text-[10px] font-bold py-1 px-3 rounded-full border border-green-300 flex items-center";
+                    btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Agendado';
+                }
+            }
+        }
+
+        // 3. Renderiza Resultados (CORRIGIDA)
         function renderDiagnosticResults(data) {
             document.getElementById('ai-summary').innerHTML = data.summary ? data.summary.replace(/\n/g, '<br>') : "";
-            
-            const possDiv = document.getElementById('ai-possibilities');
-            if(data.diagnostic_possibilities) {
-                possDiv.classList.remove('hidden');
-                document.getElementById('possibilities-text').innerHTML = data.diagnostic_possibilities.replace(/\n/g, '<br>');
-            } else possDiv.classList.add('hidden');
 
+            // Exibe Cards de Achados
             const findingsDiv = document.getElementById('ai-findings');
             findingsDiv.innerHTML = '';
             if(data.findings) {
@@ -1920,15 +2093,59 @@ function getActiveExamsString() {
                 });
             }
 
-            const spec = data.specialist || "Clínico Geral";
-            document.getElementById('specialist-text').textContent = `Sugiro seguimento com: ${spec}.`;
+            // Exibe Possibilidades
+            const possDiv = document.getElementById('ai-possibilities');
+            if(data.diagnostic_possibilities) {
+                possDiv.classList.remove('hidden');
+                document.getElementById('possibilities-text').innerHTML = data.diagnostic_possibilities.replace(/\n/g, '<br>');
+            } else possDiv.classList.add('hidden');
+
+            // --- LÓGICA ATUALIZADA DO ESPECIALISTA ---
+            const spec = (data.specialist || "Clínico Geral").trim();
+
+            // 1. Escreve a frase no parágrafo de baixo
+            const textEl = document.getElementById('specialist-text');
+            textEl.innerHTML = `Sugiro seguimento com: <strong class="text-indigo-900">${spec}</strong>`;
+
+            // 2. Injeta o botão no cabeçalho (ao lado do título)
+            const headerEl = document.getElementById('specialist-header');
+            // Remove botão antigo se existir (mantendo o h3 original)
+            const oldBtn = document.getElementById('btn-schedule-wrapper');
+            if(oldBtn) oldBtn.remove();
+
+            // Apenas ignora se for "nenhum" ou "n/a" - INCLUI Clínico Geral e Médico de Família agora!
+            const ignoreList = ["nenhum", "n/a", "não se aplica"];
+            const shouldShowButton = !ignoreList.some(term => spec.toLowerCase().includes(term));
+
+            if(shouldShowButton) {
+                const safeSpec = spec.replace(/'/g, "\\'");
+                const safeReason = (data.diagnostic_possibilities || "Avaliação especializada").replace(/'/g, "\\'").replace(/\n/g, " ");
+
+                // Define cor do botão baseado no tipo de consulta
+                const isRoutine = spec.toLowerCase().includes("clínico geral") || spec.toLowerCase().includes("médico de família");
+                const buttonClass = isRoutine
+                    ? "bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200";
+
+                // Cria o wrapper do botão
+                const btnDiv = document.createElement('div');
+                btnDiv.id = 'btn-schedule-wrapper';
+                btnDiv.innerHTML = `
+                    <button id="btn-schedule-app"
+                        onclick="scheduleAppointment('${safeSpec}', '${safeReason}')"
+                        class="${buttonClass} text-[10px] uppercase font-bold py-1.5 px-3 rounded-full border transition flex items-center shadow-sm whitespace-nowrap">
+                        <i class="fa-solid fa-calendar-plus mr-1"></i> ${isRoutine ? 'Gerar Orientação' : 'Agendar Consulta'}
+                    </button>
+                `;
+                headerEl.appendChild(btnDiv);
+            }
+
             document.getElementById('action-btn').href = `https://www.google.com/maps/search/${encodeURIComponent(spec + " perto de mim")}`;
-            
+
             const procList = document.getElementById('procedures-list');
             procList.innerHTML = '';
             if(data.recommended_procedures) data.recommended_procedures.forEach(p => procList.innerHTML += `<li>${p}</li>`);
-            
-            // TTS
+
             const fullText = `${data.summary || ''}. ${data.diagnostic_possibilities || ''}. Encontramos os seguintes achados: ${data.findings ? data.findings.map(f => f.item + ' ' + f.value + ', ' + f.explanation).join('. ') : ''}.`;
             document.getElementById('btn-speak-result').onclick = () => speakText(fullText, true);
 
