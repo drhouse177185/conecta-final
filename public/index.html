@@ -1925,71 +1925,96 @@ function getActiveExamsString() {
             const scheduledDate = futureDate.toLocaleDateString('pt-BR');
 
             if (isRoutineCheckup) {
-                // PDF de Consulta de Rotina (Tranquilizador)
+                // PDF de Consulta de Rotina (Profissional e Tranquilizador)
                 wrapper.innerHTML = `
                     <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
-                        <div style="border-bottom: 3px solid #10b981; padding-bottom: 20px; margin-bottom: 30px;">
-                            <h1 style="color: #10b981; font-size: 24px; margin: 0; font-weight: bold;">✓ ORIENTAÇÃO DE SAÚDE</h1>
-                            <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Sistema Conecta Saúde - Acompanhamento Preventivo</p>
+                        <div style="border-bottom: 2px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
+                            <h1 style="color: #1e3a8a; font-size: 24px; margin: 0; font-weight: bold;">RELATÓRIO DE ANÁLISE CLÍNICA</h1>
+                            <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Sistema Conecta Saúde - Programa de Acompanhamento Preventivo</p>
                         </div>
 
-                        <div style="background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius: 12px; padding: 25px; margin-bottom: 30px; border-left: 5px solid #10b981;">
-                            <h2 style="color: #065f46; font-size: 20px; margin: 0 0 15px 0; font-weight: bold;">🎉 Ótimas Notícias!</h2>
-                            <p style="color: #047857; font-size: 16px; line-height: 1.8; margin: 0;">
-                                Olá <strong>${currentUser.name}</strong>, ficamos felizes em informar que sua análise não apresentou alterações que necessitem atenção médica imediata.
-                                Você está no caminho certo para manter sua saúde em dia!
+                        <div style="background: #e0f2fe; border-left: 4px solid #0284c7; padding: 20px; margin-bottom: 30px;">
+                            <h3 style="color: #0c4a6e; font-size: 16px; margin: 0 0 12px 0; font-weight: bold;">Resultado da Avaliação</h3>
+                            <p style="color: #0c4a6e; font-size: 14px; line-height: 1.7; margin: 0;">
+                                Prezado(a) Sr(a). <strong>${currentUser.name}</strong>, após análise criteriosa dos dados clínicos apresentados,
+                                informamos que não foram identificadas alterações que demandem intervenção médica imediata.
+                                Os parâmetros avaliados encontram-se dentro dos limites da normalidade clínica.
                             </p>
                         </div>
 
                         <div style="margin-bottom: 30px;">
-                            <h3 style="color: #1e3a8a; font-size: 16px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 15px;">
-                                📋 Dados do Paciente
+                            <h3 style="color: #1e3a8a; font-size: 16px; border-bottom: 1px solid #cbd5e1; padding-bottom: 10px; margin-bottom: 15px;">
+                                Identificação do Paciente
                             </h3>
-                            <table style="width: 100%; font-size: 14px; background: #f9fafb; padding: 15px; border-radius: 8px;">
-                                <tr><td style="padding: 8px; font-weight: bold; width: 150px;">Nome:</td><td style="padding: 8px;">${currentUser.name}</td></tr>
-                                <tr><td style="padding: 8px; font-weight: bold;">CPF:</td><td style="padding: 8px;">${currentUser.cpf || 'Não informado'}</td></tr>
-                                <tr><td style="padding: 8px; font-weight: bold;">Idade:</td><td style="padding: 8px;">${userAge} anos</td></tr>
-                                <tr><td style="padding: 8px; font-weight: bold;">Data da Análise:</td><td style="padding: 8px;">${now}</td></tr>
+                            <table style="width: 100%; font-size: 14px; border: 1px solid #e5e7eb; border-collapse: collapse;">
+                                <tr style="background: #f8fafc;">
+                                    <td style="padding: 10px; font-weight: bold; width: 150px; border: 1px solid #e5e7eb;">Nome Completo:</td>
+                                    <td style="padding: 10px; border: 1px solid #e5e7eb;">${currentUser.name}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; font-weight: bold; border: 1px solid #e5e7eb;">CPF:</td>
+                                    <td style="padding: 10px; border: 1px solid #e5e7eb;">${currentUser.cpf || 'Não informado'}</td>
+                                </tr>
+                                <tr style="background: #f8fafc;">
+                                    <td style="padding: 10px; font-weight: bold; border: 1px solid #e5e7eb;">Idade:</td>
+                                    <td style="padding: 10px; border: 1px solid #e5e7eb;">${userAge} anos</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px; font-weight: bold; border: 1px solid #e5e7eb;">Data da Avaliação:</td>
+                                    <td style="padding: 10px; border: 1px solid #e5e7eb;">${now}</td>
+                                </tr>
                             </table>
                         </div>
 
-                        <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
-                            <h3 style="color: #92400e; font-size: 16px; margin: 0 0 10px 0;">💡 Recomendação de Acompanhamento</h3>
-                            <p style="color: #78350f; font-size: 14px; line-height: 1.7; margin: 0;">
-                                Como medida preventiva e para manter sua saúde sempre monitorada, recomendamos uma <strong>consulta de rotina
-                                com ${specialty}</strong> em aproximadamente <strong>${monthsAhead} ${monthsAhead === 6 ? 'meses' : 'meses'}</strong>.
+                        <div style="background: #fefce8; border: 1px solid #fde047; padding: 20px; margin-bottom: 25px;">
+                            <h3 style="color: #713f12; font-size: 16px; margin: 0 0 12px 0;">Conduta Médica Recomendada</h3>
+                            <p style="color: #854d0e; font-size: 14px; line-height: 1.7; margin: 0;">
+                                Conforme protocolo de medicina preventiva, recomenda-se acompanhamento periódico com <strong>${specialty}</strong>
+                                para manutenção do estado de saúde e detecção precoce de eventuais alterações. O intervalo sugerido
+                                para reavaliação é de <strong>${monthsAhead} meses</strong>.
                             </p>
                         </div>
 
-                        <div style="background: #ede9fe; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
-                            <h3 style="color: #5b21b6; font-size: 16px; margin: 0 0 12px 0;">📅 Data Sugerida para Consulta</h3>
-                            <p style="font-size: 18px; color: #6d28d9; font-weight: bold; margin: 0;">
-                                ${scheduledDate}
+                        <div style="border: 1px solid #cbd5e1; padding: 20px; margin-bottom: 25px;">
+                            <h3 style="color: #1e40af; font-size: 16px; margin: 0 0 12px 0;">Agendamento Programado</h3>
+                            <table style="width: 100%; font-size: 14px;">
+                                <tr>
+                                    <td style="padding: 8px; font-weight: bold; width: 180px;">Data prevista para retorno:</td>
+                                    <td style="padding: 8px; color: #1e3a8a; font-weight: bold; font-size: 16px;">${scheduledDate}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px; font-weight: bold;">Especialidade:</td>
+                                    <td style="padding: 8px;">${specialty}</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div style="background: #f0fdf4; border-left: 3px solid #16a34a; padding: 20px; margin-bottom: 25px;">
+                            <h3 style="color: #15803d; font-size: 15px; margin: 0 0 12px 0;">Orientações Gerais</h3>
+                            <p style="color: #166534; font-size: 14px; line-height: 1.7; margin: 0 0 12px 0;">
+                                Não há necessidade de preocupação no momento. Mantenha hábitos de vida saudáveis, incluindo alimentação equilibrada,
+                                prática regular de atividades físicas e hidratação adequada. Estas medidas são fundamentais para a manutenção
+                                da sua qualidade de vida e bem-estar.
                             </p>
-                            <p style="color: #7c3aed; font-size: 13px; margin: 10px 0 0 0; font-style: italic;">
-                                (Agendamento sugerido - não é obrigatório comparecer exatamente nesta data)
+                            <p style="color: #166534; font-size: 14px; line-height: 1.7; margin: 0;">
+                                <strong>Importante:</strong> Nossa equipe realizará o agendamento da sua consulta de acompanhamento e
+                                você receberá uma notificação por e-mail quando a data programada estiver se aproximando.
+                                Não é necessário tomar nenhuma providência neste momento.
                             </p>
                         </div>
 
-                        <div style="border: 2px dashed #cbd5e1; border-radius: 8px; padding: 20px; background: #f8fafc; margin-bottom: 25px;">
-                            <h3 style="color: #1e40af; font-size: 15px; margin: 0 0 12px 0;">🌟 Mensagem Importante</h3>
-                            <p style="color: #1e3a8a; font-size: 14px; line-height: 1.8; margin: 0;">
-                                <strong style="color: #059669;">Você não precisa se preocupar agora!</strong>
-                                Continue cuidando da sua saúde com hábitos saudáveis: alimentação balanceada, exercícios físicos regulares e boa hidratação.
-                                Quando estiver se aproximando da data sugerida acima (${scheduledDate}), agende sua consulta de rotina para um check-up preventivo.
+                        <div style="background: #f8fafc; padding: 15px; border: 1px solid #cbd5e1; margin-bottom: 30px;">
+                            <p style="color: #475569; font-size: 13px; margin: 0; line-height: 1.6;">
+                                <strong>Observações Clínicas:</strong> ${reason || "Paciente apresenta condições clínicas estáveis. Manter acompanhamento preventivo de rotina conforme protocolo institucional."}
                             </p>
                         </div>
 
-                        <div style="background: #dbeafe; padding: 15px; border-radius: 8px; margin-bottom: 30px;">
-                            <p style="color: #1e40af; font-size: 13px; margin: 0; line-height: 1.6;">
-                                <strong>Observação:</strong> ${reason || "Manter acompanhamento preventivo de rotina."}
+                        <div style="margin-top: 60px; text-align: center; border-top: 2px solid #e5e7eb; padding-top: 20px;">
+                            <p style="font-weight: bold; font-size: 14px; margin: 5px 0; color: #1e3a8a;">Dr. Tiago Barros</p>
+                            <p style="font-size: 12px; color: #64748b; margin: 5px 0;">CRM 123.456 | Clínica Médica</p>
+                            <p style="font-size: 11px; color: #94a3b8; margin: 15px 0 0 0; font-style: italic;">
+                                Sistema Conecta Saúde | Documento gerado eletronicamente em ${now}
                             </p>
-                        </div>
-
-                        <div style="margin-top: 60px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 20px;">
-                            <p style="font-weight: bold; font-size: 14px; margin: 5px 0;">Dr. Tiago Barros</p>
-                            <p style="font-size: 12px; color: #666; margin: 5px 0;">CRM 123.456</p>
-                            <p style="font-size: 11px; color: #94a3b8; margin: 15px 0 0 0;">Sistema Conecta Saúde - Documento gerado eletronicamente</p>
                         </div>
                     </div>
                 `;
@@ -2134,7 +2159,7 @@ function getActiveExamsString() {
                     <button id="btn-schedule-app"
                         onclick="scheduleAppointment('${safeSpec}', '${safeReason}')"
                         class="${buttonClass} text-[10px] uppercase font-bold py-1.5 px-3 rounded-full border transition flex items-center shadow-sm whitespace-nowrap">
-                        <i class="fa-solid fa-calendar-plus mr-1"></i> ${isRoutine ? 'Gerar Orientação' : 'Agendar Consulta'}
+                        <i class="fa-solid fa-calendar-plus mr-1"></i> Agendar Consulta
                     </button>
                 `;
                 headerEl.appendChild(btnDiv);
