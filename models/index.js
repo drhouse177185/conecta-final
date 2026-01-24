@@ -17,10 +17,12 @@ db.sync = async () => {
     try {
         await sequelize.authenticate();
         console.log('✅ Conexão com o banco de dados estabelecida com sucesso.');
-        
-        // Sincroniza os modelos com o banco (alter: true cria tabelas novas ou atualiza)
-        await sequelize.sync({ alter: true });
-        console.log('✅ Tabelas sincronizadas (Users, Referrals, etc).');
+
+        // IMPORTANTE: Não usa alter: true para evitar modificações automáticas no schema
+        // Se precisar ajustar o schema, use /api/install_db
+        await sequelize.sync();
+        console.log('✅ Modelos validados com sucesso.');
+        console.log('💡 Se houver erro de coluna faltando, acesse /api/install_db');
     } catch (error) {
         console.error('❌ Não foi possível conectar ao banco de dados:', error);
     }

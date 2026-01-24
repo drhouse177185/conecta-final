@@ -21,17 +21,35 @@ exports.installDatabase = async (req, res) => {
                     ALTER TABLE ${tableName}
                     ADD COLUMN IF NOT EXISTS "blocked_features" JSONB DEFAULT '{"preConsulta": false, "preOp": false}';
                 `);
+                // Preenche NULLs
+                await sequelize.query(`
+                    UPDATE ${tableName}
+                    SET "blocked_features" = '{"preConsulta": false, "preOp": false}'
+                    WHERE "blocked_features" IS NULL;
+                `);
 
                 // Adiciona credits (caso esteja faltando)
                 await sequelize.query(`
                     ALTER TABLE ${tableName}
                     ADD COLUMN IF NOT EXISTS "credits" INTEGER DEFAULT 100;
                 `);
+                // Preenche NULLs
+                await sequelize.query(`
+                    UPDATE ${tableName}
+                    SET "credits" = 100
+                    WHERE "credits" IS NULL;
+                `);
 
                 // Adiciona created_at (caso esteja faltando)
                 await sequelize.query(`
                     ALTER TABLE ${tableName}
                     ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                `);
+                // Preenche NULLs com timestamp atual
+                await sequelize.query(`
+                    UPDATE ${tableName}
+                    SET "created_at" = CURRENT_TIMESTAMP
+                    WHERE "created_at" IS NULL;
                 `);
 
                 console.log(`✅ Tabela ${tableName} reparada.`);
