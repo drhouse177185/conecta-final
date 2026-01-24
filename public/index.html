@@ -396,7 +396,13 @@
                                         <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Dislipidemia" class="pre-comorb rounded text-blue-600"><span class="text-sm">Colesterol Alto</span></label>
                                         <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Tabagismo" class="pre-comorb rounded text-blue-600"><span class="text-sm">Tabagismo</span></label>
                                     </div>
-                                    <input type="text" id="pre-other-comorb" class="mt-2 house-input w-full p-2 rounded text-sm" placeholder="Outras? Digite aqui...">
+                                    <div class="flex gap-2 mt-2">
+                                        <input type="text" id="pre-other-comorb" class="house-input flex-1 p-2 rounded text-sm" placeholder="Outras? Digite aqui...">
+                                        <button onclick="confirmComorbidities()" id="btn-confirm-comorb" class="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 rounded text-sm transition shadow flex items-center gap-2">
+                                            <i class="fa-solid fa-check-circle"></i> Confirmar Comorbidades
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-info-circle mr-1"></i> Ao confirmar, suas comorbidades serão salvas permanentemente no histórico médico.</p>
                                 </div>
                                 <div class="bg-indigo-50 p-4 rounded border border-indigo-100">
                                     <h4 class="font-bold text-indigo-900 text-sm mb-2">Solicitação Específica</h4>
@@ -1599,14 +1605,41 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 const data = await response.json();
 
                 if (response.ok && data.comorbidities) {
+                    let hasConfirmed = false;
+
                     // Marca os checkboxes das comorbidades ativas
                     document.querySelectorAll('.pre-comorb').forEach(checkbox => {
                         const comorbidity = checkbox.value;
                         const found = data.comorbidities.find(c => c.comorbidity === comorbidity && c.is_active);
                         if (found) {
                             checkbox.checked = true;
+
+                            // Se foi confirmada, desabilita o checkbox
+                            if (found.confirmed_at) {
+                                hasConfirmed = true;
+                                checkbox.disabled = true;
+                                checkbox.parentElement.classList.add('opacity-50', 'cursor-not-allowed');
+                            }
                         }
                     });
+
+                    // Se alguma comorbidade foi confirmada, desabilita o botão e o campo "Outras"
+                    if (hasConfirmed) {
+                        const btn = document.getElementById('btn-confirm-comorb');
+                        const otherInput = document.getElementById('pre-other-comorb');
+
+                        if (btn) {
+                            btn.innerHTML = '<i class="fa-solid fa-check-double mr-2"></i> Confirmado';
+                            btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                            btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                            btn.disabled = true;
+                        }
+
+                        if (otherInput) {
+                            otherInput.disabled = true;
+                            otherInput.classList.add('opacity-50', 'cursor-not-allowed');
+                        }
+                    }
                 }
             } catch (error) {
                 console.error('Erro ao carregar comorbidades:', error);
@@ -1622,6 +1655,90 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     saveComorbidity(comorbidity, isActive);
                 });
             });
+        }
+
+        // ====================================================================
+        // CONFIRMAR COMORBIDADES - Salva em lote com confirmação explícita
+        // ====================================================================
+        async function confirmComorbidities() {
+            const btn = document.getElementById('btn-confirm-comorb');
+            if (!currentUser || !currentUser.id) {
+                showToast("Erro: Usuário não identificado.", "error");
+                return;
+            }
+
+            // 1. Coletar comorbidades marcadas (checkboxes)
+            const selectedComorbidities = [];
+            document.querySelectorAll('.pre-comorb:checked').forEach(checkbox => {
+                selectedComorbidities.push(checkbox.value);
+            });
+
+            // 2. Coletar comorbidade customizada (campo "Outras")
+            const otherComorbInput = document.getElementById('pre-other-comorb');
+            const otherComorb = otherComorbInput ? otherComorbInput.value.trim() : '';
+
+            // 3. Validação: Pelo menos uma comorbidade deve estar marcada
+            if (selectedComorbidities.length === 0 && otherComorb.length === 0) {
+                showToast("Marque pelo menos uma comorbidade ou digite em 'Outras'.", "error");
+                return;
+            }
+
+            // 4. Feedback visual de carregamento
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...';
+            btn.disabled = true;
+
+            try {
+                // 5. Enviar para o backend
+                const response = await fetch(`${BACKEND_URL}/api/comorbidities/confirm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        comorbidities: selectedComorbidities,
+                        otherComorbidities: otherComorb
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // 6. Sucesso: Desabilita checkboxes e mostra mensagem
+                    showToast(data.message, "success");
+
+                    // Desabilita todos os checkboxes e o campo "Outras"
+                    document.querySelectorAll('.pre-comorb').forEach(checkbox => {
+                        checkbox.disabled = true;
+                        if (checkbox.checked) {
+                            checkbox.parentElement.classList.add('opacity-50', 'cursor-not-allowed');
+                        }
+                    });
+
+                    if (otherComorbInput) {
+                        otherComorbInput.disabled = true;
+                        otherComorbInput.classList.add('opacity-50', 'cursor-not-allowed');
+                    }
+
+                    // Muda o botão para "Confirmado"
+                    btn.innerHTML = '<i class="fa-solid fa-check-double mr-2"></i> Confirmado';
+                    btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    btn.disabled = true;
+
+                    // Log para debug
+                    console.log('✅ Comorbidades confirmadas:', data.savedComorbidities);
+
+                } else {
+                    showToast(data.error || "Erro ao salvar comorbidades.", "error");
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Erro ao confirmar comorbidades:', error);
+                showToast("Erro de conexão. Tente novamente.", "error");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
 
         // Controle de Abas da UI Principal

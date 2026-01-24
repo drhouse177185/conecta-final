@@ -38,6 +38,7 @@ router.post('/catalog/toggle', catalogController.toggleItem);
 
 // --- ROTAS DE COMORBIDADES ---
 router.post('/comorbidities/toggle', comorbidityController.toggleComorbidity); // NOVO: Marcar/desmarcar comorbidade
+router.post('/comorbidities/confirm', comorbidityController.confirmComorbidities); // NOVO: Confirmar comorbidades em lote
 router.get('/comorbidities/:userId', comorbidityController.getUserComorbidities); // NOVO: Listar comorbidades ativas
 router.get('/comorbidities/:userId/history', comorbidityController.getFullHistory); // NOVO: Histórico completo
 

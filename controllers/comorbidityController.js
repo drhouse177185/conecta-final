@@ -186,6 +186,115 @@ exports.adminRemoveComorbidity = async (req, res) => {
 };
 
 // ====================================================================
+// CONFIRMAR COMORBIDADES EM LOTE
+// Quando o usuário clica em "Confirmar Comorbidades"
+// ====================================================================
+exports.confirmComorbidities = async (req, res) => {
+    let t;
+    try {
+        const { userId, comorbidities, otherComorbidities } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'userId é obrigatório.' });
+        }
+
+        t = await sequelize.transaction();
+        const savedComorbidities = [];
+
+        // 1. Salvar comorbidades dos checkboxes
+        if (comorbidities && Array.isArray(comorbidities)) {
+            for (const comorbidity of comorbidities) {
+                // Verifica se já existe
+                const existing = await sequelize.query(
+                    `SELECT id, removed_by_admin FROM user_comorbidities
+                     WHERE user_id = :userId AND comorbidity = :comorbidity`,
+                    {
+                        replacements: { userId, comorbidity },
+                        type: QueryTypes.SELECT,
+                        transaction: t
+                    }
+                );
+
+                if (existing.length > 0 && existing[0].removed_by_admin) {
+                    continue; // Pula se foi removida pelo admin
+                }
+
+                if (existing.length > 0) {
+                    // Atualiza existente
+                    await sequelize.query(
+                        `UPDATE user_comorbidities
+                         SET is_active = true, confirmed_at = NOW(), last_updated_at = NOW()
+                         WHERE id = :id`,
+                        {
+                            replacements: { id: existing[0].id },
+                            type: QueryTypes.UPDATE,
+                            transaction: t
+                        }
+                    );
+                } else {
+                    // Cria nova
+                    await sequelize.query(
+                        `INSERT INTO user_comorbidities
+                         (user_id, comorbidity, is_active, is_custom, confirmed_at, first_marked_at)
+                         VALUES (:userId, :comorbidity, true, false, NOW(), NOW())`,
+                        {
+                            replacements: { userId, comorbidity },
+                            type: QueryTypes.INSERT,
+                            transaction: t
+                        }
+                    );
+                }
+                savedComorbidities.push(comorbidity);
+            }
+        }
+
+        // 2. Salvar comorbidade customizada (campo "Outras")
+        if (otherComorbidities && otherComorbidities.trim().length > 0) {
+            const customComorbidity = otherComorbidities.trim();
+
+            const existing = await sequelize.query(
+                `SELECT id FROM user_comorbidities
+                 WHERE user_id = :userId AND comorbidity = :comorbidity`,
+                {
+                    replacements: { userId, comorbidity: customComorbidity },
+                    type: QueryTypes.SELECT,
+                    transaction: t
+                }
+            );
+
+            if (existing.length === 0) {
+                await sequelize.query(
+                    `INSERT INTO user_comorbidities
+                     (user_id, comorbidity, is_active, is_custom, confirmed_at, first_marked_at)
+                     VALUES (:userId, :comorbidity, true, true, NOW(), NOW())`,
+                    {
+                        replacements: { userId, comorbidity: customComorbidity },
+                        type: QueryTypes.INSERT,
+                        transaction: t
+                    }
+                );
+                savedComorbidities.push(customComorbidity);
+            }
+        }
+
+        await t.commit();
+
+        console.log(`✅ Comorbidades confirmadas para user ${userId}:`, savedComorbidities);
+
+        res.json({
+            success: true,
+            message: `${savedComorbidities.length} comorbidade(s) confirmada(s) e salva(s) no histórico médico.`,
+            savedComorbidities: savedComorbidities
+        });
+
+    } catch (error) {
+        if (t) await t.rollback();
+        console.error('❌ Erro ao confirmar comorbidades:', error);
+        res.status(500).json({ error: 'Erro ao salvar comorbidades.', details: error.message });
+    }
+};
+
+// ====================================================================
 // ADMIN: LISTAR TODAS AS COMORBIDADES (todos os usuários)
 // Para painel de administração
 // ====================================================================
@@ -199,6 +308,8 @@ exports.adminGetAllComorbidities = async (req, res) => {
                 u.email as user_email,
                 uc.comorbidity,
                 uc.is_active,
+                uc.is_custom,
+                uc.confirmed_at,
                 uc.removed_by_admin,
                 uc.first_marked_at,
                 uc.last_updated_at
