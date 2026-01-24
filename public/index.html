@@ -3170,33 +3170,111 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             i.value=v;
         }
 
+       // Variável de controle do passo atual (1 = CPF, 2 = Senha)
         let recoveryStep = 1;
+
         async function handleRecoveryStep() {
-             const cpfInput = document.getElementById('recover-cpf');
-             // Simulação
-             closeRecoverModal();
-             showToast("Simulação: Senha alterada!", "success");
+            const btn = document.getElementById('btn-recover');
+            const cpfInput = document.getElementById('recover-cpf');
+            
+            // --- PASSO 1: VALIDAR CPF ---
+            if (recoveryStep === 1) {
+                const cpf = cpfInput.value;
+                if(cpf.length < 14) return showToast("Por favor, digite um CPF válido.", "error");
+
+                // Feedback visual de carregamento
+                const originalText = btn.textContent;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Buscando...';
+                btn.disabled = true;
+
+                try {
+                    const res = await fetch(`${BACKEND_URL}/api/auth/verify-cpf`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cpf })
+                    });
+                    
+                    const data = await res.json();
+
+                    if (res.ok) {
+                        // Sucesso: Avança para o Passo 2 (UI)
+                        recoveryStep = 2;
+                        document.getElementById('rec-step-1').classList.add('hidden');
+                        document.getElementById('rec-step-2').classList.remove('hidden');
+                        
+                        // Feedback visual
+                        btn.textContent = "DEFINIR NOVA SENHA";
+                        btn.classList.replace('bg-blue-600', 'bg-green-600');
+                        btn.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
+                        
+                        showToast(`Conta de ${data.name || 'usuário'} localizada!`, "success");
+                    } else {
+                        showToast(data.error || "CPF não encontrado.", "error");
+                    }
+                } catch (e) {
+                    console.error(e);
+                    showToast("Erro de conexão com o servidor.", "error");
+                } finally {
+                    btn.disabled = false;
+                    if(recoveryStep === 1) btn.innerHTML = originalText;
+                }
+
+            // --- PASSO 2: SALVAR NOVA SENHA ---
+            } else {
+                const p1 = document.getElementById('recover-new-pass').value;
+                const p2 = document.getElementById('recover-confirm-pass').value;
+                const cpf = cpfInput.value; // Pega o CPF que já foi validado no input (que está visível mas talvez readonly ou apenas lá)
+
+                if(p1.length < 3) return showToast("A senha deve ter no mínimo 3 caracteres.", "error");
+                if(p1 !== p2) return showToast("As senhas não coincidem.", "error");
+
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Salvando...';
+                btn.disabled = true;
+
+                try {
+                    const res = await fetch(`${BACKEND_URL}/api/auth/reset-password`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cpf, newPassword: p1 })
+                    });
+
+                    const data = await res.json();
+
+                    if (res.ok) {
+                        showToast("Senha alterada com sucesso! Faça login.", "success");
+                        closeRecoverModal();
+                        
+                        // Reseta o modal para o estado inicial após fechar
+                        setTimeout(() => {
+                            resetRecoveryModal();
+                        }, 500);
+                    } else {
+                        showToast(data.error || "Erro ao alterar senha.", "error");
+                    }
+                } catch (e) {
+                    showToast("Erro ao processar alteração.", "error");
+                } finally {
+                    btn.disabled = false;
+                    if(recoveryStep === 2) btn.textContent = "DEFINIR NOVA SENHA";
+                }
+            }
         }
 
-        function closeRecoverModal() {
-            document.getElementById('recover-modal').classList.remove('active');
+        // Função auxiliar para resetar o modal
+        function resetRecoveryModal() {
+            recoveryStep = 1;
+            document.getElementById('rec-step-1').classList.remove('hidden');
+            document.getElementById('rec-step-2').classList.add('hidden');
+            
+            const btn = document.getElementById('btn-recover');
+            btn.textContent = "BUSCAR CONTA";
+            btn.classList.replace('bg-green-600', 'bg-blue-600');
+            btn.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
+
+            document.getElementById('recover-cpf').value = "";
+            document.getElementById('recover-new-pass').value = "";
+            document.getElementById('recover-confirm-pass').value = "";
         }
-
-        // FUNÇÃO DE NORMALIZAÇÃO DE DADOS (CRUCIAL PARA O FIX)
-        function normalizeUser(u) {
-            if (!u) return null;
-            const rawBlocks = u.blockedFeatures || u.blocked_features || {};
-            u.blockedFeatures = {
-                preConsulta: !!rawBlocks.preConsulta,
-                preOp: !!rawBlocks.preOp
-            };
-            return u;
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        });
-
     </script>
 </body>
 </html>

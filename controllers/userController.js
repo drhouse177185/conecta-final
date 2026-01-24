@@ -123,3 +123,60 @@ exports.adminRecharge = async (req, res) => {
         res.status(500).json({ message: "Erro na recarga" });
     }
 };
+// ... (mantenha os imports e códigos existentes)
+
+// 1. Verifica se o CPF existe para iniciar a recuperação
+exports.verifyCpf = async (req, res) => {
+    try {
+        const { cpf } = req.body;
+        
+        // Busca usuário pelo CPF
+        const user = await User.findOne({ where: { cpf } });
+        
+        if (!user) {
+            return res.status(404).json({ error: 'CPF não encontrado no sistema.' });
+        }
+
+        // Retorna sucesso (não retorne dados sensíveis)
+        res.json({ 
+            success: true, 
+            message: 'Usuário localizado.', 
+            name: user.name // Opcional: para mostrar "Olá Fulano"
+        });
+
+    } catch (error) {
+        console.error('Erro verifyCpf:', error);
+        res.status(500).json({ error: 'Erro interno ao validar CPF.' });
+    }
+};
+
+// 2. Redefine a senha baseada no CPF
+exports.resetPassword = async (req, res) => {
+    try {
+        const { cpf, newPassword } = req.body;
+
+        if (!newPassword || newPassword.length < 3) {
+            return res.status(400).json({ error: 'Senha inválida.' });
+        }
+
+        const user = await User.findOne({ where: { cpf } });
+
+        if (!user) {
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+
+        // Hash da nova senha (Segurança)
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        // Atualiza e salva
+        user.password = hashedPassword;
+        await user.save();
+
+        res.json({ success: true, message: 'Senha alterada com sucesso.' });
+
+    } catch (error) {
+        console.error('Erro resetPassword:', error);
+        res.status(500).json({ error: 'Erro ao atualizar senha.' });
+    }
+};

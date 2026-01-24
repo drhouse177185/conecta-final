@@ -38,3 +38,14 @@ router.post('/history/save', historyController.saveHistory);
 router.post('/create_preference', paymentController.createPreference);
 
 module.exports = router;
+// ... (dentro do arquivo routes/api.js)
+
+// Rotas de Autenticação existentes...
+router.post('/auth/register', userController.register);
+router.post('/auth/login', userController.login);
+
+// --- NOVAS ROTAS DE RECUPERAÇÃO DE SENHA ---
+router.post('/auth/verify-cpf', userController.verifyCpf);
+router.post('/auth/reset-password', userController.resetPassword);
+
+// ... (resto do arquivo)
