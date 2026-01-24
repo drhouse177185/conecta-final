@@ -1280,7 +1280,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             
             // Busca dados atualizados do banco ANTES de mostrar a tela
             fetchCatalog().then(() => {
-                
+
                 // Lógica de Roteamento (Admin vs User)
                 if(user.role === 'admin') {
                     document.getElementById('admin-view').classList.remove('hidden');
@@ -1290,8 +1290,12 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     document.getElementById('user-display').textContent = `Olá, ${user.name}`;
                     updateCreditDisplay();
                     safeSetValue('pre-name', user.name); safeSetValue('pre-age', user.age); safeSetValue('op-name', user.name);
-                    
+
                     populateSurgeryDropdown(); // <--- CHAMA AQUI COM DADOS DO BANCO
+
+                    // NOVO: Configura listeners e carrega comorbidades salvas
+                    setupComorbidityListeners();
+                    loadUserComorbidities();
 
                     // Lógica de sexo, etc... (Mantém o original)
                     const lblPreg = document.getElementById('lbl-pregnancy');
@@ -1554,7 +1558,72 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         // Utilitários de UI
         function safeSetValue(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
         function handleLogout() { location.reload(); }
-        
+
+        // ====================================================================
+        // COMORBIDADES: Salvar automaticamente no histórico médico
+        // ====================================================================
+        async function saveComorbidity(comorbidity, isActive) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/comorbidities/toggle`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        comorbidity: comorbidity,
+                        isActive: isActive
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    console.log(`✅ Comorbidade ${comorbidity}: ${isActive ? 'MARCADA' : 'DESMARCADA'}`);
+                    // Feedback visual sutil (opcional)
+                    if (isActive) {
+                        showToast(`${comorbidity} registrada no histórico médico.`, "success");
+                    }
+                } else {
+                    console.error('Erro ao salvar comorbidade:', data.error);
+                    showToast(data.error || "Erro ao salvar comorbidade.", "error");
+                }
+            } catch (error) {
+                console.error('Erro de conexão ao salvar comorbidade:', error);
+                // Não mostra erro para não incomodar o usuário, apenas loga
+            }
+        }
+
+        // Carrega comorbidades salvas do usuário e marca os checkboxes
+        async function loadUserComorbidities() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/comorbidities/${currentUser.id}`);
+                const data = await response.json();
+
+                if (response.ok && data.comorbidities) {
+                    // Marca os checkboxes das comorbidades ativas
+                    document.querySelectorAll('.pre-comorb').forEach(checkbox => {
+                        const comorbidity = checkbox.value;
+                        const found = data.comorbidities.find(c => c.comorbidity === comorbidity && c.is_active);
+                        if (found) {
+                            checkbox.checked = true;
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Erro ao carregar comorbidades:', error);
+            }
+        }
+
+        // Configura listeners nos checkboxes de comorbidades
+        function setupComorbidityListeners() {
+            document.querySelectorAll('.pre-comorb').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const comorbidity = this.value;
+                    const isActive = this.checked;
+                    saveComorbidity(comorbidity, isActive);
+                });
+            });
+        }
+
         // Controle de Abas da UI Principal
         function switchTab(id) {
             [0,1,2].forEach(i => { document.getElementById(`page-${i}`).classList.add('hidden'); document.getElementById(`btn-tab-${i}`).className="tab-inactive flex-1 py-3 text-sm font-bold border-b-2 uppercase tracking-wide flex justify-center items-center whitespace-nowrap px-4 transition"; });

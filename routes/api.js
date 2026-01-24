@@ -7,7 +7,8 @@ const paymentController = require('../controllers/paymentController');
 const historyController = require('../controllers/historyController');
 const setupController = require('../controllers/setupController');
 const catalogController = require('../controllers/catalogController');
-const referralController = require('../controllers/referralController'); // Importa o novo controller
+const referralController = require('../controllers/referralController');
+const comorbidityController = require('../controllers/comorbidityController'); // NOVO: Controller de comorbidades
 
 // --- Rotas Básicas ---
 router.get('/saudacao', mainController.saudacao);
@@ -25,13 +26,20 @@ router.post('/referrals', referralController.createReferral);
 router.get('/referrals', referralController.getAllReferrals);
 
 // --- ROTAS DO ADMIN ---
-router.get('/admin/users', userController.getAllUsers);         
-router.post('/admin/toggle_block', userController.toggleBlock); 
-router.post('/admin/recharge', userController.adminRecharge);   
+router.get('/admin/users', userController.getAllUsers);
+router.post('/admin/toggle_block', userController.toggleBlock);
+router.post('/admin/recharge', userController.adminRecharge);
+router.get('/admin/comorbidities', comorbidityController.adminGetAllComorbidities); // NOVO: Lista todas comorbidades
+router.post('/admin/comorbidities/remove', comorbidityController.adminRemoveComorbidity); // NOVO: Remove comorbidade
 
 // --- ROTAS DO CATÁLOGO ---
-router.get('/catalog', catalogController.getCatalog);           
-router.post('/catalog/toggle', catalogController.toggleItem);   
+router.get('/catalog', catalogController.getCatalog);
+router.post('/catalog/toggle', catalogController.toggleItem);
+
+// --- ROTAS DE COMORBIDADES ---
+router.post('/comorbidities/toggle', comorbidityController.toggleComorbidity); // NOVO: Marcar/desmarcar comorbidade
+router.get('/comorbidities/:userId', comorbidityController.getUserComorbidities); // NOVO: Listar comorbidades ativas
+router.get('/comorbidities/:userId/history', comorbidityController.getFullHistory); // NOVO: Histórico completo
 
 // --- Rotas de Funcionalidades ---
 router.post('/history/save', historyController.saveHistory);
