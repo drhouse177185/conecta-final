@@ -2441,104 +2441,121 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         }
 
         // Gera PDF de Exames Específicos (Modelo 1111111.pdf - Simples)
-        async function generateExamPDF() {
-            const wrapper = document.getElementById('pdf-content-wrapper');
-            const now = new Date().toLocaleDateString('pt-BR');
+       async function generateExamPDF() {
+    const wrapper = document.getElementById('pdf-content-wrapper');
+    const now = new Date().toLocaleDateString('pt-BR');
 
-            // Lista de exames comuns de check-up/rotina que devem ser filtrados
-            const routineExams = [
-                'hemograma', 'glicemia', 'colesterol', 'triglicerideos', 'triglicerídeos',
-                'creatinina', 'ureia', 'tgo', 'tgp', 'ast', 'alt', 'urina', 'eas',
-                'tsh', 'vitamina d', 't4', 'hba1c', 'hemoglobina glicada',
-                'eletrocardiograma', 'ecg', 'raio-x', 'raio x', 'rx', 'mamografia'
-            ];
+    // 1. Lógica de Filtragem (Mantida igual ao original para não quebrar regras de negócio)
+    const routineExams = [
+        'hemograma', 'glicemia', 'colesterol', 'triglicerideos', 'triglicerídeos',
+        'creatinina', 'ureia', 'tgo', 'tgp', 'ast', 'alt', 'urina', 'eas',
+        'tsh', 'vitamina d', 't4', 'hba1c', 'hemoglobina glicada',
+        'eletrocardiograma', 'ecg', 'raio-x', 'raio x', 'rx', 'mamografia'
+    ];
 
-            // Lista de termos que NÃO são exames (procedimentos clínicos)
-            const nonExamTerms = [
-                'revisão', 'avaliação', 'consulta', 'acompanhamento',
-                'seguimento', 'retorno', 'reavaliação', 'repetir',
-                'clínica detalhada', 'detalhada'
-            ];
+    const nonExamTerms = [
+        'revisão', 'avaliação', 'consulta', 'acompanhamento',
+        'seguimento', 'retorno', 'reavaliação', 'repetir',
+        'clínica detalhada', 'detalhada'
+    ];
 
-            // Filtra exames removendo:não-exames, rotina e reavaliações
-            const filteredExams = window.currentExamList.filter(exam => {
-                const lowerExam = exam.toLowerCase();
+    const filteredExams = window.currentExamList.filter(exam => {
+        const lowerExam = exam.toLowerCase();
+        const isNonExam = nonExamTerms.some(term => lowerExam.includes(term));
+        if (isNonExam) return false;
+        const isRoutine = routineExams.some(routine => lowerExam.includes(routine));
+        return !isRoutine;
+    });
 
-                // Remove se contém termos de procedimentos não-exame
-                const isNonExam = nonExamTerms.some(term => lowerExam.includes(term));
-                if (isNonExam) return false;
+    // Limpeza de texto
+    const cleanExams = filteredExams.map(exam => {
+        return exam.replace(/\s*\([^)]*\)/g, '').trim();
+    });
 
-                // Remove se é exame de rotina
-                const isRoutine = routineExams.some(routine => lowerExam.includes(routine));
-                return !isRoutine;
-            });
-
-            // Remove explicações entre parênteses
-            const cleanExams = filteredExams.map(exam => {
-                return exam.replace(/\s*\([^)]*\)/g, '').trim();
-            });
-
-            // Monta lista de exames com bullets simples
-            let examListHTML = '';
-            cleanExams.forEach(exam => {
-                examListHTML += `<p style="margin: 8px 0; padding-bottom: 8px; border-bottom: 1px dotted #ddd;">• ${exam}</p>`;
-            });
-
-            wrapper.innerHTML = `
-                <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
-                    <div style="text-align: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
-                        <h1 style="color: #1e3a8a; font-size: 22px; margin: 0; font-weight: bold;">Dr. Tiago Fernandes</h1>
-                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Clínica Médica e Nefrologia</p>
-                    </div>
-
-                    <div style="margin-bottom: 25px;">
-                        <p style="margin: 5px 0; font-size: 14px;"><strong>Paciente:</strong> ${currentUser.name}</p>
-                        <p style="margin: 5px 0; font-size: 14px;"><strong>CPF:</strong> ${currentUser.cpf || 'Não informado'} | <strong>Data:</strong> ${now}</p>
-                    </div>
-
-                    <div style="background: #2c5aa0; color: white; padding: 12px 20px; margin-bottom: 25px; font-weight: bold; font-size: 15px;">
-                        SOLICITAÇÃO DE EXAMES
-                    </div>
-
-                    <div style="margin: 20px 0; padding: 0 10px;">
-                        ${examListHTML}
-                    </div>
-
-                    <div style="margin-top: 100px; text-align: center; padding-top: 30px;">
-                        <!-- Espaço para assinatura (substitua o comentário abaixo pela tag img com sua assinatura) -->
-                        <!-- <img src="caminho/para/assinatura.png" style="width: 200px; height: auto; margin: 0 auto 15px auto;" /> -->
-                        <div style="height: 60px; margin: 0 auto 15px auto;"></div>
-                        <div style="border-top: 2px solid #000; width: 300px; margin: 0 auto 10px auto;"></div>
-                        <p style="font-size: 12px; color: #333; margin: 5px 0;">CRM 177.185</p>
-                    </div>
+    // 2. Construção da Lista HTML (Com estilo melhorado)
+    let examListHTML = '';
+    if (cleanExams.length === 0) {
+        examListHTML = '<p style="padding: 10px; color: #666; font-style: italic;">Nenhum exame específico listado nesta solicitação.</p>';
+    } else {
+        cleanExams.forEach(exam => {
+            examListHTML += `
+                <div style="margin-bottom: 10px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 5px; display: flex; align-items: center;">
+                    <span style="color: #ea580c; font-weight: bold; margin-right: 10px; font-size: 18px;">•</span>
+                    <span style="font-size: 14px; color: #334155;">${exam}</span>
                 </div>
             `;
+        });
+    }
 
-            try {
-                wrapper.style.position = 'absolute';
-                wrapper.style.top = '0';
-                wrapper.style.left = '0';
-                wrapper.style.opacity = '1';
-                wrapper.style.zIndex = '-9999';
+    // 3. Montagem do PDF usando a Assinatura Global (DRY)
+    wrapper.innerHTML = `
+        <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333; position: relative; height: 1123px; box-sizing: border-box;">
+            
+            <!-- CABEÇALHO PADRÃO -->
+            <div style="text-align: center; border-bottom: 3px solid #ea580c; padding-bottom: 20px; margin-bottom: 30px;">
+                <h1 style="color: #ea580c; font-size: 24px; margin: 0; font-weight: 900;">CONECTA SAÚDE</h1>
+                <p style="margin: 5px 0 0; font-size: 12px; color: #64748b;">Dr. Tiago Fernandes | Clínica Médica</p>
+            </div>
 
-                await new Promise(r => setTimeout(r, 800));
+            <!-- IDENTIFICAÇÃO DO PACIENTE -->
+            <div style="background: #fff7ed; padding: 15px; margin-bottom: 30px; border-radius: 6px; border: 1px solid #fed7aa;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td><p style="margin:0; font-size:12px; color:#9a3412;">PACIENTE</p><p style="margin:0; font-weight:bold; font-size:16px; color:#431407;">${currentUser.name}</p></td>
+                        <td style="text-align:right;"><p style="margin:0; font-size:12px; color:#9a3412;">DATA</p><p style="margin:0; font-weight:bold; font-size:16px; color:#431407;">${now}</p></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="padding-top:10px;"><p style="margin:0; font-size:12px; color:#9a3412;">CPF</p><p style="margin:0; font-weight:bold; color:#431407;">${currentUser.cpf || '---'}</p></td>
+                    </tr>
+                </table>
+            </div>
 
-                const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF('p', 'mm', 'a4');
-                const imgData = canvas.toDataURL('image/jpeg', 1.0);
-                const imgHeight = (canvas.height * 210) / canvas.width;
-                pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
-                pdf.save(`Solicitacao_Exames_${currentUser.name.split(' ')[0]}.pdf`);
+            <!-- TÍTULO -->
+            <div style="background-color: #ea580c; color: white; padding: 10px 15px; margin-bottom: 25px; font-weight: bold; font-size: 15px; border-radius: 4px; text-transform: uppercase;">
+                Solicitação de Exames Específicos
+            </div>
 
-                showToast("Guia de exames gerada com sucesso!", 'success');
-            } catch(e) {
-                console.error(e);
-                showToast("Erro ao gerar PDF.", "error");
-            } finally {
-                wrapper.innerHTML = "";
-            }
-        }
+            <!-- CONTEÚDO (LISTA DE EXAMES) -->
+            <div style="margin: 20px 0; min-height: 200px;">
+                <p style="font-size: 13px; margin-bottom: 15px; color: #666;">Solicito a realização dos exames abaixo listados para fins de investigação diagnóstica:</p>
+                ${examListHTML}
+            </div>
+
+            <!-- NOTA DE RODAPÉ -->
+            <div style="margin-top: 30px; padding: 15px; background-color: #f8fafc; border-radius: 4px; font-size: 11px; color: #64748b;">
+                <strong>Observação:</strong> Este pedido médico é válido em todo território nacional. A realização destes exames é complementar à avaliação clínica.
+            </div>
+
+            <!-- RODAPÉ COM ASSINATURA GLOBAL (AQUI ESTÁ A CORREÇÃO) -->
+            <div style="position: absolute; bottom: 60px; left: 50px; right: 50px;">
+                ${typeof OFFICIAL_SIGNATURE_TEMPLATE !== 'undefined' ? OFFICIAL_SIGNATURE_TEMPLATE : '<!-- Erro: Assinatura não carregada -->'}
+            </div>
+        </div>
+    `;
+
+    // 4. Geração do Arquivo (Mantido igual)
+    try {
+        wrapper.style.position = 'absolute'; wrapper.style.top = '0'; wrapper.style.left = '0'; wrapper.style.opacity = '1'; wrapper.style.zIndex = '-9999';
+        
+        await new Promise(r => setTimeout(r, 800));
+
+        const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        const imgHeight = (canvas.height * 210) / canvas.width;
+        
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
+        pdf.save(`Solicitacao_Especiais_${currentUser.name.split(' ')[0]}.pdf`);
+
+        showToast("Guia de exames gerada com sucesso!", 'success');
+    } catch(e) {
+        console.error(e);
+        showToast("Erro ao gerar PDF.", "error");
+    } finally {
+        wrapper.innerHTML = "";
+    }
+}
 
         // --- LÓGICA PRÉ-OPERATÓRIO (Atualizada para Liberação e PDF) ---
         async function processPreOp() {
