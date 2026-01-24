@@ -46,6 +46,23 @@ exports.register = async (req, res) => {
     }
 };
 
+// --- RECUPERAÇÃO DE SENHA ---
+exports.recoverPassword = async (req, res) => {
+    try {
+        const { cpf, newPassword } = req.body;
+        const user = await User.findOne({ where: { cpf } });
+        if (!user) return res.status(404).json({ success: false, message: "CPF não encontrado." });
+
+        if (newPassword) {
+            user.password = await bcrypt.hash(newPassword.trim(), 10);
+            await user.save();
+            return res.json({ success: true, email: user.email, message: "Senha redefinida." });
+        }
+        return res.json({ success: true, message: "CPF validado." });
+    } catch (error) {
+        res.status(500).json({ message: "Erro interno." });
+    }
+};
 
 // =============================================================================
 // ÁREA DO ADMIN (Funções que faltavam)
