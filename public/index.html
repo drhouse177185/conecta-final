@@ -16,7 +16,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- Título da aba do navegador -->
-    <title>Conecta Saúde - Sistema Integrado v2.5 (Laudo Restaurado)</title>
+    <title>Conecta Saúde - Sistema Integrado v1.0</title>
     
     <!-- --- IMPORTAÇÃO DE DEPENDÊNCIAS EXTERNAS (CDNs) --- -->
     
@@ -1204,6 +1204,35 @@ function getActiveExamsString() {
         let currentPreOpFiles = []; // Arquivos temporários para pré-operatório
         let missingExamsList = []; // Lista de exames faltantes calculada pela IA
         
+const OFFICIAL_SIGNATURE_TEMPLATE = `
+    <div style="text-align: center; margin-top: 40px; page-break-inside: avoid;">
+        <!-- ÁREA DA ASSINATURA VISUAL -->
+        <div style="margin-bottom: 10px; display: inline-block;">
+            
+            <!-- OPÇÃO A: SVG (Vetorial - Padrão Profissional e Leve) -->
+            <svg width="250" height="80" viewBox="0 0 250 80" xmlns="http://www.w3.org/2000/svg">
+                <!-- Traço estilizado da assinatura -->
+                <path d="M20,50 Q60,10 100,50 T230,40" stroke="#1e3a8a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                <path d="M40,55 Q60,75 80,45" stroke="#1e3a8a" stroke-width="1.5" fill="none"/>
+                <!-- Texto Manuscrito Simulado -->
+                <text x="50" y="65" font-family="'Segoe Script', 'Brush Script MT', cursive" font-size="18" fill="#1e3a8a" font-weight="bold">Dr. Tiago Fernandes</text>
+            </svg>
+
+            <!-- OPÇÃO B: IMAGEM (Caso queira usar o print do Anexo 3) -->
+            <!-- Descomente a linha abaixo e coloque o Base64 da sua imagem no src -->
+            <!-- <img src="data:image/png;base64,..." alt="Assinatura" style="width: 200px; height: auto;"> -->
+        
+        </div>
+
+        <!-- LINHA E IDENTIFICAÇÃO -->
+        <div style="border-top: 2px solid #1e3a8a; width: 300px; margin: 0 auto 8px auto;"></div>
+        <p style="margin: 0; font-weight: bold; font-size: 14px; color: #1e3a8a; text-transform: uppercase;">Dr. Tiago Fernandes</p>
+        <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Médico Responsável | CRM 177.185</p>
+        <p style="margin: 2px 0 0 0; font-size: 10px; color: #94a3b8;">Assinado Digitalmente • Conecta Saúde</p>
+    </div>
+`;
+
+
         // --- BANCO DE DADOS MOCK (Memória) ---
         let inMemoryUsers = [
             { email: "drtiago.barros@gmail.com", password: "123456", name: "Dr. Tiago Barros", role: 'admin' },
@@ -2862,86 +2891,118 @@ function getActiveExamsString() {
         // --- GERADOR DE PDF (ATUALIZADO PARA LIBERAÇÃO) ---
         
         // Helper para gerar o HTML do PDF
-        function getPDFHtmlContent(type, data) {
-            const now = new Date().toLocaleDateString('pt-BR');
-            const signatureSVG = `<svg width="250" height="80" viewBox="0 0 250 80" xmlns="http://www.w3.org/2000/svg"><path d="M20,50 Q60,10 100,50 T230,40" stroke="#000080" stroke-width="2" fill="none"/><path d="M30,45 Q50,60 70,30" stroke="#000080" stroke-width="1.5" fill="none"/><text x="40" y="65" font-family="'Segoe Script', cursive" font-size="18" fill="#000080" font-weight="bold">Dr. Tiago F.</text></svg>`;
-            const footer = `
-                <div style="position: absolute; bottom: 50px; left: 0; right: 0; text-align: center;">
-                    <div style="display: inline-block; text-align: center;">
-                        ${signatureSVG}
-                        <div style="border-top: 1px solid #000; width: 300px; margin: 0 auto; padding-top: 5px;">
-                            <p style="margin: 0; font-weight: bold;">Dr. Tiago Fernandes</p>
-                            <p style="margin: 0; font-size: 10px;">CRM 177.185 | </p>
-                        </div>
-                    </div>
-                    <p style="margin-top: 20px; font-size: 9px; color: #999;">Documento assinado digitalmente. Hash: ${Math.random().toString(36).substring(7).toUpperCase()}</p>
-                </div>`;
+       async function generateSingleReferralPDF(specialty, reason) {
+    const wrapper = document.getElementById('pdf-content-wrapper');
+    const now = new Date().toLocaleDateString('pt-BR');
 
-            let bodyContent = "";
-            let title = "";
+    // Lógica para definir tipo de documento
+    const isRoutineCheckup = specialty.toLowerCase().includes("clínico geral") ||
+                             specialty.toLowerCase().includes("médico de família");
 
-            if (type === 'PREOP_CLEARANCE') {
-                title = "LAUDO DE RISCO CIRÚRGICO E LIBERAÇÃO";
-                bodyContent = `
-                    <div style="background-color: #f0fdf4; border-left: 5px solid #16a34a; padding: 15px; margin-bottom: 20px;">
-                        <h3 style="color: #166534; margin-top: 0;">PACIENTE APTO PARA O PROCEDIMENTO</h3>
-                        <p style="font-style: italic; color: #333;">"${data.clearance_message || 'Paciente clinicamente compensado e liberado para o procedimento proposto, observando-se as orientações abaixo.'}"</p>
-                    </div>
+    const monthsAhead = (currentUser.age || 0) >= 60 ? 6 : 12;
+    const futureDate = new Date();
+    futureDate.setMonth(futureDate.getMonth() + monthsAhead);
+    const scheduledDate = futureDate.toLocaleDateString('pt-BR');
 
-                    <div style="display: flex; gap: 20px; margin-bottom: 20px;">
-                        <div style="flex: 1; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
-                            <strong>Classificação ASA:</strong> <span style="color: #1e3a8a; font-size: 18px;">${data.asa}</span>
-                        </div>
-                        <div style="flex: 1; border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
-                            <strong>Índice de Lee (RCRI):</strong> <span style="color: #6b21a8; font-size: 18px;">${data.lee}</span>
-                        </div>
-                    </div>
+    // Seleção de Conteúdo (Clean Code: Separação de responsabilidade)
+    let documentTitle = "";
+    let mainContent = "";
 
-                    <div style="margin-bottom: 20px;">
-                        <h4 style="border-bottom: 1px solid #ccc; padding-bottom: 5px; color: #1e3a8a;">Cirurgia Proposta</h4>
-                        <p>${data.surgeryName || "Procedimento Cirúrgico Geral"}</p>
-                    </div>
+    if (isRoutineCheckup) {
+        documentTitle = "ORIENTAÇÃO DE SAÚDE E ENCAMINHAMENTO";
+        mainContent = `
+            <div style="background: #f0fdf4; border-left: 5px solid #16a34a; padding: 20px; margin-bottom: 25px;">
+                <p style="color: #166534; font-size: 14px; font-weight: bold; margin: 0 0 10px 0;">RESULTADO DA AVALIAÇÃO</p>
+                <p style="color: #166534; font-size: 13px; line-height: 1.6; margin: 0;">
+                    Prezado(a) Sr(a). <strong>${currentUser.name}</strong>, informamos que não foram identificadas alterações clínicas que demandem intervenção imediata.
+                </p>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <p style="color: #1e3a8a; font-size: 14px; font-weight: bold; margin-bottom: 5px;">Conduta Recomendada</p>
+                <p style="font-size: 13px; margin: 0;">Acompanhamento periódico com <strong>${specialty}</strong> em <strong>${monthsAhead} meses</strong> (Retorno previsto: ${scheduledDate}).</p>
+            </div>
+            <div style="background: #e0f2fe; padding: 15px; border-radius: 4px;">
+                <p style="color: #0369a1; font-size: 12px; margin: 0;"><strong>Nota:</strong> Mantenha hábitos saudáveis. Nossa equipe notificará próximo à data de retorno.</p>
+            </div>
+        `;
+    } else {
+        documentTitle = "ENCAMINHAMENTO MÉDICO ESPECIALIZADO";
+        mainContent = `
+            <div style="margin-bottom: 20px;">
+                <p style="font-size: 14px;"><strong>Ao(À):</strong> Especialista em <span style="color: #1e3a8a; font-weight: bold;">${specialty.toUpperCase()}</span></p>
+            </div>
+            <div style="margin-bottom: 25px;">
+                <p style="color: #1e3a8a; font-size: 14px; font-weight: bold; margin-bottom: 10px;">Justificativa Clínica</p>
+                <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 4px;">
+                    <p style="font-size: 13px; line-height: 1.6; font-style: italic; margin: 0;">"${reason}"</p>
+                </div>
+            </div>
+            <div style="background: #fffbeb; border: 1px solid #f59e0b; padding: 10px; border-radius: 4px;">
+                <p style="font-size: 12px; color: #b45309; margin: 0;"><strong>Solicitação:</strong> Avaliação e conduta especializada.</p>
+            </div>
+        `;
+    }
 
-                    <div style="margin-bottom: 20px;">
-                        <h4 style="border-bottom: 1px solid #ccc; padding-bottom: 5px; color: #1e3a8a;">Orientações Pré-Operatórias</h4>
-                        <ul style="list-style-type: disc; padding-left: 20px;">
-                            ${(data.pre_op_instructions || ["Jejum absoluto de 8 horas."]).map(i => `<li>${i}</li>`).join('')}
-                        </ul>
-                    </div>
+    // Template Único do PDF (Reutiliza a estrutura)
+    wrapper.innerHTML = `
+        <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333; position: relative;">
+            <!-- CABEÇALHO PADRÃO -->
+            <div style="text-align: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
+                <h1 style="color: #1e3a8a; font-size: 24px; margin: 0; font-weight: 900; letter-spacing: 1px;">CONECTA SAÚDE</h1>
+                <p style="margin: 5px 0 0; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 2px;">Sistema Integrado de Diagnóstico</p>
+            </div>
 
-                    <div style="margin-bottom: 20px;">
-                        <h4 style="border-bottom: 1px solid #ccc; padding-bottom: 5px; color: #1e3a8a;">Planejamento Pós-Operatório</h4>
-                        <ul style="list-style-type: disc; padding-left: 20px;">
-                            ${(data.post_op_instructions || ["Seguir prescrição médica padrão."]).map(i => `<li>${i}</li>`).join('')}
-                        </ul>
-                    </div>
-                `;
-            } else {
-                title = type === 'PRE' ? "SOLICITAÇÃO DE EXAMES" : "PENDÊNCIAS PRÉ-OPERATÓRIAS";
-                const list = type === 'PRE' ? currentUser.lastGeneratedExams : missingExamsList;
-                bodyContent = `<ul style="list-style-type: none; padding-left: 0;">${list.map(e => `<li style="margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 5px;">• ${e}</li>`).join('')}</ul>`;
-            }
+            <!-- DADOS DO PACIENTE -->
+            <div style="background: #f1f5f9; padding: 15px; margin-bottom: 30px; border-radius: 8px;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td><p style="margin:0; font-size:12px; color:#64748b;">PACIENTE</p><p style="margin:0; font-weight:bold; font-size:16px;">${currentUser.name}</p></td>
+                        <td style="text-align:right;"><p style="margin:0; font-size:12px; color:#64748b;">DATA EMISSÃO</p><p style="margin:0; font-weight:bold; font-size:16px;">${now}</p></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="padding-top:10px;"><p style="margin:0; font-size:12px; color:#64748b;">CPF</p><p style="margin:0; font-weight:bold;">${currentUser.cpf || 'Não informado'}</p></td>
+                    </tr>
+                </table>
+            </div>
 
-            return `
-                <div class="pdf-report" style="background: white; padding: 40px; font-family: 'Times New Roman', serif; color: #000; position: relative; height: 1123px; box-sizing: border-box;">
-                    <div style="text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 15px; margin-bottom: 30px;">
-                        <h1 style="color: #1e3a8a; margin: 0; font-size: 24px;">Dr. Tiago Fernandes</h1>
-                        <p style="margin: 5px 0; font-size: 14px;">Clinica Médica e Nefrologia</p>
-                    </div>
+            <!-- TÍTULO DO DOCUMENTO -->
+            <div style="text-align: center; margin-bottom: 30px;">
+                <span style="background: #1e3a8a; color: white; padding: 8px 20px; font-weight: bold; font-size: 14px; text-transform: uppercase; border-radius: 4px;">
+                    ${documentTitle}
+                </span>
+            </div>
 
-                    <div style="margin-bottom: 20px; font-size: 14px; background: #f8fafc; padding: 10px;">
-                        <p><strong>Paciente:</strong> ${currentUser.name}</p>
-                        <p><strong>CPF:</strong> ${currentUser.cpf || 'Não informado'} | <strong>Data:</strong> ${now}</p>
-                    </div>
+            <!-- CONTEÚDO DINÂMICO -->
+            ${mainContent}
 
-                    <div style="background-color: #1e3a8a; color: white; padding: 8px 15px; margin-bottom: 20px; font-weight: bold; font-size: 16px;">
-                        ${title}
-                    </div>
-                    
-                    ${bodyContent}
-                    ${footer}
-                </div>`;
-        }
+            <!-- RODAPÉ COM ASSINATURA CENTRALIZADA (AQUI ESTÁ A MUDANÇA) -->
+            ${OFFICIAL_SIGNATURE_TEMPLATE}
+        </div>
+    `;
+
+    // Processamento do PDF (html2canvas + jsPDF)
+    try {
+        wrapper.style.position = 'absolute'; wrapper.style.top = '0'; wrapper.style.left = '0'; wrapper.style.opacity = '1'; wrapper.style.zIndex = '-9999';
+        await new Promise(r => setTimeout(r, 800)); // Aguarda renderização
+        const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        const imgHeight = (canvas.height * 210) / canvas.width;
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
+        
+        const fileName = isRoutineCheckup ? `Orientacao_${currentUser.name.split(' ')[0]}.pdf` : `Encaminhamento_${currentUser.name.split(' ')[0]}.pdf`;
+        pdf.save(fileName);
+        showToast("PDF gerado e assinado com sucesso!", 'success');
+    } catch(e) {
+        console.error(e);
+        showToast("Erro ao gerar PDF.", "error");
+    } finally {
+        wrapper.innerHTML = "";
+    }
+}
+
+
 
         async function downloadPDF(type) {
             const wrapper = document.getElementById('pdf-content-wrapper');
@@ -2973,6 +3034,87 @@ function getActiveExamsString() {
                 wrapper.innerHTML = "";
             }
         }
+
+        function getPDFHtmlContent(type, data) {
+    const now = new Date().toLocaleDateString('pt-BR');
+    
+    // Configuração do conteúdo baseado no tipo
+    let title = "";
+    let bodyContent = "";
+    let headerColor = "#1e3a8a"; // Azul padrão
+
+    if (type === 'PREOP_CLEARANCE') {
+        title = "LAUDO DE LIBERAÇÃO CIRÚRGICA";
+        headerColor = "#16a34a"; // Verde
+        bodyContent = `
+            <div style="background-color: #f0fdf4; border-left: 5px solid #16a34a; padding: 15px; margin-bottom: 20px;">
+                <h3 style="color: #166534; margin: 0 0 5px 0; font-size: 16px;">PACIENTE APTO</h3>
+                <p style="margin: 0; font-style: italic; color: #333; font-size: 13px;">"${data.clearance_message || 'Paciente clinicamente compensado e liberado.'}"</p>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                <tr>
+                    <td style="border: 1px solid #e2e8f0; padding: 10px;"><strong>Risco ASA:</strong> <span style="color: #1e3a8a;">${data.asa}</span></td>
+                    <td style="border: 1px solid #e2e8f0; padding: 10px;"><strong>Índice de Lee:</strong> <span style="color: #6b21a8;">${data.lee}</span></td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="border: 1px solid #e2e8f0; padding: 10px;"><strong>Cirurgia:</strong> ${data.surgeryName || "Geral"}</td>
+                </tr>
+            </table>
+            <div style="margin-bottom: 15px;">
+                <h4 style="color: #1e3a8a; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; font-size: 14px;">Orientações</h4>
+                <ul style="font-size: 12px; padding-left: 20px; color: #333;">
+                    ${(data.pre_op_instructions || ["Seguir jejum e orientações do cirurgião."]).map(i => `<li style="margin-bottom: 4px;">${i}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    } else {
+        // Lógica para 'PRE' (Exames) ou 'PENDING' (Pendências)
+        title = type === 'PRE' ? "SOLICITAÇÃO DE EXAMES" : "PENDÊNCIAS PRÉ-OPERATÓRIAS";
+        const list = type === 'PRE' ? currentUser.lastGeneratedExams : missingExamsList;
+        
+        bodyContent = `
+            <div style="margin: 20px 0;">
+                <ul style="list-style-type: none; padding: 0;">
+                    ${list.map(e => `
+                        <li style="padding: 10px; border-bottom: 1px dashed #cbd5e1; font-size: 13px; display: flex; align-items: center;">
+                            <span style="color: ${headerColor}; margin-right: 10px; font-weight: bold;">•</span> ${e}
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    }
+
+    // Retorna o HTML Completo usando a Assinatura Global
+    return `
+        <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333; position: relative; height: 1123px; box-sizing: border-box;">
+            <!-- CABEÇALHO -->
+            <div style="text-align: center; border-bottom: 3px solid ${headerColor}; padding-bottom: 20px; margin-bottom: 30px;">
+                <h1 style="color: ${headerColor}; margin: 0; font-size: 24px; font-weight: 900;">CONECTA SAÚDE</h1>
+                <p style="margin: 5px 0 0; font-size: 12px; color: #64748b;">Dr. Tiago Fernandes | Clínica Médica</p>
+            </div>
+
+            <!-- IDENTIFICAÇÃO -->
+            <div style="background: #f8fafc; padding: 15px; margin-bottom: 30px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <p style="margin: 0 0 5px 0; font-size: 13px;"><strong>Paciente:</strong> ${currentUser.name}</p>
+                <p style="margin: 0; font-size: 13px;"><strong>CPF:</strong> ${currentUser.cpf || '---'} | <strong>Data:</strong> ${now}</p>
+            </div>
+
+            <!-- TÍTULO -->
+            <div style="background-color: ${headerColor}; color: white; padding: 10px 15px; margin-bottom: 25px; font-weight: bold; font-size: 15px; border-radius: 4px;">
+                ${title}
+            </div>
+            
+            <!-- CONTEÚDO ESPECÍFICO -->
+            ${bodyContent}
+            
+            <!-- RODAPÉ COM ASSINATURA GLOBAL -->
+            <div style="position: absolute; bottom: 60px; left: 50px; right: 50px;">
+                ${OFFICIAL_SIGNATURE_TEMPLATE}
+            </div>
+        </div>
+    `;
+}
 
         // Função auxiliar para gerar Blob (para compartilhamento)
         async function generatePDFBlob(type) {
