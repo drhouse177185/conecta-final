@@ -3243,7 +3243,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     if (res.ok) {
                         showToast("Senha alterada com sucesso! Faça login.", "success");
                         closeRecoverModal();
-                        
+
                         // Reseta o modal para o estado inicial após fechar
                         setTimeout(() => {
                             resetRecoveryModal();
@@ -3252,7 +3252,8 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                         showToast(data.error || "Erro ao alterar senha.", "error");
                     }
                 } catch (e) {
-                    showToast("Erro ao processar alteração.", "error");
+                    console.error("Erro ao processar alteração de senha:", e);
+                    showToast("Erro ao processar alteração: " + e.message, "error");
                 } finally {
                     btn.disabled = false;
                     if(recoveryStep === 2) btn.textContent = "DEFINIR NOVA SENHA";
@@ -3265,7 +3266,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             recoveryStep = 1;
             document.getElementById('rec-step-1').classList.remove('hidden');
             document.getElementById('rec-step-2').classList.add('hidden');
-            
+
             const btn = document.getElementById('btn-recover');
             btn.textContent = "BUSCAR CONTA";
             btn.classList.replace('bg-green-600', 'bg-blue-600');
@@ -3274,6 +3275,11 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             document.getElementById('recover-cpf').value = "";
             document.getElementById('recover-new-pass').value = "";
             document.getElementById('recover-confirm-pass').value = "";
+        }
+
+        // Função para fechar o modal de recuperação
+        function closeRecoverModal() {
+            document.getElementById('recover-modal').classList.remove('active');
         }
     </script>
 </body>
