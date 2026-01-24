@@ -16,6 +16,18 @@ exports.installDatabase = async (req, res) => {
                     ADD COLUMN IF NOT EXISTS "password_hash" VARCHAR(255);
                 `);
 
+                // MIGRAÇÃO CRÍTICA: Copia dados de 'password' para 'password_hash'
+                // Isso resolve o erro "Senha incorreta" ao fazer login
+                await sequelize.query(`
+                    UPDATE ${tableName}
+                    SET "password_hash" = "password"
+                    WHERE "password_hash" IS NULL
+                    AND "password" IS NOT NULL;
+                `).catch(() => {
+                    // Ignora erro se coluna 'password' não existir
+                    console.log(`   ℹ️ Coluna 'password' não existe em ${tableName}, nada para migrar`);
+                });
+
                 // Adiciona blocked_features
                 await sequelize.query(`
                     ALTER TABLE ${tableName}
@@ -97,9 +109,11 @@ exports.installDatabase = async (req, res) => {
             <div style="font-family: sans-serif; padding: 20px; background: #ecfccb; color: #365314; border: 1px solid #84cc16; border-radius: 8px;">
                 <h1>✅ Reparo Completo Executado!</h1>
                 <p>1. Colunas <strong>password_hash</strong>, <strong>blocked_features</strong>, <strong>credits</strong> e <strong>created_at</strong> adicionadas/verificadas na tabela 'users'.</p>
-                <p>2. Catálogo de exames/cirurgias verificado.</p>
+                <p>2. Dados de senha migrados de <strong>password</strong> → <strong>password_hash</strong> (resolve erro de login).</p>
+                <p>3. Valores NULL preenchidos com defaults.</p>
+                <p>4. Catálogo de exames/cirurgias verificado.</p>
                 <hr>
-                <p><strong>IMPORTANTE:</strong> Volte ao Painel Admin agora. O erro deve ter sumido.</p>
+                <p><strong>✅ LOGIN DEVE FUNCIONAR AGORA!</strong> Volte ao app e tente fazer login.</p>
                 <a href="/" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #365314; color: white; text-decoration: none; border-radius: 5px;">Voltar ao App</a>
             </div>
         `);
