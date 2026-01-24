@@ -9,19 +9,31 @@ exports.installDatabase = async (req, res) => {
         const repairTable = async (tableName) => {
             try {
                 console.log(`🔧 Tentando reparar tabela: ${tableName}...`);
-                
+
+                // Adiciona password_hash (caso esteja faltando - compatibilidade com schema)
+                await sequelize.query(`
+                    ALTER TABLE ${tableName}
+                    ADD COLUMN IF NOT EXISTS "password_hash" VARCHAR(255);
+                `);
+
                 // Adiciona blocked_features
                 await sequelize.query(`
-                    ALTER TABLE ${tableName} 
+                    ALTER TABLE ${tableName}
                     ADD COLUMN IF NOT EXISTS "blocked_features" JSONB DEFAULT '{"preConsulta": false, "preOp": false}';
                 `);
-                
+
                 // Adiciona credits (caso esteja faltando)
                 await sequelize.query(`
-                    ALTER TABLE ${tableName} 
+                    ALTER TABLE ${tableName}
                     ADD COLUMN IF NOT EXISTS "credits" INTEGER DEFAULT 100;
                 `);
-                
+
+                // Adiciona created_at (caso esteja faltando)
+                await sequelize.query(`
+                    ALTER TABLE ${tableName}
+                    ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                `);
+
                 console.log(`✅ Tabela ${tableName} reparada.`);
             } catch (e) {
                 // Ignora erro se a tabela não existir, mas loga para debug
@@ -66,8 +78,8 @@ exports.installDatabase = async (req, res) => {
         res.send(`
             <div style="font-family: sans-serif; padding: 20px; background: #ecfccb; color: #365314; border: 1px solid #84cc16; border-radius: 8px;">
                 <h1>✅ Reparo Completo Executado!</h1>
-                <p>1. Colunas <strong>blocked_features</strong> e <strong>credits</strong> injetadas na tabela 'users'.</p>
-                <p>2. Catálogo verificado.</p>
+                <p>1. Colunas <strong>password_hash</strong>, <strong>blocked_features</strong>, <strong>credits</strong> e <strong>created_at</strong> adicionadas/verificadas na tabela 'users'.</p>
+                <p>2. Catálogo de exames/cirurgias verificado.</p>
                 <hr>
                 <p><strong>IMPORTANTE:</strong> Volte ao Painel Admin agora. O erro deve ter sumido.</p>
                 <a href="/" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #365314; color: white; text-decoration: none; border-radius: 5px;">Voltar ao App</a>

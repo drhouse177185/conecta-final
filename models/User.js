@@ -22,8 +22,9 @@ const User = sequelize.define('User', {
     password: {
         type: DataTypes.STRING,
         allowNull: false,
+        field: 'password_hash', // Mapeia para a coluna password_hash no banco
         // Senha padrão hash para compatibilidade
-        defaultValue: '$2a$10$EpWxTcR/I7l9i.O1qO7.BO/Zq.JpL/m9.8p/h.0q.1r.2s.3t' 
+        defaultValue: '$2a$10$EpWxTcR/I7l9i.O1qO7.BO/Zq.JpL/m9.8p/h.0q.1r.2s.3t'
     },
     cpf: {
         type: DataTypes.STRING,
@@ -54,6 +55,8 @@ const User = sequelize.define('User', {
 }, {
     tableName: 'users',
     timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: false, // A tabela não tem updated_at
     underscored: true
 });
 

@@ -38,6 +38,8 @@ const Referral = sequelize.define('Referral', {
 }, {
     tableName: 'referrals',
     timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: false, // A tabela não tem updated_at
     underscored: true
 });
 
