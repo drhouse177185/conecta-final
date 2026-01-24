@@ -54,12 +54,16 @@ exports.recoverPassword = async (req, res) => {
         if (!user) return res.status(404).json({ success: false, message: "CPF não encontrado." });
 
         if (newPassword) {
-            user.password = await bcrypt.hash(newPassword.trim(), 10);
+            const hashedPassword = await bcrypt.hash(newPassword.trim(), 10);
+            user.password = hashedPassword;
+            user.changed('password', true); // Força o Sequelize a reconhecer a mudança
             await user.save();
+            console.log(`✅ Senha alterada via recoverPassword para CPF: ${cpf}`);
             return res.json({ success: true, email: user.email, message: "Senha redefinida." });
         }
         return res.json({ success: true, message: "CPF validado." });
     } catch (error) {
+        console.error('❌ Erro recoverPassword:', error);
         res.status(500).json({ message: "Erro interno." });
     }
 };
@@ -166,17 +170,19 @@ exports.resetPassword = async (req, res) => {
         }
 
         // Hash da nova senha (Segurança)
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(newPassword, salt);
+        const hashedPassword = await bcrypt.hash(newPassword.trim(), 10);
 
-        // Atualiza e salva
+        // Atualiza e salva - CORREÇÃO: Marca explicitamente o campo como alterado
         user.password = hashedPassword;
+        user.changed('password', true); // Força o Sequelize a reconhecer a mudança
+
         await user.save();
 
+        console.log(`✅ Senha alterada com sucesso para CPF: ${cpf}`);
         res.json({ success: true, message: 'Senha alterada com sucesso.' });
 
     } catch (error) {
-        console.error('Erro resetPassword:', error);
+        console.error('❌ Erro resetPassword:', error);
         res.status(500).json({ error: 'Erro ao atualizar senha.' });
     }
 };
