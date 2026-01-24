@@ -2019,6 +2019,7 @@ function getActiveExamsString() {
                     <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
                         <div style="text-align: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
                             <h1 style="color: #1e3a8a; font-size: 22px; margin: 0; font-weight: bold;">Dr. Tiago Fernandes</h1>
+                            <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Clínica Médica e Nefrologia</p>
                         </div>
 
                         <div style="margin-bottom: 20px;">
@@ -2073,11 +2074,15 @@ function getActiveExamsString() {
                         </div>
 
                         <div style="margin-top: 60px; text-align: center; padding-top: 20px;">
-                            <!-- Espaço para assinatura (substitua o comentário abaixo pela tag img com sua assinatura) -->
-                            <!-- <img src="caminho/para/assinatura.png" style="width: 200px; height: auto; margin: 0 auto 15px auto;" /> -->
-                            <div style="height: 60px; margin: 0 auto 15px auto;"></div>
-                            <div style="border-top: 2px solid #000; width: 300px; margin: 0 auto 10px auto;"></div>
-                            <p style="font-size: 12px; color: #333; margin: 5px 0;">CRM 177.185</p>
+                            <svg width="300" height="80" xmlns="http://www.w3.org/2000/svg" style="margin: 0 auto 5px auto; display: block;">
+                                <path d="M 50 50 Q 70 30, 90 50 T 130 50 Q 150 40, 170 50 T 210 50 Q 230 45, 250 50"
+                                      stroke="#1e3a8a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                                <text x="150" y="35" font-family="Brush Script MT, cursive" font-size="24"
+                                      fill="#1e3a8a" text-anchor="middle" font-style="italic">Dr. Tiago F.</text>
+                            </svg>
+                            <div style="border-top: 2px solid #000; width: 300px; margin: 0 auto 15px auto;"></div>
+                            <p style="font-weight: bold; font-size: 14px; margin: 5px 0; color: #000;">Dr. Tiago Fernandes</p>
+                            <p style="font-size: 12px; color: #666; margin: 5px 0;">CRM 177.185</p>
                         </div>
                     </div>
                 `;
@@ -2087,6 +2092,7 @@ function getActiveExamsString() {
                     <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
                         <div style="text-align: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
                             <h1 style="color: #1e3a8a; font-size: 22px; margin: 0; font-weight: bold;">Dr. Tiago Fernandes</h1>
+                            <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Clínica Médica e Nefrologia</p>
                         </div>
 
                         <div style="margin-bottom: 20px;">
@@ -2120,11 +2126,15 @@ function getActiveExamsString() {
                         </div>
 
                         <div style="margin-top: 80px; text-align: center; padding-top: 20px;">
-                            <!-- Espaço para assinatura (substitua o comentário abaixo pela tag img com sua assinatura) -->
-                            <!-- <img src="caminho/para/assinatura.png" style="width: 200px; height: auto; margin: 0 auto 15px auto;" /> -->
-                            <div style="height: 60px; margin: 0 auto 15px auto;"></div>
-                            <div style="border-top: 2px solid #000; width: 300px; margin: 0 auto 10px auto;"></div>
-                            <p style="font-size: 12px; color: #333; margin: 5px 0;">CRM 177.185</p>
+                            <svg width="300" height="80" xmlns="http://www.w3.org/2000/svg" style="margin: 0 auto 5px auto; display: block;">
+                                <path d="M 50 50 Q 70 30, 90 50 T 130 50 Q 150 40, 170 50 T 210 50 Q 230 45, 250 50"
+                                      stroke="#1e3a8a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                                <text x="150" y="35" font-family="Brush Script MT, cursive" font-size="24"
+                                      fill="#1e3a8a" text-anchor="middle" font-style="italic">Dr. Tiago F.</text>
+                            </svg>
+                            <div style="border-top: 2px solid #000; width: 300px; margin: 0 auto 15px auto;"></div>
+                            <p style="font-weight: bold; font-size: 14px; margin: 5px 0; color: #000;">Dr. Tiago Fernandes</p>
+                            <p style="font-size: 12px; color: #666; margin: 5px 0;">CRM 177.185</p>
                         </div>
                     </div>
                 `;
@@ -2231,8 +2241,9 @@ function getActiveExamsString() {
 
                 // Define cor do botão baseado no tipo de consulta
                 const isRoutine = spec.toLowerCase().includes("clínico geral") || spec.toLowerCase().includes("médico de família");
-                // Usa o mesmo estilo do botão "Encontrar Especialista"
-                const buttonClass = "bg-green-600 hover:bg-green-700 text-white";
+                const buttonClass = isRoutine
+                    ? "bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200";
 
                 // Cria o wrapper do botão
                 const btnDiv = document.createElement('div');
@@ -2240,8 +2251,8 @@ function getActiveExamsString() {
                 btnDiv.innerHTML = `
                     <button id="btn-schedule-app"
                         onclick="scheduleAppointment('${safeSpec}', '${safeReason}')"
-                        class="${buttonClass} font-bold py-2 px-4 rounded-lg transition-colors shadow-sm flex items-center">
-                        <i class="fa-solid fa-calendar-plus mr-2"></i> AGENDAR CONSULTA
+                        class="${buttonClass} text-[10px] font-bold py-1.5 px-3 rounded-full border transition flex items-center shadow-sm whitespace-nowrap">
+                        <i class="fa-solid fa-calendar-plus mr-1"></i> AGENDAR CONSULTA
                     </button>
                 `;
                 headerEl.appendChild(btnDiv);
@@ -2267,8 +2278,8 @@ function getActiveExamsString() {
                 examBtnDiv.innerHTML = `
                     <button id="btn-specific-exams"
                         onclick="openExamConfirmationModal()"
-                        class="bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold py-1.5 px-3 rounded-full border border-blue-200 transition flex items-center shadow-sm whitespace-nowrap">
-                        <i class="fa-solid fa-vial-circle-check mr-1"></i> EXAMES ESPECÍFICOS
+                        class="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-sm font-extrabold py-2.5 px-5 rounded-lg border-2 border-orange-600 transition-all duration-300 flex items-center shadow-lg hover:shadow-xl transform hover:scale-105 whitespace-nowrap">
+                        <i class="fa-solid fa-vial-circle-check mr-2 text-lg"></i> EXAMES ESPECÍFICOS
                     </button>
                 `;
                 procHeader.appendChild(examBtnDiv);
