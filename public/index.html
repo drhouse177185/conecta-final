@@ -1472,7 +1472,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 // Tenta conectar ao backend real para gerar preferência de pagamento
                 console.log("Tentando conectar ao backend em:", BACKEND_URL);
                 
-                const response = await fetch(`${BACKEND_URL}/create_preference`, {
+                const response = await fetch(`${BACKEND_URL}/api/create_preference`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -1522,6 +1522,15 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 btn.innerHTML = btnText;
                 btn.disabled = false;
             }
+        }
+
+        // Normaliza o objeto user para garantir estrutura correta
+        function normalizeUser(user) {
+            if (!user) return null;
+            return {
+                ...user,
+                blockedFeatures: user.blockedFeatures || { preConsulta: false, preOp: false }
+            };
         }
 
         // Verifica saldo antes de executar ação
@@ -2391,7 +2400,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
             try {
                 // Tenta conectar ao backend para criar preferência de pagamento
-                const response = await fetch(`${BACKEND_URL}/create_preference`, {
+                const response = await fetch(`${BACKEND_URL}/api/create_preference`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
