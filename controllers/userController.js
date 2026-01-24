@@ -18,8 +18,8 @@ exports.login = async (req, res) => {
         const userData = user.toJSON();
         delete userData.password;
         
-        // Garante que blocked_features exista
-        userData.blocked_features = userData.blocked_features || { preConsulta: false, preOp: false };
+        // Garante que blockedFeatures exista
+        userData.blockedFeatures = userData.blockedFeatures || { preConsulta: false, preOp: false };
         
         res.json(userData);
     } catch (error) {
@@ -38,7 +38,7 @@ exports.register = async (req, res) => {
         const newUser = await User.create({
             name, email: email.trim(), password: hashedPassword, cpf, age, sex,
             credits: 100, role: 'user',
-            blocked_features: { preConsulta: false, preOp: false }
+            blockedFeatures: { preConsulta: false, preOp: false }
         });
         res.status(201).json(newUser);
     } catch (error) {
@@ -73,7 +73,7 @@ exports.getAllUsers = async (req, res) => {
     try {
         const users = await User.findAll({ 
             where: { role: 'user' },
-            attributes: ['id', 'name', 'email', 'cpf', 'age', 'sex', 'credits', 'blocked_features'],
+            attributes: ['id', 'name', 'email', 'cpf', 'age', 'sex', 'credits', 'blockedFeatures'],
             order: [['name', 'ASC']]
         });
         res.json(users);
@@ -90,7 +90,7 @@ exports.toggleBlock = async (req, res) => {
         const user = await User.findOne({ where: { email } });
         if (!user) return res.status(404).json({ message: "Usuário não encontrado" });
 
-        let currentBlocks = user.blocked_features;
+        let currentBlocks = user.blockedFeatures;
         if (typeof currentBlocks === 'string') {
             try { currentBlocks = JSON.parse(currentBlocks); } catch(e) { currentBlocks = {}; }
         }
@@ -98,8 +98,8 @@ exports.toggleBlock = async (req, res) => {
 
         currentBlocks[feature] = isBlocked;
 
-        user.blocked_features = currentBlocks;
-        user.changed('blocked_features', true);
+        user.blockedFeatures = currentBlocks;
+        user.changed('blockedFeatures', true);
         await user.save();
 
         res.json({ success: true, newStatus: currentBlocks });
