@@ -2445,37 +2445,42 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
     const wrapper = document.getElementById('pdf-content-wrapper');
     const now = new Date().toLocaleDateString('pt-BR');
 
-    // 1. Lógica de Filtragem (Mantida igual ao original para não quebrar regras de negócio)
-    const routineExams = [
-        'hemograma', 'glicemia', 'colesterol', 'triglicerideos', 'triglicerídeos',
-        'creatinina', 'ureia', 'tgo', 'tgp', 'ast', 'alt', 'urina', 'eas',
-        'tsh', 'vitamina d', 't4', 'hba1c', 'hemoglobina glicada',
-        'eletrocardiograma', 'ecg', 'raio-x', 'raio x', 'rx', 'mamografia'
-    ];
+    // 1. Lógica de Filtragem (RELAXADA)
+    // Removemos a lista 'routineExams'. Agora exames simples (ECG, RX, Sangue)
+    // também aparecerão no PDF se a IA os recomendar.
 
     const nonExamTerms = [
-        'revisão', 'avaliação', 'consulta', 'acompanhamento',
-        'seguimento', 'retorno', 'reavaliação', 'repetir',
-        'clínica detalhada', 'detalhada'
+        'psicologia', 'psicólogo', 'psicologo',
+        'nutricionista', 'nutrição',
+        'fisioterapia', 'fisioterapeuta',
+        'fonoaudiologia',
+        'terapia ocupacional',
+        'mudança de estilo de vida',
+        'dieta', 'exercício'
+        // Removemos termos genéricos como 'avaliação' ou 'consulta' 
+        // pois às vezes a IA escreve "Avaliação com Ressonância"
     ];
 
+    // Filtra apenas itens que NÃO sejam puramente consultas com outros profissionais
     const filteredExams = window.currentExamList.filter(exam => {
         const lowerExam = exam.toLowerCase();
+        
+        // Verifica se contém termos proibidos (ex: Psicólogo)
         const isNonExam = nonExamTerms.some(term => lowerExam.includes(term));
-        if (isNonExam) return false;
-        const isRoutine = routineExams.some(routine => lowerExam.includes(routine));
-        return !isRoutine;
+        
+        // Se for termo proibido (consulta), remove. Se não, mantêm (é exame).
+        return !isNonExam; 
     });
 
-    // Limpeza de texto
+    // Limpeza de texto (Remove parênteses explicativos da IA)
     const cleanExams = filteredExams.map(exam => {
         return exam.replace(/\s*\([^)]*\)/g, '').trim();
     });
 
-    // 2. Construção da Lista HTML (Com cores restauradas para Azul)
+    // 2. Construção da Lista HTML (Cores Azuis Padronizadas)
     let examListHTML = '';
     if (cleanExams.length === 0) {
-        examListHTML = '<p style="padding: 10px; color: #666; font-style: italic;">Nenhum exame específico listado nesta solicitação.</p>';
+        examListHTML = '<p style="padding: 10px; color: #666; font-style: italic;">Nenhum procedimento listado para impressão.</p>';
     } else {
         cleanExams.forEach(exam => {
             examListHTML += `
@@ -2487,7 +2492,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         });
     }
 
-    // 3. Montagem do PDF usando a Assinatura Global e CORES AZUIS (Restaurado)
+    // 3. Montagem do PDF (Layout Azul + Assinatura Global)
     wrapper.innerHTML = `
         <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333; position: relative; height: 1123px; box-sizing: border-box;">
             
@@ -2497,7 +2502,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 <p style="margin: 5px 0 0; font-size: 12px; color: #64748b;">Dr. Tiago Fernandes | Clínica Médica</p>
             </div>
 
-            <!-- IDENTIFICAÇÃO DO PACIENTE (Fundo Cinza Azulado Claro) -->
+            <!-- IDENTIFICAÇÃO DO PACIENTE -->
             <div style="background: #f8fafc; padding: 15px; margin-bottom: 30px; border-radius: 6px; border: 1px solid #e2e8f0;">
                 <table style="width: 100%;">
                     <tr>
@@ -2510,14 +2515,14 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 </table>
             </div>
 
-            <!-- TÍTULO (Fundo Azul #1e3a8a) -->
+            <!-- TÍTULO -->
             <div style="background-color: #1e3a8a; color: white; padding: 10px 15px; margin-bottom: 25px; font-weight: bold; font-size: 15px; border-radius: 4px; text-transform: uppercase;">
-                Solicitação de Exames Específicos
+                Solicitação de Exames Complementares
             </div>
 
             <!-- CONTEÚDO (LISTA DE EXAMES) -->
             <div style="margin: 20px 0; min-height: 200px;">
-                <p style="font-size: 13px; margin-bottom: 15px; color: #666;">Solicito a realização dos exames abaixo listados para fins de investigação diagnóstica:</p>
+                <p style="font-size: 13px; margin-bottom: 15px; color: #666;">Solicito a realização dos procedimentos abaixo listados para investigação diagnóstica:</p>
                 ${examListHTML}
             </div>
 
@@ -2533,7 +2538,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         </div>
     `;
 
-    // 4. Geração do Arquivo (Mantido igual)
+    // 4. Geração do Arquivo
     try {
         wrapper.style.position = 'absolute'; wrapper.style.top = '0'; wrapper.style.left = '0'; wrapper.style.opacity = '1'; wrapper.style.zIndex = '-9999';
         
@@ -2546,7 +2551,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         const imgHeight = (canvas.height * 210) / canvas.width;
         
         pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
-        pdf.save(`Solicitacao_Especiais_${currentUser.name.split(' ')[0]}.pdf`);
+        pdf.save(`Solicitacao_Exames_${currentUser.name.split(' ')[0]}.pdf`);
 
         showToast("Guia de exames gerada com sucesso!", 'success');
     } catch(e) {
