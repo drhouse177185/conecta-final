@@ -2441,7 +2441,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         }
 
         // Gera PDF de Exames Específicos (Modelo 1111111.pdf - Simples)
-       async function generateExamPDF() {
+      async function generateExamPDF() {
     const wrapper = document.getElementById('pdf-content-wrapper');
     const now = new Date().toLocaleDateString('pt-BR');
 
@@ -2472,7 +2472,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         return exam.replace(/\s*\([^)]*\)/g, '').trim();
     });
 
-    // 2. Construção da Lista HTML (Com estilo melhorado)
+    // 2. Construção da Lista HTML (Com cores restauradas para Azul)
     let examListHTML = '';
     if (cleanExams.length === 0) {
         examListHTML = '<p style="padding: 10px; color: #666; font-style: italic;">Nenhum exame específico listado nesta solicitação.</p>';
@@ -2480,38 +2480,38 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         cleanExams.forEach(exam => {
             examListHTML += `
                 <div style="margin-bottom: 10px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 5px; display: flex; align-items: center;">
-                    <span style="color: #ea580c; font-weight: bold; margin-right: 10px; font-size: 18px;">•</span>
+                    <span style="color: #1e3a8a; font-weight: bold; margin-right: 10px; font-size: 18px;">•</span>
                     <span style="font-size: 14px; color: #334155;">${exam}</span>
                 </div>
             `;
         });
     }
 
-    // 3. Montagem do PDF usando a Assinatura Global (DRY)
+    // 3. Montagem do PDF usando a Assinatura Global e CORES AZUIS (Restaurado)
     wrapper.innerHTML = `
         <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333; position: relative; height: 1123px; box-sizing: border-box;">
             
-            <!-- CABEÇALHO PADRÃO -->
-            <div style="text-align: center; border-bottom: 3px solid #ea580c; padding-bottom: 20px; margin-bottom: 30px;">
-                <h1 style="color: #ea580c; font-size: 24px; margin: 0; font-weight: 900;">CONECTA SAÚDE</h1>
+            <!-- CABEÇALHO PADRÃO (Azul #1e3a8a) -->
+            <div style="text-align: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
+                <h1 style="color: #1e3a8a; font-size: 24px; margin: 0; font-weight: 900;">CONECTA SAÚDE</h1>
                 <p style="margin: 5px 0 0; font-size: 12px; color: #64748b;">Dr. Tiago Fernandes | Clínica Médica</p>
             </div>
 
-            <!-- IDENTIFICAÇÃO DO PACIENTE -->
-            <div style="background: #fff7ed; padding: 15px; margin-bottom: 30px; border-radius: 6px; border: 1px solid #fed7aa;">
+            <!-- IDENTIFICAÇÃO DO PACIENTE (Fundo Cinza Azulado Claro) -->
+            <div style="background: #f8fafc; padding: 15px; margin-bottom: 30px; border-radius: 6px; border: 1px solid #e2e8f0;">
                 <table style="width: 100%;">
                     <tr>
-                        <td><p style="margin:0; font-size:12px; color:#9a3412;">PACIENTE</p><p style="margin:0; font-weight:bold; font-size:16px; color:#431407;">${currentUser.name}</p></td>
-                        <td style="text-align:right;"><p style="margin:0; font-size:12px; color:#9a3412;">DATA</p><p style="margin:0; font-weight:bold; font-size:16px; color:#431407;">${now}</p></td>
+                        <td><p style="margin:0; font-size:12px; color:#64748b;">PACIENTE</p><p style="margin:0; font-weight:bold; font-size:16px; color:#1e293b;">${currentUser.name}</p></td>
+                        <td style="text-align:right;"><p style="margin:0; font-size:12px; color:#64748b;">DATA</p><p style="margin:0; font-weight:bold; font-size:16px; color:#1e293b;">${now}</p></td>
                     </tr>
                     <tr>
-                        <td colspan="2" style="padding-top:10px;"><p style="margin:0; font-size:12px; color:#9a3412;">CPF</p><p style="margin:0; font-weight:bold; color:#431407;">${currentUser.cpf || '---'}</p></td>
+                        <td colspan="2" style="padding-top:10px;"><p style="margin:0; font-size:12px; color:#64748b;">CPF</p><p style="margin:0; font-weight:bold; color:#1e293b;">${currentUser.cpf || '---'}</p></td>
                     </tr>
                 </table>
             </div>
 
-            <!-- TÍTULO -->
-            <div style="background-color: #ea580c; color: white; padding: 10px 15px; margin-bottom: 25px; font-weight: bold; font-size: 15px; border-radius: 4px; text-transform: uppercase;">
+            <!-- TÍTULO (Fundo Azul #1e3a8a) -->
+            <div style="background-color: #1e3a8a; color: white; padding: 10px 15px; margin-bottom: 25px; font-weight: bold; font-size: 15px; border-radius: 4px; text-transform: uppercase;">
                 Solicitação de Exames Específicos
             </div>
 
@@ -2526,7 +2526,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 <strong>Observação:</strong> Este pedido médico é válido em todo território nacional. A realização destes exames é complementar à avaliação clínica.
             </div>
 
-            <!-- RODAPÉ COM ASSINATURA GLOBAL (AQUI ESTÁ A CORREÇÃO) -->
+            <!-- RODAPÉ COM ASSINATURA GLOBAL -->
             <div style="position: absolute; bottom: 60px; left: 50px; right: 50px;">
                 ${typeof OFFICIAL_SIGNATURE_TEMPLATE !== 'undefined' ? OFFICIAL_SIGNATURE_TEMPLATE : '<!-- Erro: Assinatura não carregada -->'}
             </div>
