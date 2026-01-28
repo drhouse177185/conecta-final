@@ -44,7 +44,29 @@
 
     <!-- Configuração do Worker do PDF.js (Necessário para processamento em thread separada) -->
     <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // Configuração do worker do PDF.js
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            console.log('✅ PDF.js carregado com sucesso');
+        } else {
+            console.error('❌ ERRO: PDF.js não foi carregado. Funcionalidades de leitura de PDF não funcionarão.');
+        }
+
+        // Verifica se o Tesseract foi carregado
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                if (typeof Tesseract === 'undefined') {
+                    console.error('❌ ERRO: Tesseract.js não foi carregado. Funcionalidades de OCR não funcionarão.');
+                } else {
+                    console.log('✅ Tesseract.js carregado com sucesso');
+                }
+
+                // Verifica se AMBAS as bibliotecas falharam
+                if (typeof pdfjsLib === 'undefined' && typeof Tesseract === 'undefined') {
+                    console.error('🚨 CRÍTICO: Nenhuma biblioteca de processamento de arquivos foi carregada. Verifique sua conexão com a internet.');
+                }
+            }, 2000); // Aguarda 2 segundos para as bibliotecas carregarem
+        });
     </script>
 
     <!-- --- ESTILOS CUSTOMIZADOS (CSS) --- -->
@@ -2152,14 +2174,38 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             try {
                 // OCR e Extração de Texto
                 let combinedText = "";
+                let processedFiles = 0;
+                let failedFiles = [];
+
                 for(let file of files) {
+                    loadText.textContent = `Lendo arquivo ${processedFiles + 1}/${files.length}: ${file.name}...`;
+
                     let text = "";
-                    if(file.type==='application/pdf') text = await extractPdfText(file);
-                    else if(file.type.startsWith('image/')) text = await extractImageText(file);
-                    if(text) combinedText += `\n--- ARQ: ${file.name} ---\n${text}\n`;
+                    if(file.type === 'application/pdf') {
+                        text = await extractPdfText(file);
+                    } else if(file.type.startsWith('image/')) {
+                        text = await extractImageText(file);
+                    } else {
+                        console.warn(`⚠️ Tipo de arquivo não suportado: ${file.type} (${file.name})`);
+                        text = `[Arquivo ${file.name} - tipo não suportado: ${file.type}]`;
+                    }
+
+                    if(text && text.trim().length > 0) {
+                        combinedText += `\n--- ARQUIVO: ${file.name} ---\n${text}\n`;
+                        processedFiles++;
+                    } else {
+                        failedFiles.push(file.name);
+                    }
                 }
 
-                if(!combinedText) throw new Error("Não foi possível ler os arquivos.");
+                console.log(`📊 Processamento concluído: ${processedFiles} de ${files.length} arquivos lidos com sucesso`);
+
+                if(!combinedText || combinedText.trim().length === 0) {
+                    const errorMsg = failedFiles.length > 0
+                        ? `Não foi possível ler nenhum arquivo. Arquivos com problema: ${failedFiles.join(', ')}. Verifique se são PDFs válidos ou imagens com texto legível.`
+                        : "Não foi possível ler os arquivos. Verifique sua conexão com a internet e tente novamente.";
+                    throw new Error(errorMsg);
+                }
 
                 loadText.textContent = "Analisando...";
                 
@@ -2954,24 +3000,67 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
         async function extractPdfText(file) {
             try {
-                const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
+                // Verifica se a biblioteca PDF.js está carregada
+                if (typeof pdfjsLib === 'undefined') {
+                    console.error('❌ PDF.js não está carregado. Verifique sua conexão com a internet.');
+                    throw new Error('Biblioteca PDF.js não disponível. Verifique sua conexão.');
+                }
+
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
                 let t = "";
+
                 for(let i=1; i<=Math.min(pdf.numPages, 5); i++) {
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
-                    t += textContent.items.map(s=>s.str).join(" ");
+                    const pageText = textContent.items.map(s=>s.str).join(" ");
+                    t += pageText + " ";
                 }
-                return t;
-            } catch(e) { return "Erro ao ler PDF."; }
+
+                // Se extraiu algum texto, retorna
+                if (t.trim().length > 0) {
+                    console.log(`✅ Extraído ${t.length} caracteres do PDF: ${file.name}`);
+                    return t;
+                }
+
+                // Se o PDF não tem texto (pode ser imagem escaneada), retorna mensagem descritiva
+                console.warn(`⚠️ PDF sem texto detectável: ${file.name} (pode ser imagem escaneada)`);
+                return `[PDF ${file.name} - documento sem texto digital, possivelmente imagem escaneada]`;
+
+            } catch(e) {
+                console.error('❌ Erro ao processar PDF:', e.message);
+                return `[Erro ao ler PDF ${file.name}: ${e.message}]`;
+            }
         }
         
         async function extractImageText(file) {
             try {
+                // Verifica se a biblioteca Tesseract está carregada
+                if (typeof Tesseract === 'undefined') {
+                    console.error('❌ Tesseract.js não está carregado. Verifique sua conexão com a internet.');
+                    throw new Error('Biblioteca Tesseract (OCR) não disponível. Verifique sua conexão.');
+                }
+
+                console.log(`🔍 Iniciando OCR em: ${file.name}...`);
                 const worker = await Tesseract.createWorker('por');
-                const result = await worker.recognize(file); 
-                await worker.terminate(); 
-                return result.data.text;
-            } catch(e) { return "Erro OCR."; }
+                const result = await worker.recognize(file);
+                await worker.terminate();
+
+                const extractedText = result.data.text;
+
+                if (extractedText && extractedText.trim().length > 0) {
+                    console.log(`✅ OCR concluído: ${extractedText.length} caracteres extraídos de ${file.name}`);
+                    return extractedText;
+                }
+
+                // Se não conseguiu extrair nada
+                console.warn(`⚠️ OCR não detectou texto em: ${file.name}`);
+                return `[Imagem ${file.name} - nenhum texto detectado pelo OCR]`;
+
+            } catch(e) {
+                console.error('❌ Erro no OCR:', e.message);
+                return `[Erro ao processar imagem ${file.name}: ${e.message}]`;
+            }
         }
 
         // --- COMPARTILHAMENTO WHATSAPP ATUALIZADO (SUPORTE A PDF EM TUDO) ---
