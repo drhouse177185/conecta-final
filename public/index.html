@@ -2998,6 +2998,74 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             }
         }
 
+        // NOVA FUNÇÃO: Extrai imagens de PDFs escaneados e aplica OCR
+        async function extractImagesFromPdfAndOCR(pdf, fileName) {
+            if (typeof Tesseract === 'undefined') {
+                console.warn('⚠️ Tesseract não disponível para OCR em PDF escaneado');
+                return '';
+            }
+
+            console.log(`🖼️ PDF escaneado detectado. Extraindo imagens de: ${fileName}`);
+            let allText = "";
+            const maxPages = Math.min(pdf.numPages, 5); // Limita a 5 páginas
+
+            try {
+                for(let pageNum = 1; pageNum <= maxPages; pageNum++) {
+                    console.log(`📄 Processando página ${pageNum}/${maxPages}...`);
+
+                    const page = await pdf.getPage(pageNum);
+                    const viewport = page.getViewport({ scale: 2.0 }); // Aumenta resolução
+
+                    // Cria canvas para renderizar a página
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+
+                    // Renderiza a página no canvas
+                    await page.render({
+                        canvasContext: context,
+                        viewport: viewport
+                    }).promise;
+
+                    // Converte canvas para blob
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+                    // Aplica OCR na imagem
+                    console.log(`🔍 Aplicando OCR na página ${pageNum}...`);
+                    const worker = await Tesseract.createWorker('por', 1, {
+                        logger: info => {
+                            if (info.status === 'recognizing text') {
+                                console.log(`OCR: ${Math.round(info.progress * 100)}%`);
+                            }
+                        }
+                    });
+
+                    // Configura parâmetros para melhor reconhecimento de texto médico/borrado
+                    await worker.setParameters({
+                        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÀÁÂÃÇÉÊÍÓÔÕÚàáâãçéêíóôõú0123456789.,;:()[]%/- ',
+                        preserve_interword_spaces: '1'
+                    });
+
+                    const { data: { text } } = await worker.recognize(blob);
+                    await worker.terminate();
+
+                    if (text && text.trim().length > 10) { // Ignora páginas com menos de 10 caracteres
+                        allText += `\n--- Página ${pageNum} ---\n${text}\n`;
+                        console.log(`✅ Página ${pageNum}: ${text.trim().length} caracteres extraídos`);
+                    } else {
+                        console.warn(`⚠️ Página ${pageNum}: Pouco ou nenhum texto detectado`);
+                    }
+                }
+
+                return allText;
+
+            } catch(e) {
+                console.error('❌ Erro ao extrair imagens do PDF:', e.message);
+                return '';
+            }
+        }
+
         async function extractPdfText(file) {
             try {
                 // Verifica se a biblioteca PDF.js está carregada
@@ -3010,6 +3078,8 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
                 let t = "";
 
+                // PRIMEIRO: Tenta extrair texto digital
+                console.log(`📖 Tentando extrair texto digital de: ${file.name}`);
                 for(let i=1; i<=Math.min(pdf.numPages, 5); i++) {
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
@@ -3017,15 +3087,24 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     t += pageText + " ";
                 }
 
-                // Se extraiu algum texto, retorna
-                if (t.trim().length > 0) {
-                    console.log(`✅ Extraído ${t.length} caracteres do PDF: ${file.name}`);
+                // Se extraiu texto digital, retorna
+                if (t.trim().length > 50) { // Mais de 50 caracteres = tem texto real
+                    console.log(`✅ Extraído ${t.length} caracteres de texto digital do PDF: ${file.name}`);
                     return t;
                 }
 
-                // Se o PDF não tem texto (pode ser imagem escaneada), retorna mensagem descritiva
-                console.warn(`⚠️ PDF sem texto detectável: ${file.name} (pode ser imagem escaneada)`);
-                return `[PDF ${file.name} - documento sem texto digital, possivelmente imagem escaneada]`;
+                // SEGUNDO: Se não tem texto, é PDF escaneado - aplica OCR nas imagens
+                console.warn(`⚠️ PDF sem texto digital: ${file.name} - Tentando OCR nas imagens...`);
+                const ocrText = await extractImagesFromPdfAndOCR(pdf, file.name);
+
+                if (ocrText && ocrText.trim().length > 50) {
+                    console.log(`✅ OCR bem-sucedido: ${ocrText.length} caracteres extraídos de ${file.name}`);
+                    return ocrText;
+                }
+
+                // Se mesmo com OCR não conseguiu nada útil
+                console.error(`❌ Não foi possível extrair texto de: ${file.name}`);
+                return `[PDF ${file.name} - não foi possível extrair texto mesmo com OCR. Tente uma imagem mais nítida.]`;
 
             } catch(e) {
                 console.error('❌ Erro ao processar PDF:', e.message);
@@ -3041,21 +3120,54 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     throw new Error('Biblioteca Tesseract (OCR) não disponível. Verifique sua conexão.');
                 }
 
-                console.log(`🔍 Iniciando OCR em: ${file.name}...`);
-                const worker = await Tesseract.createWorker('por');
+                console.log(`🔍 Iniciando OCR otimizado em: ${file.name}...`);
+
+                // Cria worker com configuração para melhor reconhecimento
+                const worker = await Tesseract.createWorker('por', 1, {
+                    logger: info => {
+                        if (info.status === 'recognizing text') {
+                            const percent = Math.round(info.progress * 100);
+                            if (percent % 20 === 0) { // Log a cada 20%
+                                console.log(`📊 OCR Progress: ${percent}%`);
+                            }
+                        }
+                    }
+                });
+
+                // Configura parâmetros para MELHOR detecção em imagens de BAIXA QUALIDADE
+                await worker.setParameters({
+                    // Whitelist de caracteres (português + números + símbolos médicos)
+                    tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÀÁÂÃÇÉÊÍÓÔÕÚàáâãçéêíóôõú0123456789.,;:()[]%/+-= ',
+
+                    // Preserva espaços entre palavras
+                    preserve_interword_spaces: '1',
+
+                    // Modo de segmentação: assumir um único bloco de texto
+                    tessedit_pageseg_mode: Tesseract.PSM.AUTO
+                });
+
                 const result = await worker.recognize(file);
                 await worker.terminate();
 
                 const extractedText = result.data.text;
+                const confidence = result.data.confidence;
 
-                if (extractedText && extractedText.trim().length > 0) {
+                console.log(`📈 Confiança do OCR: ${confidence.toFixed(1)}%`);
+
+                if (extractedText && extractedText.trim().length > 10) {
                     console.log(`✅ OCR concluído: ${extractedText.length} caracteres extraídos de ${file.name}`);
+
+                    // Avisa se a confiança é baixa (imagem borrada)
+                    if (confidence < 60) {
+                        console.warn(`⚠️ Baixa confiança (${confidence.toFixed(1)}%) - Imagem pode estar borrada. Resultados podem conter erros.`);
+                    }
+
                     return extractedText;
                 }
 
-                // Se não conseguiu extrair nada
-                console.warn(`⚠️ OCR não detectou texto em: ${file.name}`);
-                return `[Imagem ${file.name} - nenhum texto detectado pelo OCR]`;
+                // Se não conseguiu extrair nada útil
+                console.warn(`⚠️ OCR não detectou texto suficiente em: ${file.name} (apenas ${extractedText.trim().length} caracteres)`);
+                return `[Imagem ${file.name} - texto insuficiente detectado. Tente uma foto mais nítida e bem iluminada.]`;
 
             } catch(e) {
                 console.error('❌ Erro no OCR:', e.message);
