@@ -1858,11 +1858,27 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     const patientNameSafe = (ref.patient_name || 'Paciente').replace(/'/g, "\\'");
                     const specialtySafe = (ref.specialty || 'N/A').replace(/'/g, "\\'");
 
+                    // Define estilos baseados no status
+                    const isEnviado = ref.status === 'enviado';
+                    const rowBgClass = isEnviado ? 'bg-green-50' : '';
+                    const statusBadge = isEnviado
+                        ? '<span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full ml-2"><i class="fa-solid fa-check mr-1"></i>Enviado</span>'
+                        : '<span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded-full ml-2"><i class="fa-solid fa-clock mr-1"></i>Pendente</span>';
+
+                    // Botão de enviar desabilitado se já foi enviado
+                    const sendButtonDisabled = isEnviado ? 'disabled opacity-50 cursor-not-allowed' : '';
+                    const sendButtonClass = isEnviado
+                        ? 'bg-gray-400 text-white'
+                        : 'bg-green-600 hover:bg-green-700 text-white';
+
                     return `
-                    <tr class="hover:bg-purple-50 transition">
+                    <tr class="hover:bg-purple-50 transition ${rowBgClass}">
                         <td class="px-6 py-4 whitespace-nowrap font-bold text-purple-900 flex items-center">
                             <div class="bg-purple-100 p-2 rounded-full mr-3 text-purple-600"><i class="fa-solid fa-user"></i></div>
-                            ${firstName}
+                            <div>
+                                ${firstName}
+                                ${statusBadge}
+                            </div>
                         </td>
                         <td class="px-6 py-4 text-center">
                             <span class="bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full">${ref.specialty || 'N/A'}</span>
@@ -1870,8 +1886,9 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end space-x-2">
                                 <button onclick="sendReferralEmail(${ref.id}, '${patientNameSafe}', '${specialtySafe}')"
-                                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-4 rounded text-xs shadow flex items-center">
-                                    <i class="fa-solid fa-paper-plane mr-2"></i> Enviar Email AME
+                                        ${sendButtonDisabled}
+                                        class="${sendButtonClass} font-bold py-1.5 px-4 rounded text-xs shadow flex items-center">
+                                    <i class="fa-solid fa-paper-plane mr-2"></i> ${isEnviado ? 'Já Enviado' : 'Enviar Email AME'}
                                 </button>
                                 <button onclick="deleteReferral(${ref.id})"
                                         class="bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-4 rounded text-xs shadow flex items-center">
@@ -1980,13 +1997,27 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         async function sendReferralEmail(referralId, patientName, specialty) {
             try {
                 // Confirma a ação
-                if (!confirm(`Enviar email de encaminhamento para ${patientName} (${specialty})?`)) {
+                if (!confirm(`Gerar PDF e enviar email de encaminhamento para ${patientName} (${specialty})?`)) {
                     return;
                 }
 
+                showToast("Gerando PDF...", "info");
+
+                // 1. Busca os dados completos do encaminhamento
+                const refResponse = await fetch(`${BACKEND_URL}/api/referrals`);
+                const allReferrals = await refResponse.json();
+                const referral = allReferrals.find(r => r.id === referralId);
+
+                if (!referral) {
+                    throw new Error('Encaminhamento não encontrado');
+                }
+
+                // 2. Gera o PDF usando os dados do encaminhamento
+                await generateAdminReferralPDF(referral);
+
                 showToast("Enviando email...", "info");
 
-                // Chama endpoint do backend
+                // 3. Chama endpoint do backend para marcar como enviado
                 const response = await fetch(`${BACKEND_URL}/api/referrals/${referralId}/send-email`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
@@ -1996,14 +2027,106 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     throw new Error('Erro ao enviar email');
                 }
 
-                showToast("Email enviado com sucesso para AME!", "success");
+                showToast("PDF gerado e email enviado com sucesso!", "success");
 
-                // Atualiza a tabela
+                // 4. Atualiza a tabela (mantém visível)
                 await renderReferralDashboard();
 
             } catch (error) {
                 console.error('Erro ao enviar email:', error);
                 showToast("Erro ao enviar email. Tente novamente.", "error");
+            }
+        }
+
+        // Gera PDF de encaminhamento para o painel administrativo
+        async function generateAdminReferralPDF(referral) {
+            const wrapper = document.getElementById('pdf-content-wrapper');
+            const now = new Date().toLocaleDateString('pt-BR');
+
+            // Extrai dados do encaminhamento
+            const patientName = referral.patient_name || 'Paciente';
+            const cpf = referral.patient_cpf || 'Não informado';
+            const specialty = referral.specialty || 'Não especificado';
+            const reason = referral.reason || 'Avaliação especializada';
+            const pdfData = referral.referral_pdf_data || {};
+
+            // Template HTML do PDF (modelo profissional de encaminhamento)
+            wrapper.innerHTML = `
+                <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
+                    <div style="text-align: center; border-bottom: 3px solid #6b21a8; padding-bottom: 20px; margin-bottom: 30px;">
+                        <h1 style="color: #6b21a8; font-size: 22px; margin: 0; font-weight: bold;">ENCAMINHAMENTO MÉDICO</h1>
+                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Dr. Tiago Fernandes - CRM 123.456</p>
+                        <p style="margin: 5px 0 0; font-size: 12px; color: #666;">Clínica Médica e Nefrologia</p>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>Paciente:</strong> ${patientName}</p>
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>CPF:</strong> ${cpf}</p>
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>Data:</strong> ${now}</p>
+                    </div>
+
+                    <div style="background: #6b21a8; color: white; padding: 12px 20px; margin-bottom: 20px; font-weight: bold; font-size: 15px;">
+                        ENCAMINHAMENTO PARA: ${specialty.toUpperCase()}
+                    </div>
+
+                    <div style="margin-bottom: 25px; padding: 20px; background: #f9fafb; border-left: 4px solid #6b21a8;">
+                        <p style="margin: 0 0 10px 0; font-weight: bold; color: #6b21a8;">Motivo do Encaminhamento:</p>
+                        <p style="margin: 0; font-size: 13px; line-height: 1.7;">${reason}</p>
+                    </div>
+
+                    ${pdfData.summary ? `
+                    <div style="margin-bottom: 25px;">
+                        <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">Resumo Clínico:</p>
+                        <p style="margin: 0; font-size: 13px; line-height: 1.7; white-space: pre-wrap;">${pdfData.summary}</p>
+                    </div>
+                    ` : ''}
+
+                    ${pdfData.findings ? `
+                    <div style="margin-bottom: 25px;">
+                        <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">Achados Clínicos:</p>
+                        <p style="margin: 0; font-size: 13px; line-height: 1.7; white-space: pre-wrap;">${pdfData.findings}</p>
+                    </div>
+                    ` : ''}
+
+                    ${pdfData.recommendedProcedures ? `
+                    <div style="margin-bottom: 25px;">
+                        <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">Procedimentos Recomendados:</p>
+                        <p style="margin: 0; font-size: 13px; line-height: 1.7; white-space: pre-wrap;">${pdfData.recommendedProcedures}</p>
+                    </div>
+                    ` : ''}
+
+                    ${OFFICIAL_SIGNATURE_TEMPLATE}
+
+                    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center;">
+                        <p style="font-size: 11px; color: #999;">Documento gerado pelo Sistema Conecta Saúde - ${now}</p>
+                    </div>
+                </div>
+            `;
+
+            try {
+                // Renderiza o HTML para Canvas e depois para PDF
+                const canvas = await html2canvas(wrapper, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff'
+                });
+
+                const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                const imgWidth = 210;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+                pdf.save(`Encaminhamento_${specialty}_${patientName.split(' ')[0]}.pdf`);
+
+                showToast("PDF gerado com sucesso!", 'success');
+            } catch(e) {
+                console.error(e);
+                showToast("Erro ao gerar PDF.", "error");
+                throw e;
+            } finally {
+                wrapper.innerHTML = "";
             }
         }
 

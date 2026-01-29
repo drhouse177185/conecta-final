@@ -22,6 +22,30 @@ exports.createReferral = async (req, res) => {
             }
         }
 
+        // PROTEÇÃO CONTRA DUPLICATAS: Verifica se já existe encaminhamento recente (últimos 5 minutos)
+        if (userId && specialty) {
+            const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+            const existingReferral = await Referral.findOne({
+                where: {
+                    userId,
+                    specialty,
+                    status: 'pendente',
+                    createdAt: {
+                        [require('sequelize').Op.gte]: fiveMinutesAgo
+                    }
+                }
+            });
+
+            if (existingReferral) {
+                console.log('⚠️ Encaminhamento duplicado detectado e bloqueado:', { userId, specialty });
+                return res.json({
+                    success: true,
+                    referral: existingReferral,
+                    message: 'Encaminhamento já existente.'
+                });
+            }
+        }
+
         const newReferral = await Referral.create({
             userId,
             patientName,
@@ -43,26 +67,39 @@ exports.createReferral = async (req, res) => {
 
 exports.getAllReferrals = async (req, res) => {
     try {
-        // Busca com JOIN na tabela users para pegar o nome do paciente
+        const { Op } = require('sequelize');
+
+        // Busca encaminhamentos pendentes E enviados (não mostra cancelados)
         const list = await Referral.findAll({
-            where: { status: 'pendente' },
+            where: {
+                status: {
+                    [Op.in]: ['pendente', 'enviado']
+                }
+            },
             include: [{
                 model: User,
-                as: 'user',  // Usa o alias definido nas associações
+                as: 'user',
                 attributes: ['name'],
-                required: false  // LEFT JOIN - mantém encaminhamentos mesmo sem usuário
+                required: false
             }],
             order: [['created_at', 'DESC']]
         });
 
-        // Formata a resposta para incluir o nome do usuário
+        // Formata a resposta garantindo que patient_name esteja sempre preenchido
         const formattedList = list.map(referral => {
             const data = referral.toJSON();
-            // Se patient_name não estiver preenchido, usa o nome do usuário relacionado
-            if (!data.patientName && data.user) {
-                data.patientName = data.user.name;
-            }
-            delete data.user; // Remove o objeto user aninhado
+
+            // Sequelize pode retornar tanto patientName quanto patient_name
+            const currentName = data.patientName || data.patient_name;
+            const userName = data.user?.name;
+
+            // Define patient_name (formato esperado pelo frontend)
+            data.patient_name = currentName || userName || 'Paciente';
+
+            // Remove campos duplicados e objeto user
+            delete data.patientName;
+            delete data.user;
+
             return data;
         });
 
