@@ -1146,6 +1146,37 @@ function renderSurgeryList() {
     `).join('');
 }
 
+// Função para alternar entre abas do Catálogo de Exames (Laboratório / Imagem)
+function switchAdminTab(tabType) {
+    // Elementos das abas
+    const labTab = document.getElementById('adm-tab-lab');
+    const imgTab = document.getElementById('adm-tab-img');
+    const labList = document.getElementById('adm-list-lab');
+    const imgList = document.getElementById('adm-list-img');
+
+    if (tabType === 'lab') {
+        // Ativa aba Laboratório
+        labTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+        labTab.classList.remove('text-slate-500');
+        imgTab.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+        imgTab.classList.add('text-slate-500');
+
+        // Mostra lista de laboratório, esconde imagem
+        labList.classList.remove('hidden');
+        imgList.classList.add('hidden');
+    } else if (tabType === 'img') {
+        // Ativa aba Imagem
+        imgTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+        imgTab.classList.remove('text-slate-500');
+        labTab.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+        labTab.classList.add('text-slate-500');
+
+        // Mostra lista de imagem, esconde laboratório
+        imgList.classList.remove('hidden');
+        labList.classList.add('hidden');
+    }
+}
+
 async function toggleItemGlobal(id, type, checkbox) {
     const novoStatus = checkbox.checked;
     const labelSpan = checkbox.nextElementSibling;
