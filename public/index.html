@@ -1994,25 +1994,41 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
         // NOVA FUNÇÃO: Envia email do encaminhamento individual e marca como enviado
         async function sendReferralEmail(referralId, patientName, specialty) {
+            console.log('🚀 FUNÇÃO sendReferralEmail CHAMADA:', { referralId, patientName, specialty });
+            alert('DEBUG 1: Função sendReferralEmail foi chamada!');
+
             try {
                 // Confirma a ação
                 if (!confirm(`Gerar PDF e enviar email de encaminhamento para ${patientName} (${specialty})?`)) {
+                    console.log('❌ Usuário cancelou a confirmação');
                     return;
                 }
 
+                console.log('✅ Usuário confirmou, iniciando geração...');
+                alert('DEBUG 2: Usuário confirmou, vai chamar showToast');
+
                 showToast("Gerando PDF...", "info");
+                console.log('✅ showToast executado');
 
                 // 1. Busca os dados completos do encaminhamento
+                console.log('📡 Buscando encaminhamentos do backend...');
                 const refResponse = await fetch(`${BACKEND_URL}/api/referrals`);
                 const allReferrals = await refResponse.json();
+                console.log('📦 Encaminhamentos recebidos:', allReferrals.length);
+
                 const referral = allReferrals.find(r => r.id === referralId);
+                console.log('🔍 Encaminhamento encontrado:', referral);
 
                 if (!referral) {
                     throw new Error('Encaminhamento não encontrado');
                 }
 
+                alert('DEBUG 3: Vai chamar generateAdminReferralPDF agora');
+
                 // 2. Gera o PDF usando os dados do encaminhamento
+                console.log('📄 Chamando generateAdminReferralPDF...');
                 await generateAdminReferralPDF(referral);
+                console.log('✅ generateAdminReferralPDF retornou');
 
                 showToast("Enviando email...", "info");
 
@@ -2039,14 +2055,20 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
         // Gera PDF de encaminhamento para AME - VERSÃO MINIMALISTA
         async function generateAdminReferralPDF(referral) {
+            alert('DEBUG 4: ENTROU na função generateAdminReferralPDF!');
             console.log('🔍 INICIANDO geração de PDF:', referral);
 
             const wrapper = document.getElementById('pdf-content-wrapper');
+            console.log('🔍 Wrapper encontrado?', wrapper ? 'SIM' : 'NÃO');
+
             if (!wrapper) {
                 console.error('❌ Elemento pdf-content-wrapper não encontrado!');
+                alert('ERRO: wrapper não encontrado no DOM!');
                 showToast("Erro: wrapper não encontrado", "error");
                 return;
             }
+
+            alert('DEBUG 5: Wrapper encontrado, vai extrair dados');
 
             const now = new Date().toLocaleDateString('pt-BR');
 
@@ -2104,10 +2126,13 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
             // Injeta o HTML no wrapper
             wrapper.innerHTML = htmlContent;
+            alert('DEBUG 6: HTML injetado no wrapper!');
 
             console.log('📝 HTML injetado no wrapper');
             console.log('📏 Tamanho do HTML:', htmlContent.length, 'caracteres');
             console.log('📄 Primeiros 500 caracteres do HTML:', htmlContent.substring(0, 500));
+            console.log('📐 Wrapper offsetWidth:', wrapper.offsetWidth);
+            console.log('📐 Wrapper offsetHeight:', wrapper.offsetHeight);
 
             // Torna o wrapper VISÍVEL temporariamente para debug
             wrapper.style.display = 'block';
@@ -2190,6 +2215,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             } catch(e) {
                 console.error('❌ ERRO CRÍTICO ao gerar PDF:', e);
                 console.error('Stack trace:', e.stack);
+                alert('ERRO AO GERAR PDF: ' + e.message + '\n\nVeja o console para mais detalhes');
                 showToast("Erro ao gerar PDF: " + e.message, "error");
                 throw e;
             } finally {
