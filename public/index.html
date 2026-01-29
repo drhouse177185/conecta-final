@@ -2681,15 +2681,12 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             }
         }
 
-        // Gera PDF de Exames Específicos (Modelo 1111111.pdf - Simples)
+        // Gera PDF de Exames Específicos COM CATEGORIZAÇÃO (Laboratório, Imagem, Gráficos)
       async function generateExamPDF() {
     const wrapper = document.getElementById('pdf-content-wrapper');
     const now = new Date().toLocaleDateString('pt-BR');
 
     // 1. Lógica de Filtragem (RELAXADA)
-    // Removemos a lista 'routineExams'. Agora exames simples (ECG, RX, Sangue)
-    // também aparecerão no PDF se a IA os recomendar.
-
     const nonExamTerms = [
         'psicologia', 'psicólogo', 'psicologo',
         'nutricionista', 'nutrição',
@@ -2698,19 +2695,13 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         'terapia ocupacional',
         'mudança de estilo de vida',
         'dieta', 'exercício'
-        // Removemos termos genéricos como 'avaliação' ou 'consulta' 
-        // pois às vezes a IA escreve "Avaliação com Ressonância"
     ];
 
     // Filtra apenas itens que NÃO sejam puramente consultas com outros profissionais
     const filteredExams = window.currentExamList.filter(exam => {
         const lowerExam = exam.toLowerCase();
-        
-        // Verifica se contém termos proibidos (ex: Psicólogo)
         const isNonExam = nonExamTerms.some(term => lowerExam.includes(term));
-        
-        // Se for termo proibido (consulta), remove. Se não, mantêm (é exame).
-        return !isNonExam; 
+        return !isNonExam;
     });
 
     // Limpeza de texto (Remove parênteses explicativos da IA)
@@ -2718,83 +2709,111 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         return exam.replace(/\s*\([^)]*\)/g, '').trim();
     });
 
-    // 2. Construção da Lista HTML (Cores Azuis Padronizadas)
-    let examListHTML = '';
     if (cleanExams.length === 0) {
-        examListHTML = '<p style="padding: 10px; color: #666; font-style: italic;">Nenhum procedimento listado para impressão.</p>';
-    } else {
-        cleanExams.forEach(exam => {
-            examListHTML += `
-                <div style="margin-bottom: 10px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 5px; display: flex; align-items: center;">
-                    <span style="color: #1e3a8a; font-weight: bold; margin-right: 10px; font-size: 18px;">•</span>
-                    <span style="font-size: 14px; color: #334155;">${exam}</span>
-                </div>
-            `;
-        });
+        showToast("Nenhum exame para gerar PDF.", 'error');
+        return;
     }
 
-    // 3. Montagem do PDF (Layout Azul + Assinatura Global)
-    wrapper.innerHTML = `
-        <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333; position: relative; height: 1123px; box-sizing: border-box;">
-            
-            <!-- CABEÇALHO PADRÃO (Azul #1e3a8a) -->
-            <div style="text-align: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
-                <h1 style="color: #1e3a8a; font-size: 24px; margin: 0; font-weight: 900;">CONECTA SAÚDE</h1>
-                <p style="margin: 5px 0 0; font-size: 12px; color: #64748b;">Dr. Tiago Fernandes | Clínica Médica</p>
-            </div>
+    // 2. CATEGORIZA OS EXAMES (usa função global)
+    const categorized = categorizeExams(cleanExams);
+    console.log('📊 Exames Específicos categorizados:', categorized);
 
-            <!-- IDENTIFICAÇÃO DO PACIENTE -->
-            <div style="background: #f8fafc; padding: 15px; margin-bottom: 30px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                <table style="width: 100%;">
-                    <tr>
-                        <td><p style="margin:0; font-size:12px; color:#64748b;">PACIENTE</p><p style="margin:0; font-weight:bold; font-size:16px; color:#1e293b;">${currentUser.name}</p></td>
-                        <td style="text-align:right;"><p style="margin:0; font-size:12px; color:#64748b;">DATA</p><p style="margin:0; font-weight:bold; font-size:16px; color:#1e293b;">${now}</p></td>
-                    </tr>
-                    <tr>
-                        <td colspan="2" style="padding-top:10px;"><p style="margin:0; font-size:12px; color:#64748b;">CPF</p><p style="margin:0; font-weight:bold; color:#1e293b;">${currentUser.cpf || '---'}</p></td>
-                    </tr>
-                </table>
+    // 3. Função auxiliar para gerar página HTML
+    const generatePageHTML = (pageTitle, examList, pageColor) => {
+        const examListHTML = examList.map(exam => `
+            <div style="margin-bottom: 10px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 5px; display: flex; align-items: center;">
+                <span style="color: ${pageColor}; font-weight: bold; margin-right: 10px; font-size: 18px;">•</span>
+                <span style="font-size: 14px; color: #334155;">${exam}</span>
             </div>
+        `).join('');
 
-            <!-- TÍTULO -->
-            <div style="background-color: #1e3a8a; color: white; padding: 10px 15px; margin-bottom: 25px; font-weight: bold; font-size: 15px; border-radius: 4px; text-transform: uppercase;">
-                Solicitação de Exames Complementares
+        return `
+            <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333; position: relative; height: 1123px; box-sizing: border-box;">
+                <!-- CABEÇALHO -->
+                <div style="text-align: center; border-bottom: 3px solid ${pageColor}; padding-bottom: 20px; margin-bottom: 30px;">
+                    <h1 style="color: ${pageColor}; font-size: 24px; margin: 0; font-weight: 900;">CONECTA SAÚDE</h1>
+                    <p style="margin: 5px 0 0; font-size: 12px; color: #64748b;">Dr. Tiago Fernandes | Clínica Médica</p>
+                </div>
+
+                <!-- IDENTIFICAÇÃO DO PACIENTE -->
+                <div style="background: #f8fafc; padding: 15px; margin-bottom: 30px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <table style="width: 100%;">
+                        <tr>
+                            <td><p style="margin:0; font-size:12px; color:#64748b;">PACIENTE</p><p style="margin:0; font-weight:bold; font-size:16px; color:#1e293b;">${currentUser.name}</p></td>
+                            <td style="text-align:right;"><p style="margin:0; font-size:12px; color:#64748b;">DATA</p><p style="margin:0; font-weight:bold; font-size:16px; color:#1e293b;">${now}</p></td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" style="padding-top:10px;"><p style="margin:0; font-size:12px; color:#64748b;">CPF</p><p style="margin:0; font-weight:bold; color:#1e293b;">${currentUser.cpf || '---'}</p></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- TÍTULO -->
+                <div style="background-color: ${pageColor}; color: white; padding: 10px 15px; margin-bottom: 25px; font-weight: bold; font-size: 15px; border-radius: 4px; text-transform: uppercase;">
+                    ${pageTitle}
+                </div>
+
+                <!-- CONTEÚDO (LISTA DE EXAMES) -->
+                <div style="margin: 20px 0; min-height: 200px;">
+                    <p style="font-size: 13px; margin-bottom: 15px; color: #666;">Solicito a realização dos procedimentos abaixo listados para investigação diagnóstica:</p>
+                    ${examListHTML}
+                </div>
+
+                <!-- NOTA DE RODAPÉ -->
+                <div style="margin-top: 30px; padding: 15px; background-color: #f8fafc; border-radius: 4px; font-size: 11px; color: #64748b;">
+                    <strong>Observação:</strong> Este pedido médico é válido em todo território nacional. A realização destes exames é complementar à avaliação clínica.
+                </div>
+
+                <!-- RODAPÉ COM ASSINATURA GLOBAL -->
+                <div style="position: absolute; bottom: 60px; left: 50px; right: 50px;">
+                    ${typeof OFFICIAL_SIGNATURE_TEMPLATE !== 'undefined' ? OFFICIAL_SIGNATURE_TEMPLATE : '<!-- Erro: Assinatura não carregada -->'}
+                </div>
             </div>
+        `;
+    };
 
-            <!-- CONTEÚDO (LISTA DE EXAMES) -->
-            <div style="margin: 20px 0; min-height: 200px;">
-                <p style="font-size: 13px; margin-bottom: 15px; color: #666;">Solicito a realização dos procedimentos abaixo listados para investigação diagnóstica:</p>
-                ${examListHTML}
-            </div>
+    // 4. Cria array de páginas
+    const pages = [];
 
-            <!-- NOTA DE RODAPÉ -->
-            <div style="margin-top: 30px; padding: 15px; background-color: #f8fafc; border-radius: 4px; font-size: 11px; color: #64748b;">
-                <strong>Observação:</strong> Este pedido médico é válido em todo território nacional. A realização destes exames é complementar à avaliação clínica.
-            </div>
+    if (categorized.laboratorio.length > 0) {
+        pages.push(generatePageHTML('EXAMES COMPLEMENTARES - LABORATÓRIO', categorized.laboratorio, '#1e3a8a')); // Azul
+    }
+    if (categorized.imagem.length > 0) {
+        pages.push(generatePageHTML('EXAMES COMPLEMENTARES - IMAGEM', categorized.imagem, '#7c3aed')); // Roxo
+    }
+    if (categorized.grafico.length > 0) {
+        pages.push(generatePageHTML('EXAMES COMPLEMENTARES - GRÁFICOS', categorized.grafico, '#dc2626')); // Vermelho
+    }
 
-            <!-- RODAPÉ COM ASSINATURA GLOBAL -->
-            <div style="position: absolute; bottom: 60px; left: 50px; right: 50px;">
-                ${typeof OFFICIAL_SIGNATURE_TEMPLATE !== 'undefined' ? OFFICIAL_SIGNATURE_TEMPLATE : '<!-- Erro: Assinatura não carregada -->'}
-            </div>
-        </div>
-    `;
-
-    // 4. Geração do Arquivo
+    // 5. Geração do Arquivo (múltiplas páginas)
     try {
-        wrapper.style.position = 'absolute'; wrapper.style.top = '0'; wrapper.style.left = '0'; wrapper.style.opacity = '1'; wrapper.style.zIndex = '-9999';
-        
-        await new Promise(r => setTimeout(r, 800));
+        wrapper.style.position = 'absolute';
+        wrapper.style.top = '0';
+        wrapper.style.left = '0';
+        wrapper.style.opacity = '1';
+        wrapper.style.zIndex = '-9999';
 
-        const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('p', 'mm', 'a4');
-        const imgData = canvas.toDataURL('image/jpeg', 1.0);
-        const imgHeight = (canvas.height * 210) / canvas.width;
-        
-        pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
-        pdf.save(`Solicitacao_Exames_${currentUser.name.split(' ')[0]}.pdf`);
 
-        showToast("Guia de exames gerada com sucesso!", 'success');
+        // Processa cada página
+        for (let i = 0; i < pages.length; i++) {
+            console.log(`📄 Gerando página ${i + 1}/${pages.length} de Exames Específicos...`);
+
+            wrapper.innerHTML = pages[i];
+            await new Promise(r => setTimeout(r, 500)); // Aguarda renderização
+
+            const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+            const imgHeight = (canvas.height * 210) / canvas.width;
+
+            if (i > 0) pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
+        }
+
+        pdf.save(`Solicitacao_Exames_${currentUser.name.split(' ')[0]}.pdf`);
+        showToast(`Guia de exames gerada! ${pages.length} página(s).`, 'success');
+
     } catch(e) {
         console.error(e);
         showToast("Erro ao gerar PDF.", "error");
@@ -3597,31 +3616,33 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         `;
     };
 
-    // SE for PRE (Exames), retorna ARRAY de páginas separadas por categoria
-    if (type === 'PRE') {
-        const examList = currentUser.lastGeneratedExams;
+    // SE for PRE (Exames) OU PENDING (Pendências), retorna ARRAY de páginas separadas por categoria
+    if (type === 'PRE' || type === 'PENDING') {
+        const examList = type === 'PRE' ? currentUser.lastGeneratedExams : missingExamsList;
         const categorized = categorizeExams(examList);
         const pages = [];
 
+        const baseTitle = type === 'PRE' ? 'SOLICITAÇÃO DE EXAMES' : 'PENDÊNCIAS PRÉ-OPERATÓRIAS';
+
         // Página 1: Exames Laboratoriais
         if (categorized.laboratorio.length > 0) {
-            pages.push(generatePageHTML('SOLICITAÇÃO DE EXAMES - LABORATÓRIO', categorized.laboratorio, '#1e3a8a')); // Azul
+            pages.push(generatePageHTML(`${baseTitle} - LABORATÓRIO`, categorized.laboratorio, '#1e3a8a')); // Azul
         }
 
         // Página 2: Exames de Imagem
         if (categorized.imagem.length > 0) {
-            pages.push(generatePageHTML('SOLICITAÇÃO DE EXAMES - IMAGEM', categorized.imagem, '#7c3aed')); // Roxo
+            pages.push(generatePageHTML(`${baseTitle} - IMAGEM`, categorized.imagem, '#7c3aed')); // Roxo
         }
 
         // Página 3: Exames Gráficos
         if (categorized.grafico.length > 0) {
-            pages.push(generatePageHTML('SOLICITAÇÃO DE EXAMES - GRÁFICOS', categorized.grafico, '#dc2626')); // Vermelho
+            pages.push(generatePageHTML(`${baseTitle} - GRÁFICOS`, categorized.grafico, '#dc2626')); // Vermelho
         }
 
         return pages; // Retorna ARRAY de páginas
     }
 
-    // PARA OUTROS TIPOS (PREOP_CLEARANCE, PENDING), retorna página única
+    // PARA OUTROS TIPOS (PREOP_CLEARANCE), retorna página única
     return [`
         <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333; position: relative; height: 1123px; box-sizing: border-box;">
             <!-- CABEÇALHO -->
