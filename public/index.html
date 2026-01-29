@@ -2139,14 +2139,16 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             // Torna o wrapper VISÍVEL temporariamente para debug
             wrapper.style.display = 'block';
             wrapper.style.position = 'fixed';
-            wrapper.style.top = '0';
-            wrapper.style.left = '0';
+            wrapper.style.top = '20px';
+            wrapper.style.left = '20px';
             wrapper.style.width = '900px';  // CRÍTICO: Define largura explícita
             wrapper.style.padding = '20px';
             wrapper.style.zIndex = '99999';
             wrapper.style.backgroundColor = 'white';
+            wrapper.style.border = '5px solid red';  // BORDA VERMELHA PARA DEBUG
+            wrapper.style.boxShadow = '0 0 20px rgba(0,0,0,0.5)';
             wrapper.style.overflow = 'auto';
-            wrapper.style.maxHeight = '100vh';
+            wrapper.style.maxHeight = '90vh';
 
             console.log('👁️ Wrapper está visível agora - verifique a tela!');
 
@@ -2156,14 +2158,11 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
                 console.log('🎨 Iniciando html2canvas...');
 
-                // Renderiza o HTML para Canvas
+                // Renderiza o HTML para Canvas (opções simplificadas)
                 const canvas = await html2canvas(wrapper, {
                     scale: 2,
-                    useCORS: true,
-                    logging: true,  // Ativa logs para debug
-                    backgroundColor: '#ffffff',
-                    allowTaint: true,
-                    foreignObjectRendering: false
+                    logging: true,
+                    backgroundColor: '#ffffff'
                 });
 
                 console.log('✅ Canvas gerado:', canvas.width, 'x', canvas.height);
