@@ -1994,41 +1994,25 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
         // NOVA FUNÇÃO: Envia email do encaminhamento individual e marca como enviado
         async function sendReferralEmail(referralId, patientName, specialty) {
-            console.log('🚀 FUNÇÃO sendReferralEmail CHAMADA:', { referralId, patientName, specialty });
-            alert('DEBUG 1: Função sendReferralEmail foi chamada!');
-
             try {
                 // Confirma a ação
                 if (!confirm(`Gerar PDF e enviar email de encaminhamento para ${patientName} (${specialty})?`)) {
-                    console.log('❌ Usuário cancelou a confirmação');
                     return;
                 }
 
-                console.log('✅ Usuário confirmou, iniciando geração...');
-                alert('DEBUG 2: Usuário confirmou, vai chamar showToast');
-
                 showToast("Gerando PDF...", "info");
-                console.log('✅ showToast executado');
 
                 // 1. Busca os dados completos do encaminhamento
-                console.log('📡 Buscando encaminhamentos do backend...');
                 const refResponse = await fetch(`${BACKEND_URL}/api/referrals`);
                 const allReferrals = await refResponse.json();
-                console.log('📦 Encaminhamentos recebidos:', allReferrals.length);
-
                 const referral = allReferrals.find(r => r.id === referralId);
-                console.log('🔍 Encaminhamento encontrado:', referral);
 
                 if (!referral) {
                     throw new Error('Encaminhamento não encontrado');
                 }
 
-                alert('DEBUG 3: Vai chamar generateAdminReferralPDF agora');
-
                 // 2. Gera o PDF usando os dados do encaminhamento
-                console.log('📄 Chamando generateAdminReferralPDF...');
                 await generateAdminReferralPDF(referral);
-                console.log('✅ generateAdminReferralPDF retornou');
 
                 showToast("Enviando email...", "info");
 
@@ -2053,173 +2037,127 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             }
         }
 
-        // Gera PDF de encaminhamento para AME - VERSÃO MINIMALISTA
+        // Gera PDF de encaminhamento para AME (baseado na função que funciona)
         async function generateAdminReferralPDF(referral) {
-            alert('DEBUG 4: ENTROU na função generateAdminReferralPDF!');
-            console.log('🔍 INICIANDO geração de PDF:', referral);
-
             const wrapper = document.getElementById('pdf-content-wrapper');
-            console.log('🔍 Wrapper encontrado?', wrapper ? 'SIM' : 'NÃO');
-
-            if (!wrapper) {
-                console.error('❌ Elemento pdf-content-wrapper não encontrado!');
-                alert('ERRO: wrapper não encontrado no DOM!');
-                showToast("Erro: wrapper não encontrado", "error");
-                return;
-            }
-
-            alert('DEBUG 5: Wrapper encontrado, vai extrair dados');
-
             const now = new Date().toLocaleDateString('pt-BR');
 
-            // APENAS 3 dados: nome, CPF e especialidade
+            // Extrai dados do encaminhamento
             const patientName = referral.patient_name || 'Paciente';
             const cpf = referral.patient_cpf || 'Não informado';
             const specialty = referral.specialty || 'Não especificado';
 
-            console.log('📊 Dados extraídos:', { patientName, cpf, specialty, now });
+            console.log('📄 Gerando PDF para:', { patientName, cpf, specialty });
 
-            // Verifica se OFFICIAL_SIGNATURE_TEMPLATE está definido
-            if (typeof OFFICIAL_SIGNATURE_TEMPLATE === 'undefined') {
-                console.error('❌ OFFICIAL_SIGNATURE_TEMPLATE não está definido!');
-                showToast("Erro: Template de assinatura não encontrado", "error");
-                return;
-            }
-
-            // TESTE SUPER SIMPLES - APENAS TEXTO SEM ESTILOS COMPLEXOS
-            const htmlContent = `
-                <div style="background: white; padding: 40px; font-family: Arial, sans-serif; color: black; width: 700px;">
-
-                    <h1 style="color: blue; text-align: center; font-size: 32px;">CONECTA SAÚDE</h1>
-                    <p style="text-align: center; font-size: 16px;">Sistema Integrado de Diagnóstico</p>
-
-                    <hr style="border: 2px solid blue; margin: 30px 0;">
-
-                    <h2 style="font-size: 24px; color: black;">ENCAMINHAMENTO</h2>
-
-                    <p style="font-size: 18px; margin: 10px 0;"><strong>PACIENTE:</strong> ${patientName}</p>
-                    <p style="font-size: 18px; margin: 10px 0;"><strong>CPF:</strong> ${cpf}</p>
-                    <p style="font-size: 18px; margin: 10px 0;"><strong>DATA:</strong> ${now}</p>
-
-                    <hr style="border: 1px solid gray; margin: 30px 0;">
-
-                    <h3 style="font-size: 20px; color: blue;">ESPECIALIDADE INDICADA:</h3>
-                    <p style="font-size: 22px; font-weight: bold;">${specialty}</p>
-
-                    <hr style="border: 1px solid gray; margin: 30px 0;">
-
-                    <p style="font-size: 16px; line-height: 1.6;">
-                        Prezados,<br><br>
-                        Solicito gentilmente o agendamento de consulta com especialista em <strong>${specialty}</strong>
-                        para o paciente acima identificado.<br><br>
-                        Atenciosamente,
-                    </p>
-
-                    <div style="margin-top: 60px; text-align: center;">
-                        <hr style="border: 1px solid black; width: 300px;">
-                        <p style="font-size: 16px; font-weight: bold;">Dr. Tiago Fernandes</p>
-                        <p style="font-size: 14px;">CRM 177.185</p>
+            // PDF de Encaminhamento para AME (Padrão Profissional)
+            wrapper.innerHTML = `
+                <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
+                    <div style="text-align: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
+                        <h1 style="color: #1e3a8a; font-size: 22px; margin: 0; font-weight: bold;">CONECTA SAÚDE</h1>
+                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Sistema Integrado de Diagnóstico</p>
                     </div>
 
+                    <div style="margin-bottom: 20px;">
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>Paciente:</strong> ${patientName}</p>
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>CPF:</strong> ${cpf} | <strong>Data:</strong> ${now}</p>
+                    </div>
+
+                    <div style="background: #2c5aa0; color: white; padding: 12px 20px; margin-bottom: 20px; font-weight: bold; font-size: 15px;">
+                        ENCAMINHAMENTO PARA AME
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <p style="font-size: 14px; margin: 5px 0;"><strong>Para:</strong> Ambulatório Médico de Especialidades (AME)</p>
+                        <p style="font-size: 14px; margin: 5px 0;"><strong>Especialidade:</strong> <span style="color: #1e3a8a; font-weight: bold;">${specialty.toUpperCase()}</span></p>
+                    </div>
+
+                    <p style="margin-bottom: 15px; font-size: 13px;">Prezados,</p>
+                    <p style="margin-bottom: 20px; line-height: 1.7; font-size: 13px;">
+                        Solicito gentilmente o agendamento de consulta com especialista em <strong>${specialty}</strong>
+                        para avaliação do paciente acima identificado.
+                    </p>
+
+                    <div style="background: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px; margin-bottom: 25px;">
+                        <p style="font-size: 13px; color: #0c4a6e; margin: 0;">
+                            Aguardamos retorno com a data de agendamento da consulta especializada.
+                        </p>
+                    </div>
+
+                    <div style="margin-top: 80px; text-align: center; padding-top: 20px;">
+                        <svg width="300" height="80" xmlns="http://www.w3.org/2000/svg" style="margin: 0 auto 5px auto; display: block;">
+                            <path d="M 50 50 Q 70 30, 90 50 T 130 50 Q 150 40, 170 50 T 210 50 Q 230 45, 250 50"
+                                  stroke="#1e3a8a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                            <text x="150" y="35" font-family="Brush Script MT, cursive" font-size="24"
+                                  fill="#1e3a8a" text-anchor="middle" font-style="italic">Dr. Tiago F.</text>
+                        </svg>
+                        <div style="border-top: 2px solid #000; width: 300px; margin: 0 auto 15px auto;"></div>
+                        <p style="font-weight: bold; font-size: 14px; margin: 5px 0; color: #000;">Dr. Tiago Fernandes</p>
+                        <p style="font-size: 12px; color: #666; margin: 5px 0;">CRM 177.185</p>
+                        <p style="font-size: 11px; color: #999; margin: 5px 0;">Conecta Saúde - Sistema Integrado de Diagnóstico</p>
+                    </div>
                 </div>
             `;
 
-            // Injeta o HTML no wrapper
-            wrapper.innerHTML = htmlContent;
-            alert('DEBUG 6: HTML injetado no wrapper!');
-
-            console.log('📝 HTML injetado no wrapper');
-            console.log('📏 Tamanho do HTML:', htmlContent.length, 'caracteres');
-            console.log('📄 Primeiros 500 caracteres do HTML:', htmlContent.substring(0, 500));
-            console.log('📐 Wrapper offsetWidth:', wrapper.offsetWidth);
-            console.log('📐 Wrapper offsetHeight:', wrapper.offsetHeight);
-
-            // Torna o wrapper VISÍVEL temporariamente para debug
-            wrapper.style.display = 'block';
-            wrapper.style.position = 'fixed';
-            wrapper.style.top = '20px';
-            wrapper.style.left = '20px';
-            wrapper.style.width = '900px';  // CRÍTICO: Define largura explícita
-            wrapper.style.padding = '20px';
-            wrapper.style.zIndex = '99999';
-            wrapper.style.backgroundColor = 'white';
-            wrapper.style.border = '5px solid red';  // BORDA VERMELHA PARA DEBUG
-            wrapper.style.boxShadow = '0 0 20px rgba(0,0,0,0.5)';
-            wrapper.style.overflow = 'auto';
-            wrapper.style.maxHeight = '90vh';
-
-            console.log('👁️ Wrapper está visível agora - verifique a tela!');
-            console.log('📋 Conteúdo do wrapper (primeiros 200 chars):', wrapper.innerHTML.substring(0, 200));
-            console.log('📐 Dimensões do wrapper:', wrapper.offsetWidth, 'x', wrapper.offsetHeight);
-
             try {
-                // PAUSA FORÇADA COM ALERT - Você DEVE ver a caixa vermelha
-                alert('⚠️ DEBUG: Verifique se você vê uma CAIXA BRANCA com BORDA VERMELHA na tela agora. Clique OK para continuar.');
+                // USA O MÉTODO QUE FUNCIONA (igual ao generateSingleReferralPDF)
+                wrapper.style.position = 'absolute';
+                wrapper.style.top = '0';
+                wrapper.style.left = '0';
+                wrapper.style.opacity = '1';
+                wrapper.style.zIndex = '-9999';
 
-                // Aguarda mais 1 segundo
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Aguarda renderização
+                await new Promise(r => setTimeout(r, 800));
 
-                console.log('🎨 Iniciando html2canvas...');
-
-                // Renderiza o HTML para Canvas (opções simplificadas)
+                // Gera canvas
                 const canvas = await html2canvas(wrapper, {
                     scale: 2,
-                    logging: true,
-                    backgroundColor: '#ffffff'
+                    useCORS: true,
+                    backgroundColor: "#ffffff"
                 });
 
                 console.log('✅ Canvas gerado:', canvas.width, 'x', canvas.height);
 
-                const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+                // Cria PDF
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
                 const imgData = canvas.toDataURL('image/jpeg', 1.0);
-                const imgWidth = 210;
-                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                const imgHeight = (canvas.height * 210) / canvas.width;
+                pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
 
-                console.log('📄 Adicionando imagem ao PDF:', imgWidth, 'x', imgHeight, 'mm');
+                // Nome do arquivo
+                const fileName = `Encaminhamento_AME_${specialty.replace(/[^a-zA-Z0-9]/g, '_')}_${patientName.split(' ')[0]}.pdf`;
 
-                pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-
-                const fileName = `Encaminhamento_${specialty.replace(/[^a-zA-Z0-9]/g, '_')}_${patientName.split(' ')[0]}.pdf`;
-
-                // Salva o PDF localmente
-                console.log('💾 Salvando PDF:', fileName);
+                // Salva PDF
                 pdf.save(fileName);
-                console.log('✅ PDF salvo!');
+                console.log('✅ PDF salvo:', fileName);
 
                 showToast("PDF gerado com sucesso!", 'success');
 
-                // Gera blob do PDF para compartilhamento
+                // Tenta compartilhar via Web Share API ou abre Gmail
                 const pdfBlob = pdf.output('blob');
-
-                // Tenta usar Web Share API se disponível
                 if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], fileName, { type: 'application/pdf' })] })) {
                     const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
-
                     try {
                         await navigator.share({
-                            title: `Encaminhamento - ${patientName}`,
+                            title: `Encaminhamento AME - ${patientName}`,
                             text: `Encaminhamento para ${specialty}`,
                             files: [pdfFile]
                         });
-                        console.log('✅ PDF compartilhado com sucesso');
                     } catch (shareError) {
                         if (shareError.name !== 'AbortError') {
-                            console.log('Compartilhamento cancelado ou não suportado');
                             openGmailComposer(patientName, specialty, cpf);
                         }
                     }
                 } else {
-                    // Fallback: abre Gmail composer
                     openGmailComposer(patientName, specialty, cpf);
                 }
+
             } catch(e) {
-                console.error('❌ ERRO CRÍTICO ao gerar PDF:', e);
-                console.error('Stack trace:', e.stack);
-                alert('ERRO AO GERAR PDF: ' + e.message + '\n\nVeja o console para mais detalhes');
-                showToast("Erro ao gerar PDF: " + e.message, "error");
-                throw e;
+                console.error('❌ Erro ao gerar PDF:', e);
+                showToast("Erro ao gerar PDF.", "error");
             } finally {
-                console.log('🧹 Limpando wrapper');
+                // Limpa wrapper
                 wrapper.innerHTML = "";
             }
         }
