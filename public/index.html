@@ -2686,21 +2686,46 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
     const wrapper = document.getElementById('pdf-content-wrapper');
     const now = new Date().toLocaleDateString('pt-BR');
 
-    // 1. Lógica de Filtragem (RELAXADA)
+    // 1. Lógica de Filtragem (REMOVE AÇÕES/ORIENTAÇÕES/CONSULTAS)
     const nonExamTerms = [
+        // Consultas com outros profissionais
         'psicologia', 'psicólogo', 'psicologo',
-        'nutricionista', 'nutrição',
+        'nutricionista', 'nutrição', 'nutricao',
         'fisioterapia', 'fisioterapeuta',
         'fonoaudiologia',
         'terapia ocupacional',
+
+        // Ações e orientações (NÃO são exames)
+        'revisão', 'revisao',
+        'reavaliação', 'reavaliacao', 'reavaliar',
+        'avaliação', 'avaliacao', 'avaliar',
+        'orientação', 'orientacao',
+        'acompanhamento',
+        'seguimento',
+        'retorno',
+        'consulta médica', 'consulta com',
+        'encaminhamento',
+        'monitoramento',
+        'repetir em',
+        'refazer',
+
+        // Mudanças de estilo de vida
         'mudança de estilo de vida',
-        'dieta', 'exercício'
+        'dieta', 'exercício', 'exercicio'
     ];
 
-    // Filtra apenas itens que NÃO sejam puramente consultas com outros profissionais
+    // Filtra itens que NÃO sejam consultas ou orientações
     const filteredExams = window.currentExamList.filter(exam => {
         const lowerExam = exam.toLowerCase();
-        const isNonExam = nonExamTerms.some(term => lowerExam.includes(term));
+
+        // Verifica se é uma ação/orientação (começa com ou contém de forma destacada)
+        const isNonExam = nonExamTerms.some(term => {
+            return lowerExam.startsWith(term) ||
+                   lowerExam.includes(` ${term} `) ||
+                   lowerExam.includes(` ${term},`) ||
+                   lowerExam.includes(`${term} `);
+        });
+
         return !isNonExam;
     });
 
@@ -3503,6 +3528,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
             // PASSO 1: Filtrar ações/orientações/avaliações (não são exames)
             const actionKeywords = [
+                'revisão', 'revisao',  // ✅ ADICIONADO
                 'reavaliação', 'reavaliar', 'reavaliacao',
                 'avaliação', 'avaliar', 'avaliacao',
                 'orientação', 'orientacao',
@@ -3513,7 +3539,9 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 'encaminhamento',
                 'monitoramento',
                 'repetir em',
-                'refazer'
+                'refazer',
+                'histórico', 'historico',  // ✅ ADICIONADO
+                'detalhada', 'detalhado'   // ✅ ADICIONADO
             ];
 
             // Palavras-chave para EXAMES LABORATORIAIS
