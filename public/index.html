@@ -2011,12 +2011,44 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     throw new Error('Encaminhamento não encontrado');
                 }
 
-                // 2. Gera o PDF usando os dados do encaminhamento
+                // 2. Busca o CPF do usuário na tabela de pacientes (se não estiver preenchido)
+                if (!referral.patient_cpf || referral.patient_cpf === 'Não informado') {
+                    try {
+                        // Busca todos os usuários da tabela de pacientes
+                        const usersResponse = await fetch(`${BACKEND_URL}/api/admin/users`);
+
+                        if (usersResponse.ok) {
+                            const allUsers = await usersResponse.json();
+
+                            // Tenta encontrar o usuário pelo userId ou pelo nome
+                            let user = null;
+                            if (referral.user_id) {
+                                user = allUsers.find(u => u.id === referral.user_id);
+                            }
+                            if (!user && referral.patient_name) {
+                                user = allUsers.find(u => u.name && u.name.toLowerCase() === referral.patient_name.toLowerCase());
+                            }
+
+                            // Se encontrou o usuário e ele tem CPF, atualiza o referral
+                            if (user && user.cpf) {
+                                referral.patient_cpf = user.cpf;
+                                console.log('✅ CPF encontrado na tabela de usuários:', user.cpf);
+                            } else {
+                                console.warn('⚠️ Usuário não encontrado ou sem CPF cadastrado');
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('⚠️ Erro ao buscar CPF do usuário:', error);
+                        // Continua mesmo se não conseguir buscar o CPF
+                    }
+                }
+
+                // 3. Gera o PDF usando os dados do encaminhamento (com CPF atualizado)
                 await generateAdminReferralPDF(referral);
 
                 showToast("Enviando email...", "info");
 
-                // 3. Chama endpoint do backend para marcar como enviado
+                // 4. Chama endpoint do backend para marcar como enviado
                 const response = await fetch(`${BACKEND_URL}/api/referrals/${referralId}/send-email`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
@@ -2028,7 +2060,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
                 showToast("PDF gerado e email enviado com sucesso!", "success");
 
-                // 4. Atualiza a tabela (mantém visível)
+                // 5. Atualiza a tabela (mantém visível)
                 await renderReferralDashboard();
 
             } catch (error) {
