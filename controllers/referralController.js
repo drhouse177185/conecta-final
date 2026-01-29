@@ -43,12 +43,30 @@ exports.createReferral = async (req, res) => {
 
 exports.getAllReferrals = async (req, res) => {
     try {
-        // Busca sem include para evitar erro de relacionamento
+        // Busca com JOIN na tabela users para pegar o nome do paciente
         const list = await Referral.findAll({
             where: { status: 'pendente' },
-            order: [['created_at', 'DESC']]  // Usa snake_case como está no banco
+            include: [{
+                model: User,
+                as: 'user',  // Usa o alias definido nas associações
+                attributes: ['name'],
+                required: false  // LEFT JOIN - mantém encaminhamentos mesmo sem usuário
+            }],
+            order: [['created_at', 'DESC']]
         });
-        res.json(list);
+
+        // Formata a resposta para incluir o nome do usuário
+        const formattedList = list.map(referral => {
+            const data = referral.toJSON();
+            // Se patient_name não estiver preenchido, usa o nome do usuário relacionado
+            if (!data.patientName && data.user) {
+                data.patientName = data.user.name;
+            }
+            delete data.user; // Remove o objeto user aninhado
+            return data;
+        });
+
+        res.json(formattedList);
     } catch (error) {
         console.error("Erro ao listar encaminhamentos:", error);
         res.status(500).json({ error: 'Erro ao buscar encaminhamentos.' });
