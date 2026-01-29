@@ -46,7 +46,7 @@ exports.getAllReferrals = async (req, res) => {
         // Busca sem include para evitar erro de relacionamento
         const list = await Referral.findAll({
             where: { status: 'pendente' },
-            order: [['createdAt', 'DESC']]
+            order: [['created_at', 'DESC']]  // Usa snake_case como está no banco
         });
         res.json(list);
     } catch (error) {
