@@ -3430,20 +3430,41 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             showToast("Gerando PDF...", "info");
 
             try {
-                wrapper.innerHTML = getPDFHtmlContent(type, data);
-                
-                wrapper.style.position = 'absolute'; wrapper.style.top = '0'; wrapper.style.left = '0'; wrapper.style.opacity = '1'; wrapper.style.zIndex = '-9999';
-                await new Promise(r => setTimeout(r, 500));
+                // getPDFHtmlContent agora retorna um ARRAY de páginas
+                const pages = getPDFHtmlContent(type, data);
+
+                wrapper.style.position = 'absolute';
+                wrapper.style.top = '0';
+                wrapper.style.left = '0';
+                wrapper.style.opacity = '1';
+                wrapper.style.zIndex = '-9999';
 
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('p', 'mm', 'a4');
-                const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true });
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                const imgHeight = (canvas.height * 210) / canvas.width;
 
-                pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
+                // Processa cada página
+                for (let i = 0; i < pages.length; i++) {
+                    console.log(`📄 Gerando página ${i + 1}/${pages.length}...`);
+
+                    // Renderiza a página atual
+                    wrapper.innerHTML = pages[i];
+                    await new Promise(r => setTimeout(r, 500)); // Aguarda renderização
+
+                    // Captura como imagem
+                    const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true });
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                    const imgHeight = (canvas.height * 210) / canvas.width;
+
+                    // Adiciona nova página (exceto na primeira)
+                    if (i > 0) {
+                        pdf.addPage();
+                    }
+
+                    pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
+                }
+
                 pdf.save(`Laudo_${type}_${currentUser.name}.pdf`);
-                showToast("Download iniciado!", 'success');
+                showToast(`Download iniciado! ${pages.length} página(s) gerada(s).`, 'success');
 
             } catch(e) {
                 console.error(e);
@@ -3453,9 +3474,42 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             }
         }
 
+        // NOVA FUNÇÃO: Categoriza exames em Laboratório, Imagem e Gráficos
+        function categorizeExams(examList) {
+            const categories = {
+                laboratorio: [],
+                imagem: [],
+                grafico: []
+            };
+
+            // Palavras-chave para identificação automática
+            const imagemKeywords = ['mamografia', 'ultrassom', 'raio', 'tomografia', 'ressonância', 'densitometria', 'ecografia', 'usg', 'eco'];
+            const graficoKeywords = ['eletrocardiograma', 'ecg', 'eletroencefalograma', 'eeg', 'holter', 'mapa'];
+
+            examList.forEach(exam => {
+                const examLower = exam.toLowerCase();
+
+                // Verifica se é exame de imagem
+                if (imagemKeywords.some(keyword => examLower.includes(keyword))) {
+                    categories.imagem.push(exam);
+                }
+                // Verifica se é exame gráfico
+                else if (graficoKeywords.some(keyword => examLower.includes(keyword))) {
+                    categories.grafico.push(exam);
+                }
+                // Se não for nem imagem nem gráfico, é laboratório
+                else {
+                    categories.laboratorio.push(exam);
+                }
+            });
+
+            console.log('📊 Categorização de exames:', categories);
+            return categories;
+        }
+
         function getPDFHtmlContent(type, data) {
     const now = new Date().toLocaleDateString('pt-BR');
-    
+
     // Configuração do conteúdo baseado no tipo
     let title = "";
     let bodyContent = "";
@@ -3489,7 +3543,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         // Lógica para 'PRE' (Exames) ou 'PENDING' (Pendências)
         title = type === 'PRE' ? "SOLICITAÇÃO DE EXAMES" : "PENDÊNCIAS PRÉ-OPERATÓRIAS";
         const list = type === 'PRE' ? currentUser.lastGeneratedExams : missingExamsList;
-        
+
         bodyContent = `
             <div style="margin: 20px 0;">
                 <ul style="list-style-type: none; padding: 0;">
@@ -3503,8 +3557,72 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         `;
     }
 
-    // Retorna o HTML Completo usando a Assinatura Global
-    return `
+    // Função auxiliar para gerar uma página HTML
+    const generatePageHTML = (pageTitle, examList, pageHeaderColor) => {
+        return `
+            <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333; position: relative; height: 1123px; box-sizing: border-box;">
+                <!-- CABEÇALHO -->
+                <div style="text-align: center; border-bottom: 3px solid ${pageHeaderColor}; padding-bottom: 20px; margin-bottom: 30px;">
+                    <h1 style="color: ${pageHeaderColor}; margin: 0; font-size: 24px; font-weight: 900;">CONECTA SAÚDE</h1>
+                    <p style="margin: 5px 0 0; font-size: 12px; color: #64748b;">Dr. Tiago Fernandes | Clínica Médica</p>
+                </div>
+
+                <!-- IDENTIFICAÇÃO -->
+                <div style="background: #f8fafc; padding: 15px; margin-bottom: 30px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <p style="margin: 0 0 5px 0; font-size: 13px;"><strong>Paciente:</strong> ${currentUser.name}</p>
+                    <p style="margin: 0; font-size: 13px;"><strong>CPF:</strong> ${currentUser.cpf || '---'} | <strong>Data:</strong> ${now}</p>
+                </div>
+
+                <!-- TÍTULO -->
+                <div style="background-color: ${pageHeaderColor}; color: white; padding: 10px 15px; margin-bottom: 25px; font-weight: bold; font-size: 15px; border-radius: 4px;">
+                    ${pageTitle}
+                </div>
+
+                <!-- CONTEÚDO - LISTA DE EXAMES -->
+                <div style="margin: 20px 0;">
+                    <ul style="list-style-type: none; padding: 0;">
+                        ${examList.map(e => `
+                            <li style="padding: 10px; border-bottom: 1px dashed #cbd5e1; font-size: 13px; display: flex; align-items: center;">
+                                <span style="color: ${pageHeaderColor}; margin-right: 10px; font-weight: bold;">•</span> ${e}
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+
+                <!-- RODAPÉ COM ASSINATURA GLOBAL -->
+                <div style="position: absolute; bottom: 60px; left: 50px; right: 50px;">
+                    ${OFFICIAL_SIGNATURE_TEMPLATE}
+                </div>
+            </div>
+        `;
+    };
+
+    // SE for PRE (Exames), retorna ARRAY de páginas separadas por categoria
+    if (type === 'PRE') {
+        const examList = currentUser.lastGeneratedExams;
+        const categorized = categorizeExams(examList);
+        const pages = [];
+
+        // Página 1: Exames Laboratoriais
+        if (categorized.laboratorio.length > 0) {
+            pages.push(generatePageHTML('SOLICITAÇÃO DE EXAMES - LABORATÓRIO', categorized.laboratorio, '#1e3a8a')); // Azul
+        }
+
+        // Página 2: Exames de Imagem
+        if (categorized.imagem.length > 0) {
+            pages.push(generatePageHTML('SOLICITAÇÃO DE EXAMES - IMAGEM', categorized.imagem, '#7c3aed')); // Roxo
+        }
+
+        // Página 3: Exames Gráficos
+        if (categorized.grafico.length > 0) {
+            pages.push(generatePageHTML('SOLICITAÇÃO DE EXAMES - GRÁFICOS', categorized.grafico, '#dc2626')); // Vermelho
+        }
+
+        return pages; // Retorna ARRAY de páginas
+    }
+
+    // PARA OUTROS TIPOS (PREOP_CLEARANCE, PENDING), retorna página única
+    return [`
         <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333; position: relative; height: 1123px; box-sizing: border-box;">
             <!-- CABEÇALHO -->
             <div style="text-align: center; border-bottom: 3px solid ${headerColor}; padding-bottom: 20px; margin-bottom: 30px;">
@@ -3522,16 +3640,16 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             <div style="background-color: ${headerColor}; color: white; padding: 10px 15px; margin-bottom: 25px; font-weight: bold; font-size: 15px; border-radius: 4px;">
                 ${title}
             </div>
-            
+
             <!-- CONTEÚDO ESPECÍFICO -->
             ${bodyContent}
-            
+
             <!-- RODAPÉ COM ASSINATURA GLOBAL -->
             <div style="position: absolute; bottom: 60px; left: 50px; right: 50px;">
                 ${OFFICIAL_SIGNATURE_TEMPLATE}
             </div>
         </div>
-    `;
+    `];
 }
 
         // Função auxiliar para gerar Blob (para compartilhamento)
@@ -3540,20 +3658,40 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             let data = {};
             if (type === 'PREOP_CLEARANCE') data = currentUser.lastPreOpResult;
 
-            wrapper.innerHTML = getPDFHtmlContent(type, data);
-            wrapper.style.position = 'absolute'; wrapper.style.top = '0'; wrapper.style.left = '0'; wrapper.style.opacity = '1'; wrapper.style.zIndex = '-9999';
-            await new Promise(r => setTimeout(r, 500));
+            // getPDFHtmlContent agora retorna um ARRAY de páginas
+            const pages = getPDFHtmlContent(type, data);
+
+            wrapper.style.position = 'absolute';
+            wrapper.style.top = '0';
+            wrapper.style.left = '0';
+            wrapper.style.opacity = '1';
+            wrapper.style.zIndex = '-9999';
 
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF('p', 'mm', 'a4');
-            const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true });
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
-            const imgHeight = (canvas.height * 210) / canvas.width;
-            pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
+
+            // Processa cada página
+            for (let i = 0; i < pages.length; i++) {
+                // Renderiza a página atual
+                wrapper.innerHTML = pages[i];
+                await new Promise(r => setTimeout(r, 500)); // Aguarda renderização
+
+                // Captura como imagem
+                const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true });
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                const imgHeight = (canvas.height * 210) / canvas.width;
+
+                // Adiciona nova página (exceto na primeira)
+                if (i > 0) {
+                    pdf.addPage();
+                }
+
+                pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
+            }
 
             // Limpa
             wrapper.innerHTML = "";
-            
+
             // Retorna File Object
             return new File([pdf.output('blob')], `Laudo_${type}.pdf`, { type: "application/pdf" });
         }
