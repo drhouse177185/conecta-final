@@ -2057,8 +2057,15 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
             console.log('📊 Dados extraídos:', { patientName, cpf, specialty, now });
 
+            // Verifica se OFFICIAL_SIGNATURE_TEMPLATE está definido
+            if (typeof OFFICIAL_SIGNATURE_TEMPLATE === 'undefined') {
+                console.error('❌ OFFICIAL_SIGNATURE_TEMPLATE não está definido!');
+                showToast("Erro: Template de assinatura não encontrado", "error");
+                return;
+            }
+
             // Template HTML MÍNIMO E DIRETO
-            wrapper.innerHTML = `
+            const htmlContent = `
                 <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #1a1a1a; max-width: 800px;">
 
                     <!-- Cabeçalho Conecta Saúde -->
@@ -2122,11 +2129,28 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 </div>
             `;
 
+            // Injeta o HTML no wrapper
+            wrapper.innerHTML = htmlContent;
+
             console.log('📝 HTML injetado no wrapper');
+            console.log('📏 Tamanho do HTML:', htmlContent.length, 'caracteres');
+            console.log('📄 Primeiros 500 caracteres do HTML:', htmlContent.substring(0, 500));
+
+            // Torna o wrapper VISÍVEL temporariamente para debug
+            wrapper.style.display = 'block';
+            wrapper.style.position = 'fixed';
+            wrapper.style.top = '0';
+            wrapper.style.left = '0';
+            wrapper.style.zIndex = '99999';
+            wrapper.style.backgroundColor = 'white';
+            wrapper.style.overflow = 'auto';
+            wrapper.style.maxHeight = '100vh';
+
+            console.log('👁️ Wrapper está visível agora - verifique a tela!');
 
             try {
-                // Aguarda um momento para garantir que o DOM foi atualizado
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // Aguarda 2 segundos para ver o conteúdo
+                await new Promise(resolve => setTimeout(resolve, 2000));
 
                 console.log('🎨 Iniciando html2canvas...');
 
