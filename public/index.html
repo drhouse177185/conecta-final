@@ -1865,10 +1865,10 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                         ? '<span class="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full ml-2"><i class="fa-solid fa-check mr-1"></i>Enviado</span>'
                         : '<span class="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded-full ml-2"><i class="fa-solid fa-clock mr-1"></i>Pendente</span>';
 
-                    // Botão de enviar desabilitado se já foi enviado
-                    const sendButtonDisabled = isEnviado ? 'disabled opacity-50 cursor-not-allowed' : '';
+                    // Botão sempre habilitado - admin pode reenviar se necessário
+                    const sendButtonText = isEnviado ? 'Reenviar Email AME' : 'Enviar Email AME';
                     const sendButtonClass = isEnviado
-                        ? 'bg-gray-400 text-white'
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
                         : 'bg-green-600 hover:bg-green-700 text-white';
 
                     return `
@@ -1886,9 +1886,8 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end space-x-2">
                                 <button onclick="sendReferralEmail(${ref.id}, '${patientNameSafe}', '${specialtySafe}')"
-                                        ${sendButtonDisabled}
-                                        class="${sendButtonClass} font-bold py-1.5 px-4 rounded text-xs shadow flex items-center">
-                                    <i class="fa-solid fa-paper-plane mr-2"></i> ${isEnviado ? 'Já Enviado' : 'Enviar Email AME'}
+                                        class="${sendButtonClass} font-bold py-1.5 px-4 rounded text-xs shadow flex items-center transition">
+                                    <i class="fa-solid fa-paper-plane mr-2"></i> ${sendButtonText}
                                 </button>
                                 <button onclick="deleteReferral(${ref.id})"
                                         class="bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-4 rounded text-xs shadow flex items-center">
