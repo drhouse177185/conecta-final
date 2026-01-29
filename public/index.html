@@ -2037,19 +2037,27 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             }
         }
 
-        // Gera PDF de encaminhamento SIMPLIFICADO para AME (apenas informações essenciais)
+        // Gera PDF de encaminhamento para AME - VERSÃO MINIMALISTA
         async function generateAdminReferralPDF(referral) {
+            console.log('🔍 INICIANDO geração de PDF:', referral);
+
             const wrapper = document.getElementById('pdf-content-wrapper');
+            if (!wrapper) {
+                console.error('❌ Elemento pdf-content-wrapper não encontrado!');
+                showToast("Erro: wrapper não encontrado", "error");
+                return;
+            }
+
             const now = new Date().toLocaleDateString('pt-BR');
 
-            // APENAS 3 dados do banco: nome, CPF e especialidade (resto é texto fixo)
+            // APENAS 3 dados: nome, CPF e especialidade
             const patientName = referral.patient_name || 'Paciente';
             const cpf = referral.patient_cpf || 'Não informado';
             const specialty = referral.specialty || 'Não especificado';
 
-            console.log('📄 Gerando PDF estático AME:', { patientName, cpf, specialty });
+            console.log('📊 Dados extraídos:', { patientName, cpf, specialty, now });
 
-            // Template HTML SIMPLIFICADO - modelo direto para AME
+            // Template HTML MÍNIMO E DIRETO
             wrapper.innerHTML = `
                 <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #1a1a1a; max-width: 800px;">
 
@@ -2114,28 +2122,42 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 </div>
             `;
 
+            console.log('📝 HTML injetado no wrapper');
+
             try {
-                // Renderiza o HTML para Canvas e depois para PDF
+                // Aguarda um momento para garantir que o DOM foi atualizado
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                console.log('🎨 Iniciando html2canvas...');
+
+                // Renderiza o HTML para Canvas
                 const canvas = await html2canvas(wrapper, {
                     scale: 2,
                     useCORS: true,
-                    logging: false,
-                    backgroundColor: '#ffffff'
+                    logging: true,  // Ativa logs para debug
+                    backgroundColor: '#ffffff',
+                    allowTaint: true,
+                    foreignObjectRendering: false
                 });
+
+                console.log('✅ Canvas gerado:', canvas.width, 'x', canvas.height);
 
                 const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
                 const imgData = canvas.toDataURL('image/jpeg', 1.0);
                 const imgWidth = 210;
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
+                console.log('📄 Adicionando imagem ao PDF:', imgWidth, 'x', imgHeight, 'mm');
+
                 pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
 
-                const fileName = `Encaminhamento_${specialty}_${patientName.split(' ')[0]}.pdf`;
+                const fileName = `Encaminhamento_${specialty.replace(/[^a-zA-Z0-9]/g, '_')}_${patientName.split(' ')[0]}.pdf`;
 
                 // Salva o PDF localmente
+                console.log('💾 Salvando PDF:', fileName);
                 pdf.save(fileName);
+                console.log('✅ PDF salvo!');
 
-                console.log('✅ PDF gerado com sucesso!');
                 showToast("PDF gerado com sucesso!", 'success');
 
                 // Gera blob do PDF para compartilhamento
@@ -2163,10 +2185,12 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     openGmailComposer(patientName, specialty, cpf);
                 }
             } catch(e) {
-                console.error('❌ Erro ao gerar PDF:', e);
-                showToast("Erro ao gerar PDF.", "error");
+                console.error('❌ ERRO CRÍTICO ao gerar PDF:', e);
+                console.error('Stack trace:', e.stack);
+                showToast("Erro ao gerar PDF: " + e.message, "error");
                 throw e;
             } finally {
+                console.log('🧹 Limpando wrapper');
                 wrapper.innerHTML = "";
             }
         }
