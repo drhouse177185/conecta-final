@@ -2064,68 +2064,41 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 return;
             }
 
-            // Template HTML MÍNIMO E DIRETO
+            // TESTE SUPER SIMPLES - APENAS TEXTO SEM ESTILOS COMPLEXOS
             const htmlContent = `
-                <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #1a1a1a; max-width: 800px;">
+                <div style="background: white; padding: 40px; font-family: Arial, sans-serif; color: black; width: 700px;">
 
-                    <!-- Cabeçalho Conecta Saúde -->
-                    <div style="text-align: center; border-bottom: 3px solid #2c5aa0; padding-bottom: 20px; margin-bottom: 40px;">
-                        <h1 style="color: #2c5aa0; font-size: 28px; margin: 0; font-weight: bold; letter-spacing: 1px;">CONECTA SAÚDE</h1>
-                        <p style="color: #666; margin: 8px 0 0; font-size: 14px; font-weight: 500;">SISTEMA INTEGRADO DE DIAGNÓSTICO</p>
+                    <h1 style="color: blue; text-align: center; font-size: 32px;">CONECTA SAÚDE</h1>
+                    <p style="text-align: center; font-size: 16px;">Sistema Integrado de Diagnóstico</p>
+
+                    <hr style="border: 2px solid blue; margin: 30px 0;">
+
+                    <h2 style="font-size: 24px; color: black;">ENCAMINHAMENTO</h2>
+
+                    <p style="font-size: 18px; margin: 10px 0;"><strong>PACIENTE:</strong> ${patientName}</p>
+                    <p style="font-size: 18px; margin: 10px 0;"><strong>CPF:</strong> ${cpf}</p>
+                    <p style="font-size: 18px; margin: 10px 0;"><strong>DATA:</strong> ${now}</p>
+
+                    <hr style="border: 1px solid gray; margin: 30px 0;">
+
+                    <h3 style="font-size: 20px; color: blue;">ESPECIALIDADE INDICADA:</h3>
+                    <p style="font-size: 22px; font-weight: bold;">${specialty}</p>
+
+                    <hr style="border: 1px solid gray; margin: 30px 0;">
+
+                    <p style="font-size: 16px; line-height: 1.6;">
+                        Prezados,<br><br>
+                        Solicito gentilmente o agendamento de consulta com especialista em <strong>${specialty}</strong>
+                        para o paciente acima identificado.<br><br>
+                        Atenciosamente,
+                    </p>
+
+                    <div style="margin-top: 60px; text-align: center;">
+                        <hr style="border: 1px solid black; width: 300px;">
+                        <p style="font-size: 16px; font-weight: bold;">Dr. Tiago Fernandes</p>
+                        <p style="font-size: 14px;">CRM 177.185</p>
                     </div>
 
-                    <!-- Dados do Paciente -->
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; border-left: 4px solid #2c5aa0;">
-                        <table style="width: 100%; font-size: 15px; line-height: 2;">
-                            <tr>
-                                <td style="padding: 5px 0; font-weight: 600; color: #333;">PACIENTE</td>
-                                <td style="padding: 5px 0; text-align: right; color: #1a1a1a;">${patientName}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 5px 0; font-weight: 600; color: #333;">CPF</td>
-                                <td style="padding: 5px 0; text-align: right; color: #1a1a1a;">${cpf}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 5px 0; font-weight: 600; color: #333;">DATA EMISSÃO</td>
-                                <td style="padding: 5px 0; text-align: right; color: #1a1a1a;">${now}</td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <!-- Título do Encaminhamento -->
-                    <div style="background: #2c5aa0; color: white; padding: 20px; margin-bottom: 30px; border-radius: 8px; text-align: center;">
-                        <h2 style="margin: 0; font-size: 18px; font-weight: bold; letter-spacing: 0.5px;">ORIENTAÇÃO DE SAÚDE E ENCAMINHAMENTO</h2>
-                    </div>
-
-                    <!-- Especialidade -->
-                    <div style="margin-bottom: 30px;">
-                        <p style="margin: 0 0 10px 0; font-size: 14px; color: #666; font-weight: 600;">Ao(A): Especialista em</p>
-                        <p style="margin: 0; font-size: 18px; color: #2c5aa0; font-weight: bold;">${specialty.toUpperCase()}</p>
-                    </div>
-
-                    <!-- Justificativa - TEXTO FIXO -->
-                    <div style="margin-bottom: 40px; padding: 25px; background: #e8f4f8; border-left: 4px solid #2c5aa0; border-radius: 5px;">
-                        <p style="margin: 0 0 12px 0; font-weight: bold; color: #1a1a1a; font-size: 15px;">Justificativa Clínica</p>
-                        <p style="margin: 0; font-size: 14px; line-height: 1.8; color: #333;">Solicitação de avaliação e conduta especializada.</p>
-                    </div>
-
-                    <!-- Solicitação ao AME -->
-                    <div style="margin-bottom: 50px; padding: 20px; background: #f0f9ff; border: 2px solid #2c5aa0; border-radius: 8px;">
-                        <p style="margin: 0; font-size: 14px; line-height: 1.8; color: #1a1a1a;">
-                            Prezados,<br><br>
-                            Solicito gentilmente o agendamento de consulta com especialista em <strong>${specialty}</strong> para o paciente acima identificado.<br><br>
-                            Atenciosamente,
-                        </p>
-                    </div>
-
-                    <!-- Assinatura -->
-                    ${OFFICIAL_SIGNATURE_TEMPLATE}
-
-                    <!-- Rodapé -->
-                    <div style="margin-top: 50px; padding-top: 20px; border-top: 2px solid #e0e0e0; text-align: center;">
-                        <p style="font-size: 11px; color: #999; margin: 5px 0;">Documento gerado digitalmente pelo Sistema Conecta Saúde em ${now}</p>
-                        <p style="font-size: 11px; color: #999; margin: 5px 0;">Assinado Digitalmente • Conecta Saúde</p>
-                    </div>
                 </div>
             `;
 
@@ -2151,10 +2124,15 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             wrapper.style.maxHeight = '90vh';
 
             console.log('👁️ Wrapper está visível agora - verifique a tela!');
+            console.log('📋 Conteúdo do wrapper (primeiros 200 chars):', wrapper.innerHTML.substring(0, 200));
+            console.log('📐 Dimensões do wrapper:', wrapper.offsetWidth, 'x', wrapper.offsetHeight);
 
             try {
-                // Aguarda 2 segundos para ver o conteúdo
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // PAUSA FORÇADA COM ALERT - Você DEVE ver a caixa vermelha
+                alert('⚠️ DEBUG: Verifique se você vê uma CAIXA BRANCA com BORDA VERMELHA na tela agora. Clique OK para continuar.');
+
+                // Aguarda mais 1 segundo
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
                 console.log('🎨 Iniciando html2canvas...');
 
