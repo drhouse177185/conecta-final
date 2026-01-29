@@ -24,14 +24,15 @@ exports.createReferral = async (req, res) => {
 
         // PROTEÇÃO CONTRA DUPLICATAS: Verifica se já existe encaminhamento recente (últimos 5 minutos)
         if (userId && specialty) {
+            const { Op } = require('sequelize');
             const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
             const existingReferral = await Referral.findOne({
                 where: {
                     userId,
                     specialty,
                     status: 'pendente',
-                    createdAt: {
-                        [require('sequelize').Op.gte]: fiveMinutesAgo
+                    created_at: {
+                        [Op.gte]: fiveMinutesAgo
                     }
                 }
             });

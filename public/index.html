@@ -2202,10 +2202,39 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
                 pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-                pdf.save(`Encaminhamento_${specialty}_${patientName.split(' ')[0]}.pdf`);
+
+                const fileName = `Encaminhamento_${specialty}_${patientName.split(' ')[0]}.pdf`;
+
+                // Salva o PDF localmente
+                pdf.save(fileName);
 
                 console.log('✅ PDF gerado com sucesso!');
                 showToast("PDF gerado com sucesso!", 'success');
+
+                // Gera blob do PDF para compartilhamento
+                const pdfBlob = pdf.output('blob');
+
+                // Tenta usar Web Share API se disponível
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], fileName, { type: 'application/pdf' })] })) {
+                    const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+                    try {
+                        await navigator.share({
+                            title: `Encaminhamento - ${patientName}`,
+                            text: `Encaminhamento para ${specialty}`,
+                            files: [pdfFile]
+                        });
+                        console.log('✅ PDF compartilhado com sucesso');
+                    } catch (shareError) {
+                        if (shareError.name !== 'AbortError') {
+                            console.log('Compartilhamento cancelado ou não suportado');
+                            openGmailComposer(patientName, specialty, cpf);
+                        }
+                    }
+                } else {
+                    // Fallback: abre Gmail composer
+                    openGmailComposer(patientName, specialty, cpf);
+                }
             } catch(e) {
                 console.error('❌ Erro ao gerar PDF:', e);
                 showToast("Erro ao gerar PDF.", "error");
@@ -2213,6 +2242,36 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             } finally {
                 wrapper.innerHTML = "";
             }
+        }
+
+        // Abre Gmail Composer com dados pré-preenchidos
+        function openGmailComposer(patientName, specialty, cpf) {
+            const subject = encodeURIComponent(`Encaminhamento AME - ${patientName} - ${specialty}`);
+            const body = encodeURIComponent(
+`Prezados,
+
+Segue encaminhamento do paciente ${patientName} para a especialidade de ${specialty}.
+
+Dados do Paciente:
+- Nome: ${patientName}
+- CPF: ${cpf}
+- Especialidade: ${specialty}
+
+O PDF com detalhes completos do encaminhamento foi gerado e está disponível para download.
+
+Por favor, anexe o arquivo PDF baixado a este email antes de enviar.
+
+Atenciosamente,
+Dr. Tiago Fernandes
+Sistema Conecta Saúde`
+            );
+
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=&su=${subject}&body=${body}`;
+
+            // Abre em nova aba
+            window.open(gmailUrl, '_blank');
+
+            showToast("Gmail aberto! Anexe o PDF baixado ao email.", "info");
         }
 
         // NOVA FUNÇÃO: Exclui/cancela um encaminhamento
