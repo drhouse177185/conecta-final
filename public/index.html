@@ -3501,23 +3501,107 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 grafico: []
             };
 
-            // Palavras-chave para identificação automática
-            const imagemKeywords = ['mamografia', 'ultrassom', 'raio', 'tomografia', 'ressonância', 'densitometria', 'ecografia', 'usg', 'eco'];
-            const graficoKeywords = ['eletrocardiograma', 'ecg', 'eletroencefalograma', 'eeg', 'holter', 'mapa'];
+            // PASSO 1: Filtrar ações/orientações/avaliações (não são exames)
+            const actionKeywords = [
+                'reavaliação', 'reavaliar', 'reavaliacao',
+                'avaliação', 'avaliar', 'avaliacao',
+                'orientação', 'orientacao',
+                'acompanhamento',
+                'seguimento',
+                'retorno',
+                'consulta',
+                'encaminhamento',
+                'monitoramento',
+                'repetir em',
+                'refazer'
+            ];
+
+            // Palavras-chave para EXAMES LABORATORIAIS
+            const laboratorioKeywords = [
+                'hemograma', 'sangue', 'glicemia', 'glicose',
+                'colesterol', 'triglicerídeo', 'triglicerideos', 'lipidograma',
+                'creatinina', 'ureia', 'função renal', 'funcao renal',
+                'tgo', 'tgp', 'transaminase', 'hepatograma',
+                'urina', 'eas', 'urina tipo 1',
+                'hemoglobina glicada', 'hba1c',
+                'coagulograma', 'tap', 'ttpa', 'inr', 'coagulação', 'coagulacao',
+                'fezes', 'parasitológico', 'parasitologico', 'coprocultura', 'protoparasitológico', 'protoparasitologico',
+                'hiv', 'hepatite', 'sorologia',
+                'tsh', 'hormônio', 'hormonio', 't4', 't3',
+                'vitamina', 'ferro', 'ferritina',
+                'proteína', 'proteina', 'albumina',
+                'eletrólito', 'eletrolito', 'sódio', 'sodio', 'potássio', 'potassio',
+                'cultura', 'antibiograma',
+                'pcr', 'vhs', 'proteína c reativa',
+                'ácido úrico', 'acido urico',
+                'psa',
+                'beta hcg',
+                'tipagem sanguínea', 'tipagem sanguinea'
+            ];
+
+            // Palavras-chave para EXAMES DE IMAGEM (refinadas - sem 'eco' genérico)
+            const imagemKeywords = [
+                'mamografia',
+                'ultrassom', 'ultrassonografia', 'usg',
+                'raio-x', 'raio x', 'radiografia', 'rx ',
+                'tomografia', 'tc ',
+                'ressonância', 'ressonancia', 'rm ',
+                'densitometria',
+                'ecografia',
+                'ecocardiograma', 'ecocardiografia',  // Específico, não genérico 'eco'
+                'doppler',
+                'angiografia',
+                'cintilografia',
+                'pet scan', 'pet-ct'
+            ];
+
+            // Palavras-chave para EXAMES GRÁFICOS
+            const graficoKeywords = [
+                'eletrocardiograma', 'ecg',
+                'eletroencefalograma', 'eeg',
+                'holter',
+                'mapa', 'mapa 24h',
+                'espirometria',
+                'ergométrico', 'teste ergométrico', 'teste ergometrico'
+            ];
 
             examList.forEach(exam => {
                 const examLower = exam.toLowerCase();
 
-                // Verifica se é exame de imagem
-                if (imagemKeywords.some(keyword => examLower.includes(keyword))) {
-                    categories.imagem.push(exam);
+                // FILTRO: Remove ações/orientações
+                const isAction = actionKeywords.some(keyword => {
+                    // Verifica se a palavra-chave aparece no início ou de forma destacada
+                    return examLower.startsWith(keyword) ||
+                           examLower.includes(` ${keyword} `) ||
+                           examLower.includes(` ${keyword},`);
+                });
+
+                if (isAction) {
+                    console.log(`🚫 Filtrado (ação/orientação): "${exam}"`);
+                    return; // Não adiciona em nenhuma categoria
                 }
-                // Verifica se é exame gráfico
-                else if (graficoKeywords.some(keyword => examLower.includes(keyword))) {
+
+                // Categoriza exames válidos
+                let categorized = false;
+
+                // 1. Verifica se é exame GRÁFICO (prioridade alta)
+                if (graficoKeywords.some(keyword => examLower.includes(keyword))) {
                     categories.grafico.push(exam);
+                    categorized = true;
                 }
-                // Se não for nem imagem nem gráfico, é laboratório
+                // 2. Verifica se é exame de IMAGEM
+                else if (imagemKeywords.some(keyword => examLower.includes(keyword))) {
+                    categories.imagem.push(exam);
+                    categorized = true;
+                }
+                // 3. Verifica se é exame LABORATORIAL (palavras-chave específicas)
+                else if (laboratorioKeywords.some(keyword => examLower.includes(keyword))) {
+                    categories.laboratorio.push(exam);
+                    categorized = true;
+                }
+                // 4. Padrão: Se não identificou, assume LABORATÓRIO (maioria dos exames)
                 else {
+                    console.log(`⚠️ Exame não identificado, assumindo Laboratório: "${exam}"`);
                     categories.laboratorio.push(exam);
                 }
             });
