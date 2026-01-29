@@ -1822,9 +1822,32 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             try {
                 // Busca encaminhamentos reais do banco de dados
                 const response = await fetch(`${BACKEND_URL}/api/referrals`);
+
+                // Verifica se a resposta HTTP foi bem sucedida
+                if (!response.ok) {
+                    console.error('Erro HTTP:', response.status);
+                    container.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-red-500">Erro ao carregar dados do servidor (HTTP ${response.status})</td></tr>`;
+                    return;
+                }
+
                 const referrals = await response.json();
 
-                if (!referrals || referrals.length === 0) {
+                // Verifica se retornou um erro do backend
+                if (referrals.error) {
+                    console.error('Erro do backend:', referrals.error);
+                    container.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-red-500">Erro: ${referrals.error}</td></tr>`;
+                    return;
+                }
+
+                // Verifica se é um array válido
+                if (!Array.isArray(referrals)) {
+                    console.error('Resposta inválida - não é um array:', referrals);
+                    container.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-red-500">Formato de dados inválido</td></tr>`;
+                    return;
+                }
+
+                // Verifica se há encaminhamentos
+                if (referrals.length === 0) {
                     container.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">Nenhum encaminhamento pendente no momento.</td></tr>`;
                     return;
                 }
@@ -1832,6 +1855,9 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 // Renderiza cada encaminhamento como uma linha individual
                 container.innerHTML = referrals.map(ref => {
                     const firstName = ref.patient_name ? ref.patient_name.split(' ')[0] : 'Paciente';
+                    const patientNameSafe = (ref.patient_name || 'Paciente').replace(/'/g, "\\'");
+                    const specialtySafe = (ref.specialty || 'N/A').replace(/'/g, "\\'");
+
                     return `
                     <tr class="hover:bg-purple-50 transition">
                         <td class="px-6 py-4 whitespace-nowrap font-bold text-purple-900 flex items-center">
@@ -1839,11 +1865,11 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                             ${firstName}
                         </td>
                         <td class="px-6 py-4 text-center">
-                            <span class="bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full">${ref.specialty}</span>
+                            <span class="bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full">${ref.specialty || 'N/A'}</span>
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end space-x-2">
-                                <button onclick="sendReferralEmail(${ref.id}, '${ref.patient_name}', '${ref.specialty}')"
+                                <button onclick="sendReferralEmail(${ref.id}, '${patientNameSafe}', '${specialtySafe}')"
                                         class="bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-4 rounded text-xs shadow flex items-center">
                                     <i class="fa-solid fa-paper-plane mr-2"></i> Enviar Email AME
                                 </button>

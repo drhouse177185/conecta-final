@@ -43,17 +43,14 @@ exports.createReferral = async (req, res) => {
 
 exports.getAllReferrals = async (req, res) => {
     try {
+        // Busca sem include para evitar erro de relacionamento
         const list = await Referral.findAll({
-            include: [{
-                model: User,
-                attributes: ['email', 'nome']
-            }],
             where: { status: 'pendente' },
             order: [['createdAt', 'DESC']]
         });
         res.json(list);
     } catch (error) {
-        console.error("Erro ao listar:", error);
+        console.error("Erro ao listar encaminhamentos:", error);
         res.status(500).json({ error: 'Erro ao buscar encaminhamentos.' });
     }
 };
@@ -66,12 +63,7 @@ exports.sendEmail = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const referral = await Referral.findByPk(id, {
-            include: [{
-                model: User,
-                attributes: ['email', 'nome']
-            }]
-        });
+        const referral = await Referral.findByPk(id);
 
         if (!referral) {
             return res.status(404).json({ error: 'Encaminhamento não encontrado' });
