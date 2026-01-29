@@ -96,8 +96,15 @@ exports.getAllReferrals = async (req, res) => {
             // Define patient_name (formato esperado pelo frontend)
             data.patient_name = currentName || userName || 'Paciente';
 
+            // Garante que referral_pdf_data está no formato correto
+            // Sequelize pode retornar como referralPdfData ou referral_pdf_data
+            if (!data.referral_pdf_data && data.referralPdfData) {
+                data.referral_pdf_data = data.referralPdfData;
+            }
+
             // Remove campos duplicados e objeto user
             delete data.patientName;
+            delete data.referralPdfData; // Remove versão camelCase
             delete data.user;
 
             return data;

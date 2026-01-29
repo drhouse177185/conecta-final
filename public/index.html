@@ -2048,57 +2048,142 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             const cpf = referral.patient_cpf || 'Não informado';
             const specialty = referral.specialty || 'Não especificado';
             const reason = referral.reason || 'Avaliação especializada';
+            const diagnosticPossibilities = referral.diagnostic_possibilities || '';
             const pdfData = referral.referral_pdf_data || {};
 
-            // Template HTML do PDF (modelo profissional de encaminhamento)
-            wrapper.innerHTML = `
-                <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333;">
-                    <div style="text-align: center; border-bottom: 3px solid #6b21a8; padding-bottom: 20px; margin-bottom: 30px;">
-                        <h1 style="color: #6b21a8; font-size: 22px; margin: 0; font-weight: bold;">ENCAMINHAMENTO MÉDICO</h1>
-                        <p style="margin: 5px 0 0; font-size: 14px; color: #666;">Dr. Tiago Fernandes - CRM 123.456</p>
-                        <p style="margin: 5px 0 0; font-size: 12px; color: #666;">Clínica Médica e Nefrologia</p>
-                    </div>
+            console.log('📄 Dados do encaminhamento para PDF:', { patientName, specialty, pdfData });
 
-                    <div style="margin-bottom: 20px;">
-                        <p style="margin: 5px 0; font-size: 14px;"><strong>Paciente:</strong> ${patientName}</p>
-                        <p style="margin: 5px 0; font-size: 14px;"><strong>CPF:</strong> ${cpf}</p>
-                        <p style="margin: 5px 0; font-size: 14px;"><strong>Data:</strong> ${now}</p>
-                    </div>
-
-                    <div style="background: #6b21a8; color: white; padding: 12px 20px; margin-bottom: 20px; font-weight: bold; font-size: 15px;">
-                        ENCAMINHAMENTO PARA: ${specialty.toUpperCase()}
-                    </div>
-
-                    <div style="margin-bottom: 25px; padding: 20px; background: #f9fafb; border-left: 4px solid #6b21a8;">
-                        <p style="margin: 0 0 10px 0; font-weight: bold; color: #6b21a8;">Motivo do Encaminhamento:</p>
-                        <p style="margin: 0; font-size: 13px; line-height: 1.7;">${reason}</p>
-                    </div>
-
-                    ${pdfData.summary ? `
+            // Formata achados clínicos se for array
+            let findingsHTML = '';
+            if (pdfData.findings && Array.isArray(pdfData.findings)) {
+                findingsHTML = `
                     <div style="margin-bottom: 25px;">
-                        <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">Resumo Clínico:</p>
-                        <p style="margin: 0; font-size: 13px; line-height: 1.7; white-space: pre-wrap;">${pdfData.summary}</p>
+                        <p style="margin: 0 0 10px 0; font-weight: bold; color: #333; font-size: 14px;">Achados Clínicos:</p>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px;">
+                            <thead>
+                                <tr style="background-color: #f3f4f6;">
+                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Exame</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Resultado</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Status</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Observação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${pdfData.findings.map(finding => {
+                                    const isAbnormal = finding.status && finding.status.toLowerCase().includes('alterado');
+                                    const statusColor = isAbnormal ? '#dc2626' : '#16a34a';
+                                    return `
+                                    <tr>
+                                        <td style="border: 1px solid #ddd; padding: 8px;"><strong>${finding.item || ''}</strong></td>
+                                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${finding.value || '-'}</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center; color: ${statusColor}; font-weight: bold;">${finding.status || '-'}</td>
+                                        <td style="border: 1px solid #ddd; padding: 8px; font-size: 11px;">${finding.explanation || '-'}</td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
                     </div>
-                    ` : ''}
-
-                    ${pdfData.findings ? `
+                `;
+            } else if (typeof pdfData.findings === 'string' && pdfData.findings.trim()) {
+                findingsHTML = `
                     <div style="margin-bottom: 25px;">
                         <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">Achados Clínicos:</p>
                         <p style="margin: 0; font-size: 13px; line-height: 1.7; white-space: pre-wrap;">${pdfData.findings}</p>
                     </div>
-                    ` : ''}
+                `;
+            }
 
-                    ${pdfData.recommendedProcedures ? `
+            // Formata procedimentos recomendados
+            let proceduresHTML = '';
+            if (pdfData.recommendedProcedures) {
+                if (Array.isArray(pdfData.recommendedProcedures)) {
+                    proceduresHTML = `
+                        <div style="margin-bottom: 25px;">
+                            <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">Procedimentos Recomendados:</p>
+                            <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.8;">
+                                ${pdfData.recommendedProcedures.map(proc => `<li>${proc}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    proceduresHTML = `
+                        <div style="margin-bottom: 25px;">
+                            <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">Procedimentos Recomendados:</p>
+                            <p style="margin: 0; font-size: 13px; line-height: 1.7; white-space: pre-wrap;">${pdfData.recommendedProcedures}</p>
+                        </div>
+                    `;
+                }
+            }
+
+            // Template HTML do PDF com marca Conecta Saúde
+            wrapper.innerHTML = `
+                <div class="pdf-report" style="background: white; padding: 40px; font-family: 'Arial', sans-serif; color: #333; max-width: 800px;">
+                    <!-- Cabeçalho com Logo Conecta Saúde -->
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px; margin-bottom: 15px;">
+                            <h1 style="color: white; font-size: 24px; margin: 0; font-weight: bold; letter-spacing: 1px;">CONECTA SAÚDE</h1>
+                            <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0; font-size: 12px;">SISTEMA INTEGRADO DE DIAGNÓSTICO</p>
+                        </div>
+                    </div>
+
+                    <!-- Dados do Paciente -->
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <table style="width: 100%; font-size: 14px;">
+                            <tr>
+                                <td style="padding: 5px 0;"><strong>PACIENTE</strong></td>
+                                <td style="padding: 5px 0; text-align: right;">${patientName}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px 0;"><strong>CPF</strong></td>
+                                <td style="padding: 5px 0; text-align: right;">${cpf}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px 0;"><strong>DATA EMISSÃO</strong></td>
+                                <td style="padding: 5px 0; text-align: right;">${now}</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- Especialidade -->
+                    <div style="background: #2c5aa0; color: white; padding: 15px 20px; margin-bottom: 25px; border-radius: 5px; text-align: center;">
+                        <p style="margin: 0; font-size: 16px; font-weight: bold;">ENCAMINHAMENTO MÉDICO ESPECIALIZADO</p>
+                        <p style="margin: 5px 0 0; font-size: 14px;">Ao(A): Especialista em <strong>${specialty.toUpperCase()}</strong></p>
+                    </div>
+
+                    <!-- Justificativa Clínica -->
+                    <div style="margin-bottom: 25px; padding: 20px; background: #fff3cd; border-left: 4px solid #f0ad4e; border-radius: 5px;">
+                        <p style="margin: 0 0 10px 0; font-weight: bold; color: #856404; font-size: 14px;">Justificativa Clínica</p>
+                        <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #856404;">${diagnosticPossibilities || reason}</p>
+                    </div>
+
+                    <!-- Resumo Clínico -->
+                    ${pdfData.summary ? `
                     <div style="margin-bottom: 25px;">
-                        <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">Procedimentos Recomendados:</p>
-                        <p style="margin: 0; font-size: 13px; line-height: 1.7; white-space: pre-wrap;">${pdfData.recommendedProcedures}</p>
+                        <p style="margin: 0 0 10px 0; font-weight: bold; color: #333; font-size: 14px;">Resumo Clínico:</p>
+                        <div style="font-size: 13px; line-height: 1.7; white-space: pre-wrap; color: #555;">${pdfData.summary}</div>
                     </div>
                     ` : ''}
 
+                    <!-- Achados Clínicos -->
+                    ${findingsHTML}
+
+                    <!-- Procedimentos Recomendados -->
+                    ${proceduresHTML}
+
+                    <!-- Solicitação -->
+                    <div style="margin: 30px 0; padding: 15px; background: #d4edda; border-left: 4px solid #28a745; border-radius: 5px;">
+                        <p style="margin: 0; font-size: 13px; line-height: 1.7; color: #155724;">
+                            <strong>Solicitação:</strong> Avaliação e conduta especializada.
+                        </p>
+                    </div>
+
+                    <!-- Assinatura -->
                     ${OFFICIAL_SIGNATURE_TEMPLATE}
 
+                    <!-- Rodapé -->
                     <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center;">
-                        <p style="font-size: 11px; color: #999;">Documento gerado pelo Sistema Conecta Saúde - ${now}</p>
+                        <p style="font-size: 10px; color: #999;">Documento gerado digitalmente pelo Sistema Conecta Saúde em ${now}</p>
+                        <p style="font-size: 10px; color: #999;">Assinado Digitalmente • Conecta Saúde</p>
                     </div>
                 </div>
             `;
@@ -2120,9 +2205,10 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
                 pdf.save(`Encaminhamento_${specialty}_${patientName.split(' ')[0]}.pdf`);
 
+                console.log('✅ PDF gerado com sucesso!');
                 showToast("PDF gerado com sucesso!", 'success');
             } catch(e) {
-                console.error(e);
+                console.error('❌ Erro ao gerar PDF:', e);
                 showToast("Erro ao gerar PDF.", "error");
                 throw e;
             } finally {
