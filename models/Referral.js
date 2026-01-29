@@ -10,36 +10,66 @@ const Referral = sequelize.define('Referral', {
     },
     patientName: {
         type: DataTypes.STRING,
-        allowNull: true, // ALTERADO: true para evitar erro de migração em tabela existente
+        allowNull: true,
         field: 'patient_name'
     },
-    cpf: {
-        type: DataTypes.STRING,
-        allowNull: true
+    patientCpf: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        field: 'patient_cpf'
     },
     specialty: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(100),
         allowNull: true
     },
     reason: {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    diagnosticPossibilities: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'diagnostic_possibilities'
+    },
+    referralPdfData: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+        field: 'referral_pdf_data'
+    },
     status: {
-        type: DataTypes.STRING,
+        type: DataTypes.STRING(50),
         defaultValue: 'pendente'
+    },
+    emailSent: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        field: 'email_sent'
+    },
+    emailSentAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'email_sent_at'
     },
     userId: {
         type: DataTypes.INTEGER,
-        field: 'user_id',
-        // Removemos a referência estrita aqui para evitar erro se o usuário não existir
-        // O relacionamento lógico é mantido
+        allowNull: true,
+        field: 'user_id'
+    },
+    cancelledAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'cancelled_at'
+    },
+    cancelledBy: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: 'cancelled_by'
     }
 }, {
     tableName: 'referrals',
     timestamps: true,
     createdAt: 'created_at',
-    updatedAt: false, // A tabela não tem updated_at
+    updatedAt: 'updated_at',
     underscored: true
 });
 

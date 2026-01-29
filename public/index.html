@@ -1807,49 +1807,60 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         }
 
         // --- SEÇÃO: FUNÇÕES DE ADMINISTRAÇÃO ---
-        function renderAdminPanel() {
-            renderReferralDashboard();
+        async function renderAdminPanel() {
+            await renderReferralDashboard(); // Agora é assíncrono
             renderUserList();
             renderExamList('lab', 'adm-list-lab');
             renderExamList('img', 'adm-list-img');
             renderSurgeryList();
         }
 
-        // Renderiza a Tabela de Encaminhamentos (AME Dashboard)
-        function renderReferralDashboard() {
+        // Renderiza a Tabela de Encaminhamentos (AME Dashboard) - VERSÃO COM BANCO DE DADOS REAL
+        async function renderReferralDashboard() {
             const container = document.getElementById('referral-dashboard-body');
-            
-            // Agrupa pacientes por especialidade
-            const grouped = referralQueue.reduce((acc, curr) => {
-                acc[curr.specialty] = acc[curr.specialty] || [];
-                acc[curr.specialty].push(curr);
-                return acc;
-            }, {});
 
-            if (Object.keys(grouped).length === 0) {
-                container.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">Nenhum encaminhamento pendente no momento.</td></tr>`;
-                return;
+            try {
+                // Busca encaminhamentos reais do banco de dados
+                const response = await fetch(`${BACKEND_URL}/api/referrals`);
+                const referrals = await response.json();
+
+                if (!referrals || referrals.length === 0) {
+                    container.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">Nenhum encaminhamento pendente no momento.</td></tr>`;
+                    return;
+                }
+
+                // Renderiza cada encaminhamento como uma linha individual
+                container.innerHTML = referrals.map(ref => {
+                    const firstName = ref.patient_name ? ref.patient_name.split(' ')[0] : 'Paciente';
+                    return `
+                    <tr class="hover:bg-purple-50 transition">
+                        <td class="px-6 py-4 whitespace-nowrap font-bold text-purple-900 flex items-center">
+                            <div class="bg-purple-100 p-2 rounded-full mr-3 text-purple-600"><i class="fa-solid fa-user"></i></div>
+                            ${firstName}
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full">${ref.specialty}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end space-x-2">
+                                <button onclick="sendReferralEmail(${ref.id}, '${ref.patient_name}', '${ref.specialty}')"
+                                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-4 rounded text-xs shadow flex items-center">
+                                    <i class="fa-solid fa-paper-plane mr-2"></i> Enviar Email AME
+                                </button>
+                                <button onclick="deleteReferral(${ref.id})"
+                                        class="bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 px-4 rounded text-xs shadow flex items-center">
+                                    <i class="fa-solid fa-trash mr-2"></i> Excluir
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error('Erro ao carregar encaminhamentos:', error);
+                container.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-red-500">Erro ao carregar dados. Verifique a conexão.</td></tr>`;
             }
-
-            container.innerHTML = Object.keys(grouped).map(specialty => {
-                const count = grouped[specialty].length;
-                return `
-                <tr class="hover:bg-purple-50 transition">
-                    <td class="px-6 py-4 whitespace-nowrap font-bold text-purple-900 flex items-center">
-                        <div class="bg-purple-100 p-2 rounded-full mr-3 text-purple-600"><i class="fa-solid fa-user-doctor"></i></div>
-                        ${specialty}
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                        <span class="bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full">${count} pendentes</span>
-                    </td>
-                    <td class="px-6 py-4 text-right">
-                        <button onclick="generateReferralEmailPDF('${specialty}')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-4 rounded text-xs shadow flex items-center ml-auto">
-                            <i class="fa-solid fa-paper-plane mr-2"></i> Enviar Email AME
-                        </button>
-                    </td>
-                </tr>
-                `;
-            }).join('');
         }
 
         // Gera PDF de Encaminhamento em Lote (Lógica complexa de renderização HTML -> Canvas -> PDF)
@@ -1936,6 +1947,71 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 wrapper.style.opacity = '0';
                 wrapper.style.left = '-9999px';
                 wrapper.innerHTML = "";
+            }
+        }
+
+        // NOVA FUNÇÃO: Envia email do encaminhamento individual e marca como enviado
+        async function sendReferralEmail(referralId, patientName, specialty) {
+            try {
+                // Confirma a ação
+                if (!confirm(`Enviar email de encaminhamento para ${patientName} (${specialty})?`)) {
+                    return;
+                }
+
+                showToast("Enviando email...", "info");
+
+                // Chama endpoint do backend
+                const response = await fetch(`${BACKEND_URL}/api/referrals/${referralId}/send-email`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erro ao enviar email');
+                }
+
+                showToast("Email enviado com sucesso para AME!", "success");
+
+                // Atualiza a tabela
+                await renderReferralDashboard();
+
+            } catch (error) {
+                console.error('Erro ao enviar email:', error);
+                showToast("Erro ao enviar email. Tente novamente.", "error");
+            }
+        }
+
+        // NOVA FUNÇÃO: Exclui/cancela um encaminhamento
+        async function deleteReferral(referralId) {
+            try {
+                // Confirma a exclusão
+                if (!confirm('Tem certeza que deseja excluir este encaminhamento?')) {
+                    return;
+                }
+
+                showToast("Excluindo...", "info");
+
+                // Chama endpoint do backend
+                const response = await fetch(`${BACKEND_URL}/api/referrals/${referralId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cancelledBy: currentUser.id // ID do admin que está excluindo
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erro ao excluir encaminhamento');
+                }
+
+                showToast("Encaminhamento excluído com sucesso!", "success");
+
+                // Atualiza a tabela
+                await renderReferralDashboard();
+
+            } catch (error) {
+                console.error('Erro ao excluir:', error);
+                showToast("Erro ao excluir encaminhamento. Tente novamente.", "error");
             }
         }
 
@@ -2277,13 +2353,41 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 // Integração com Encaminhamento Automático AME
                 // Só encaminha para fila de regulação se NÃO for Médico de Família (ou seja, se for grave)
                 if (data.specialist && data.specialist !== "Nenhum" && data.specialist !== "Médico de Família" && data.specialist !== "Clínico Geral") {
-                    referralQueue.push({
+                    const referralData = {
                         patientName: currentUser.name,
                         cpf: currentUser.cpf || "Não informado",
                         specialty: data.specialist,
                         reason: data.diagnostic_possibilities || "Avaliação especializada solicitada.",
                         date: new Date().toLocaleDateString('pt-BR')
-                    });
+                    };
+
+                    // Adiciona à fila em memória (para compatibilidade)
+                    referralQueue.push(referralData);
+
+                    // SALVA NO BANCO DE DADOS
+                    try {
+                        await fetch(`${BACKEND_URL}/api/referrals`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                userId: currentUser.id,
+                                patientName: currentUser.name,
+                                cpf: currentUser.cpf || "Não informado",
+                                specialty: data.specialist,
+                                reason: data.diagnostic_possibilities || "Avaliação especializada solicitada.",
+                                diagnosticPossibilities: data.diagnostic_possibilities,
+                                referralPdfData: {
+                                    summary: data.summary,
+                                    findings: data.findings,
+                                    recommendedProcedures: data.recommended_procedures
+                                }
+                            })
+                        });
+                        console.log('✅ Encaminhamento salvo no banco de dados:', data.specialist);
+                    } catch(err) {
+                        console.error('❌ Erro ao salvar encaminhamento no BD:', err);
+                        // Não bloqueia o fluxo se falhar
+                    }
                 }
 
                 renderDiagnosticResults(data);

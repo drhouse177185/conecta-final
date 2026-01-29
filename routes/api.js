@@ -24,6 +24,8 @@ router.post('/auth/recover', userController.recoverPassword);
 // --- ROTAS DE ENCAMINHAMENTO (NOVO) ---
 router.post('/referrals', referralController.createReferral);
 router.get('/referrals', referralController.getAllReferrals);
+router.post('/referrals/:id/send-email', referralController.sendEmail);
+router.delete('/referrals/:id', referralController.deleteReferral);
 
 // --- ROTAS DO ADMIN ---
 router.get('/admin/users', userController.getAllUsers);
