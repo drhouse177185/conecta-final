@@ -4673,43 +4673,57 @@ Sistema Conecta Saude`
             btn.disabled = true;
 
             try {
-                // 1. Extrai texto dos arquivos (OCR/PDF)
+                // Separa arquivos de imagem e PDF
+                const imageFiles = pendingExamFiles.filter(f => f.type.startsWith('image/'));
+                const pdfFiles = pendingExamFiles.filter(f => f.type === 'application/pdf');
+
+                // 1. Extrai texto dos PDFs
                 let combinedText = "";
-                for (let file of pendingExamFiles) {
+                for (let file of pdfFiles) {
                     const fileText = await extractTextFromFile(file);
-                    combinedText += fileText + "\n\n";
+                    combinedText += `[PDF: ${file.name}]\n${fileText}\n\n`;
                 }
 
-                if (combinedText.length < 50) {
-                    throw new Error("Não foi possível ler os exames. Verifique a qualidade das imagens.");
-                }
-
-                // 2. Envia para IA verificar se os exames pendentes foram realizados
+                // 2. Envia para IA verificar (com imagens para análise visual)
                 const pendingExams = currentUser.pendingPreOpAssessment.missingExams;
                 const surgeryName = currentUser.pendingPreOpAssessment.surgeryName;
 
-                const prompt = `Você é um assistente médico verificando exames pré-operatórios.
+                const prompt = `Você é um médico especialista verificando exames pré-operatórios.
 
 O paciente precisa realizar os seguintes EXAMES PENDENTES para a cirurgia "${surgeryName}":
 ${pendingExams.map((e, i) => `${i + 1}. ${e}`).join('\n')}
 
-Texto extraído dos exames enviados pelo paciente:
----
-${combinedText.substring(0, 8000)}
----
+${pdfFiles.length > 0 ? `Texto extraído dos PDFs enviados:\n---\n${combinedText.substring(0, 6000)}\n---\n` : ''}
 
-Verifique se os exames enviados COBREM os exames pendentes listados acima.
+${imageFiles.length > 0 ? `IMPORTANTE: ${imageFiles.length} imagem(ns) foram anexadas para análise visual. Analise VISUALMENTE cada imagem para identificar o tipo de exame.
+
+INSTRUÇÕES PARA IDENTIFICAÇÃO VISUAL:
+- ECG/Eletrocardiograma: Gráfico com ondas cardíacas (P, QRS, T), papel milimetrado rosa/vermelho, traçado contínuo de batimentos
+- Raio-X: Imagem em tons de cinza/preto mostrando ossos, pulmões ou outras estruturas
+- Ultrassonografia: Imagem em tons de cinza com formato típico de ultrassom
+- Ecocardiograma: Imagem cardíaca com cores (doppler) ou tons de cinza
+- Exames laboratoriais: Tabelas com valores, nomes de exames e unidades de medida
+
+Mesmo que a imagem não tenha texto identificando o tipo, analise VISUALMENTE o padrão gráfico para identificar o exame.` : ''}
+
+Verifique se os exames enviados (PDFs + imagens) COBREM os exames pendentes listados.
 
 Responda APENAS em JSON:
 {
     "all_exams_complete": true/false,
-    "exams_found": ["lista dos exames encontrados nos arquivos"],
+    "exams_found": ["lista dos exames encontrados nos arquivos/imagens"],
     "exams_still_missing": ["lista dos exames que AINDA faltam, se houver"],
     "clearance_message": "Mensagem de liberação se todos os exames foram realizados",
     "observations": "Observações importantes sobre os exames"
 }`;
 
-                const result = await callGemini(prompt, true);
+                // Usa análise multimodal se houver imagens, caso contrário usa só texto
+                let result;
+                if (imageFiles.length > 0) {
+                    result = await callGeminiWithImages(prompt, imageFiles, true);
+                } else {
+                    result = await callGemini(prompt, true);
+                }
 
                 if (result.all_exams_complete) {
                     // 3. LIBERADO! Atualiza no banco
@@ -5153,6 +5167,54 @@ Responda APENAS em JSON:
             const txt = (await res.json()).candidates[0].content.parts[0].text;
             let jsonStr = txt.replace(/```json/g, '').replace(/```/g, '').trim();
             return isJson ? JSON.parse(jsonStr) : txt;
+        }
+
+        // Função para análise visual de imagens com Gemini (multimodal)
+        async function callGeminiWithImages(prompt, imageFiles, isJson = true) {
+            if (!apiKey) await loadConfig();
+            if (!apiKey) throw new Error("Sistema offline: Chave de API não configurada.");
+
+            // Converte arquivos de imagem para base64
+            const imageParts = [];
+            for (const file of imageFiles) {
+                if (file.type.startsWith('image/')) {
+                    const base64 = await fileToBase64(file);
+                    imageParts.push({
+                        inline_data: {
+                            mime_type: file.type,
+                            data: base64.split(',')[1] // Remove o prefixo "data:image/xxx;base64,"
+                        }
+                    });
+                }
+            }
+
+            // Monta as partes da requisição: texto + imagens
+            const parts = [
+                { text: isJson ? prompt + "\nResponda APENAS JSON válido." : prompt },
+                ...imageParts
+            ];
+
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ contents: [{ parts }] })
+            });
+
+            if(!res.ok) throw new Error(`Erro API Gemini (${res.status})`);
+
+            const txt = (await res.json()).candidates[0].content.parts[0].text;
+            let jsonStr = txt.replace(/```json/g, '').replace(/```/g, '').trim();
+            return isJson ? JSON.parse(jsonStr) : txt;
+        }
+
+        // Converte arquivo para base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
         }
 
         // --- GERADOR DE PDF (ATUALIZADO PARA LIBERAÇÃO) ---
