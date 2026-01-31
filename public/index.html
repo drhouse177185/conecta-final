@@ -803,7 +803,7 @@
                 <div class="bg-teal-50 p-4 border-b border-teal-100 flex items-center justify-between">
                     <div class="flex items-center">
                         <i class="fa-solid fa-heart-pulse text-teal-600 mr-3 text-xl"></i>
-                        <h2 class="text-lg font-bold text-teal-900">Gestao de Preparos Cirurgicos</h2>
+                        <h2 class="text-lg font-bold text-teal-900">Gestão de Preparos Cirurgicos</h2>
                     </div>
                     <div class="flex items-center space-x-2">
                         <button onclick="loadPreoperativeAssessments()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">
@@ -2458,32 +2458,41 @@ Sistema Conecta Saúde`
             emptyState.classList.add('hidden');
 
             container.innerHTML = preopAssessmentsList.map(assessment => {
-                const statusBadge = assessment.clearance_status === 'liberado'
+                // Suporte para ambos formatos (camelCase do Sequelize ou snake_case)
+                const patientName = assessment.patientName || assessment.patient_name || 'N/A';
+                const patientAge = assessment.patientAge || assessment.patient_age || 'N/A';
+                const patientCpf = assessment.patientCpf || assessment.patient_cpf || 'N/A';
+                const surgeryName = assessment.surgeryName || assessment.surgery_name || 'N/A';
+                const clearanceStatus = assessment.clearanceStatus || assessment.clearance_status || 'pendente';
+                const asaScore = assessment.asaScore || assessment.asa_score || '';
+                const createdAt = assessment.createdAt || assessment.created_at;
+
+                const statusBadge = clearanceStatus === 'liberado'
                     ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><i class="fa-solid fa-check mr-1"></i> Liberado</span>'
-                    : assessment.clearance_status === 'cancelado'
+                    : clearanceStatus === 'cancelado'
                     ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"><i class="fa-solid fa-times mr-1"></i> Cancelado</span>'
                     : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"><i class="fa-solid fa-clock mr-1"></i> Pendente</span>';
 
-                const createdDate = new Date(assessment.created_at).toLocaleDateString('pt-BR');
+                const createdDate = createdAt ? new Date(createdAt).toLocaleDateString('pt-BR') : 'N/A';
 
-                const isLiberado = assessment.clearance_status === 'liberado';
-                const isPendente = assessment.clearance_status === 'pendente';
-                const isCancelado = assessment.clearance_status === 'cancelado';
+                const isLiberado = clearanceStatus === 'liberado';
+                const isPendente = clearanceStatus === 'pendente';
+                const isCancelado = clearanceStatus === 'cancelado';
 
                 return `
                 <tr class="hover:bg-gray-50 transition">
                     <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">
-                        ${assessment.patient_name}
+                        ${patientName}
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap text-center text-gray-600">
-                        ${assessment.patient_age} anos
+                        ${patientAge} anos
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap text-center text-gray-600 text-xs">
-                        ${assessment.patient_cpf}
+                        ${patientCpf}
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap text-gray-700">
-                        ${assessment.surgery_name}
-                        ${assessment.asa_score ? `<div class="text-xs text-gray-400">${assessment.asa_score}</div>` : ''}
+                        ${surgeryName}
+                        ${asaScore ? `<div class="text-xs text-gray-400">${asaScore}</div>` : ''}
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap text-center">
                         ${statusBadge}
@@ -2531,6 +2540,7 @@ Sistema Conecta Saúde`
 
                 const idx = preopAssessmentsList.findIndex(a => a.id === assessmentId);
                 if (idx > -1) {
+                    preopAssessmentsList[idx].clearanceStatus = newStatus;
                     preopAssessmentsList[idx].clearance_status = newStatus;
                     renderPreoperativeAssessments();
                 }
@@ -2561,6 +2571,7 @@ Sistema Conecta Saúde`
 
                 const idx = preopAssessmentsList.findIndex(a => a.id === assessmentId);
                 if (idx > -1) {
+                    preopAssessmentsList[idx].clearanceStatus = 'cancelado';
                     preopAssessmentsList[idx].clearance_status = 'cancelado';
                     renderPreoperativeAssessments();
                 }
