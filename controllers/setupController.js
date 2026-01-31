@@ -105,6 +105,55 @@ exports.installDatabase = async (req, res) => {
             for(let i=0; i<surgs.length; i++) await inserir('cirurgia', surgs[i], i);
         }
 
+        // 3. CRIAR TABELA DE SESSÕES PRÉ-CONSULTA (Persistência de dados)
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS pre_consulta_sessions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                exam_list TEXT[] NOT NULL,
+                comorbidities_used JSONB,
+                is_confirmed BOOLEAN DEFAULT FALSE,
+                confirmed_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log("✅ Tabela pre_consulta_sessions criada/verificada");
+
+        // 4. CRIAR TABELA DE ANÁLISES PÓS-CONSULTA (Persistência de dados)
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS pos_consulta_analyses (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                patient_name VARCHAR(255),
+                analysis_result TEXT,
+                findings JSONB,
+                files_processed INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log("✅ Tabela pos_consulta_analyses criada/verificada");
+
+        // 5. CRIAR TABELA DE AVALIAÇÕES PRÉ-OPERATÓRIAS (caso não exista)
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS preoperative_assessments (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                patient_name VARCHAR(255) NOT NULL,
+                patient_age INTEGER NOT NULL,
+                patient_cpf VARCHAR(20) NOT NULL,
+                surgery_name VARCHAR(255) NOT NULL,
+                clearance_status VARCHAR(50) NOT NULL DEFAULT 'pendente',
+                missing_exams TEXT[],
+                asa_score VARCHAR(50),
+                lee_index VARCHAR(50),
+                ai_report TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log("✅ Tabela preoperative_assessments criada/verificada");
+
         res.send(`
             <div style="font-family: sans-serif; padding: 20px; background: #ecfccb; color: #365314; border: 1px solid #84cc16; border-radius: 8px;">
                 <h1>✅ Reparo Completo Executado!</h1>
@@ -112,8 +161,9 @@ exports.installDatabase = async (req, res) => {
                 <p>2. Dados de senha migrados de <strong>password</strong> → <strong>password_hash</strong> (resolve erro de login).</p>
                 <p>3. Valores NULL preenchidos com defaults.</p>
                 <p>4. Catálogo de exames/cirurgias verificado.</p>
+                <p>5. Tabelas de <strong>sessões</strong> (pre_consulta_sessions, pos_consulta_analyses, preoperative_assessments) criadas.</p>
                 <hr>
-                <p><strong>✅ LOGIN DEVE FUNCIONAR AGORA!</strong> Volte ao app e tente fazer login.</p>
+                <p><strong>✅ BANCO DE DADOS ATUALIZADO!</strong> Dados dos usuários serão persistidos entre sessões.</p>
                 <a href="/" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #365314; color: white; text-decoration: none; border-radius: 5px;">Voltar ao App</a>
             </div>
         `);

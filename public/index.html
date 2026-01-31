@@ -1300,6 +1300,29 @@ function getActiveExamsString() {
                     splash.style.opacity = '0';
                     setTimeout(() => splash.remove(), 1000);
                 }
+
+                // NOVO: Verifica se há sessão salva no localStorage para auto-login
+                const savedSession = localStorage.getItem('conecta_user');
+                if (savedSession) {
+                    try {
+                        const userData = JSON.parse(savedSession);
+                        if (userData && userData.id) {
+                            console.log('📂 Sessão salva encontrada, restaurando...');
+                            showToast(`Bem-vindo de volta, ${userData.name}!`, 'success');
+                            initializeApp(userData);
+
+                            // Carrega sessões salvas do usuário
+                            loadUserSavedSessions(userData.id).then(sessions => {
+                                if (sessions) {
+                                    console.log('📂 Sessões anteriores carregadas com sucesso!');
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Erro ao restaurar sessão:', e);
+                        localStorage.removeItem('conecta_user');
+                    }
+                }
             }, 3000);
         });
 
@@ -1440,12 +1463,21 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 
                 if(res.ok) {
                     showToast(`Bem-vindo de volta, ${data.name}!`, 'success');
-                    
+
                     // Salva sessão (opcional, mas bom para UX)
                     localStorage.setItem('conecta_user', JSON.stringify(data));
-                    
+
                     // Inicializa a UI
                     initializeApp(data);
+
+                    // NOVO: Carrega sessões salvas do usuário (pré-consulta, pós-consulta, pré-op)
+                    if (data.id) {
+                        loadUserSavedSessions(data.id).then(sessions => {
+                            if (sessions) {
+                                console.log('📂 Sessões anteriores carregadas com sucesso!');
+                            }
+                        });
+                    }
                 } else {
                     console.warn("Login falhou:", data);
                     showToast(data.message || "Erro de login.", 'error');
@@ -1661,7 +1693,10 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         
         // Utilitários de UI
         function safeSetValue(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
-        function handleLogout() { location.reload(); }
+        function handleLogout() {
+            localStorage.removeItem('conecta_user'); // Limpa sessão salva
+            location.reload();
+        }
 
         // ====================================================================
         // COMORBIDADES: Salvar automaticamente no histórico médico
@@ -3092,15 +3127,18 @@ Sistema Conecta Saude`
                     throw new Error("A IA não sugeriu exames compatíveis com o catálogo ativo.");
                 }
 
-                deductCredits(80); 
+                deductCredits(80);
                 currentUser.lastGeneratedExams = finalExams;
 
-                // Salva no Backend
+                // Salva no Backend (histórico de uso)
                 saveHistoryToBackend('pre_consulta', 80, {
                     comorbidades: comorbs,
                     exames: finalExams,
                     flags: { rotina: routine, dst: std, gravidez: pregnancy }
                 });
+
+                // NOVO: Salva sessão de pré-consulta para persistência
+                savePreConsultaSession(finalExams, comorbs);
                 
                 // 6. Renderização
                 const ul = document.getElementById('generated-exam-list'); 
@@ -3197,8 +3235,11 @@ Sistema Conecta Saude`
 
                 // SALVAR
                 saveHistoryToBackend('pos_consulta', 10, { aiResult: data });
-                
-                deductCredits(10); 
+
+                // NOVO: Salva análise pós-consulta para persistência
+                savePosConsultaAnalysis(data, files.length);
+
+                deductCredits(10);
                 renderDiagnosticResults(data);
                 showToast("Análise concluída!", 'success');
 
@@ -4028,6 +4069,95 @@ Sistema Conecta Saude`
                     console.error("Erro ao salvar avaliação:", data.error);
                 }
             } catch (e) { console.error("Erro ao salvar avaliação pré-operatória:", e); }
+        }
+
+        // NOVO: Salvar sessão de pré-consulta para persistência entre sessões
+        async function savePreConsultaSession(examList, comorbiditiesUsed) {
+            try {
+                if (currentUser.role === 'admin') return;
+                if (!currentUser.id) return;
+                console.log(`📋 Salvando sessão de pré-consulta...`);
+                const res = await fetch(`${BACKEND_URL}/api/sessions/pre-consulta/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        examList: examList,
+                        comorbiditiesUsed: comorbiditiesUsed || null
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    console.log(`✅ Sessão de pré-consulta salva - ID: ${data.session.id}`);
+                }
+            } catch (e) { console.error("Erro ao salvar sessão de pré-consulta:", e); }
+        }
+
+        // NOVO: Salvar análise de pós-consulta para persistência entre sessões
+        async function savePosConsultaAnalysis(analysisData, filesCount) {
+            try {
+                if (currentUser.role === 'admin') return;
+                if (!currentUser.id) return;
+                console.log(`📋 Salvando análise de pós-consulta...`);
+                const res = await fetch(`${BACKEND_URL}/api/sessions/pos-consulta/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        patientName: currentUser.name,
+                        analysisResult: analysisData.summary || null,
+                        findings: analysisData.findings || null,
+                        filesProcessed: filesCount || 0
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    console.log(`✅ Análise de pós-consulta salva - ID: ${data.analysis.id}`);
+                }
+            } catch (e) { console.error("Erro ao salvar análise de pós-consulta:", e); }
+        }
+
+        // NOVO: Carregar sessões salvas do usuário após login
+        async function loadUserSavedSessions(userId) {
+            try {
+                console.log(`📥 Carregando sessões salvas do usuário ${userId}...`);
+                const res = await fetch(`${BACKEND_URL}/api/sessions/user/${userId}`);
+                const data = await res.json();
+
+                if (data.success && data.sessions) {
+                    // Restaurar última sessão de pré-consulta
+                    if (data.sessions.preConsulta && data.sessions.preConsulta.examList) {
+                        currentUser.lastGeneratedExams = data.sessions.preConsulta.examList;
+                        console.log(`✅ Pré-consulta restaurada: ${currentUser.lastGeneratedExams.length} exames`);
+
+                        // Renderiza a lista se existir o container
+                        const ul = document.getElementById('generated-exam-list');
+                        if (ul && currentUser.lastGeneratedExams.length > 0) {
+                            ul.innerHTML = currentUser.lastGeneratedExams.map(e =>
+                                `<li class="py-1 border-b border-gray-100 last:border-0 flex items-center text-sm"><i class="fa-solid fa-check text-green-500 mr-2"></i>${e}</li>`
+                            ).join('');
+                            document.getElementById('pre-results')?.classList.remove('hidden');
+                        }
+                    }
+
+                    // Restaurar última avaliação pré-operatória
+                    if (data.sessions.preOperatorio) {
+                        currentUser.lastPreOpResult = {
+                            surgeryName: data.sessions.preOperatorio.surgeryName || data.sessions.preOperatorio.surgery_name,
+                            asa: data.sessions.preOperatorio.asaScore || data.sessions.preOperatorio.asa_score,
+                            lee: data.sessions.preOperatorio.leeIndex || data.sessions.preOperatorio.lee_index,
+                            missing_exams: data.sessions.preOperatorio.missingExams || data.sessions.preOperatorio.missing_exams || [],
+                            html_report: data.sessions.preOperatorio.aiReport || data.sessions.preOperatorio.ai_report
+                        };
+                        console.log(`✅ Pré-operatório restaurado: ${currentUser.lastPreOpResult.surgeryName}`);
+                    }
+
+                    return data.sessions;
+                }
+            } catch (e) {
+                console.error("Erro ao carregar sessões salvas:", e);
+            }
+            return null;
         }
 
         async function handleFiles(files, pageId) {

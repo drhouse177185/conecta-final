@@ -10,6 +10,7 @@ const catalogController = require('../controllers/catalogController');
 const referralController = require('../controllers/referralController');
 const comorbidityController = require('../controllers/comorbidityController'); // NOVO: Controller de comorbidades
 const preoperativeController = require('../controllers/preoperativeController'); // NOVO: Controller de avaliacoes pre-operatorias
+const sessionController = require('../controllers/sessionController'); // NOVO: Controller de sessões persistidas
 
 // --- Rotas Básicas ---
 router.get('/saudacao', mainController.saudacao);
@@ -56,6 +57,14 @@ router.get('/preoperative/user/:userId', preoperativeController.getUserAssessmen
 router.get('/preoperative/:id', preoperativeController.getAssessmentById);
 router.put('/preoperative/:id/status', preoperativeController.updateStatus);
 router.post('/preoperative/:id/send-clearance-email', preoperativeController.sendClearanceEmail);
+
+// --- ROTAS DE SESSÕES PERSISTIDAS (Dados do usuário entre sessões) ---
+router.post('/sessions/pre-consulta/save', sessionController.savePreConsulta);
+router.get('/sessions/pre-consulta/:userId', sessionController.getLatestPreConsulta);
+router.post('/sessions/pre-consulta/:id/confirm', sessionController.confirmPreConsulta);
+router.post('/sessions/pos-consulta/save', sessionController.savePosConsulta);
+router.get('/sessions/pos-consulta/:userId', sessionController.getLatestPosConsulta);
+router.get('/sessions/user/:userId', sessionController.getUserSavedSessions);
 
 module.exports = router;
 // ... (dentro do arquivo routes/api.js)
