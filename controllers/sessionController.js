@@ -159,31 +159,40 @@ const getLatestPosConsulta = async (req, res) => {
 const getUserSavedSessions = async (req, res) => {
     try {
         const { userId } = req.params;
+        const limit = 5; // Retorna os 5 últimos de cada tipo
 
-        // Buscar última pré-consulta
-        const preConsulta = await PreConsultaSession.findOne({
+        // Buscar últimas 5 pré-consultas
+        const preConsultaList = await PreConsultaSession.findAll({
             where: { userId: parseInt(userId) },
-            order: [['created_at', 'DESC']]
+            order: [['created_at', 'DESC']],
+            limit: limit
         });
 
-        // Buscar última pós-consulta
-        const posConsulta = await PosConsultaAnalysis.findOne({
+        // Buscar últimas 5 pós-consultas
+        const posConsultaList = await PosConsultaAnalysis.findAll({
             where: { userId: parseInt(userId) },
-            order: [['created_at', 'DESC']]
+            order: [['created_at', 'DESC']],
+            limit: limit
         });
 
-        // Buscar última avaliação pré-operatória
-        const preOperatorio = await PreoperativeAssessment.findOne({
+        // Buscar últimas 5 avaliações pré-operatórias
+        const preOperatorioList = await PreoperativeAssessment.findAll({
             where: { userId: parseInt(userId) },
-            order: [['created_at', 'DESC']]
+            order: [['created_at', 'DESC']],
+            limit: limit
         });
 
         return res.status(200).json({
             success: true,
             sessions: {
-                preConsulta: preConsulta || null,
-                posConsulta: posConsulta || null,
-                preOperatorio: preOperatorio || null
+                // Mantém compatibilidade com código antigo (primeiro item)
+                preConsulta: preConsultaList[0] || null,
+                posConsulta: posConsultaList[0] || null,
+                preOperatorio: preOperatorioList[0] || null,
+                // Novas listas completas (até 5 itens)
+                preConsultaHistory: preConsultaList,
+                posConsultaHistory: posConsultaList,
+                preOperatorioHistory: preOperatorioList
             }
         });
 

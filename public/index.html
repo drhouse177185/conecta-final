@@ -425,6 +425,10 @@
                                         </button>
                                     </div>
                                     <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-info-circle mr-1"></i> Ao confirmar, suas comorbidades serão salvas permanentemente no histórico médico.</p>
+                                    <!-- Container para exibir comorbidades customizadas salvas -->
+                                    <div id="custom-comorbidities-display" class="hidden mt-2">
+                                        <p class="text-xs text-blue-600 font-medium mb-1"><i class="fa-solid fa-bookmark mr-1"></i> Suas condições médicas salvas:</p>
+                                    </div>
                                 </div>
                                 <div class="bg-indigo-50 p-4 rounded border border-indigo-100">
                                     <h4 class="font-bold text-indigo-900 text-sm mb-2">Solicitação Específica</h4>
@@ -518,38 +522,16 @@
                     </div>
                 </div>
 
-                <!-- HISTÓRICO DE ANÁLISES (Colapsável) -->
-                <div id="pos-consulta-history" class="hidden mb-6">
-                    <div id="pos-history-card" class="bg-gradient-to-r from-green-50 to-slate-50 p-4 rounded-xl border border-green-200 cursor-pointer hover:shadow-md transition-all" onclick="togglePosConsultaHistory()">
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-green-600 text-white p-2 rounded-lg">
-                                    <i class="fa-solid fa-file-medical"></i>
-                                </div>
-                                <div>
-                                    <h4 class="font-bold text-sm text-green-900">Última Análise de Exames</h4>
-                                    <p id="pos-history-date" class="text-xs text-slate-500"></p>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span id="pos-history-files" class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold"></span>
-                                <i id="pos-history-arrow" class="fa-solid fa-chevron-down text-green-600 transition-transform duration-300"></i>
-                            </div>
-                        </div>
-                        <!-- Preview -->
-                        <div id="pos-history-preview" class="mt-3 text-sm text-slate-600 line-clamp-2"></div>
+                <!-- HISTÓRICO DE ANÁLISES PÓS-CONSULTA (Lista de até 5) -->
+                <div id="pos-consulta-history-container" class="hidden mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-bold text-sm text-green-900 flex items-center">
+                            <i class="fa-solid fa-history text-green-600 mr-2"></i> Histórico de Análises
+                        </h3>
+                        <span class="text-xs text-slate-500" id="pos-history-count"></span>
                     </div>
-                    <!-- Detalhes expandidos -->
-                    <div id="pos-history-full" class="hidden bg-white p-4 rounded-xl border border-slate-200 mt-2 animate-fade-in">
-                        <div class="flex justify-between items-center mb-3">
-                            <h4 class="font-bold text-sm text-slate-700 flex items-center">
-                                <i class="fa-solid fa-stethoscope text-green-600 mr-2"></i> Resumo da Análise
-                            </h4>
-                            <button onclick="event.stopPropagation(); togglePosConsultaHistory()" class="text-xs text-green-600 hover:text-green-800">
-                                <i class="fa-solid fa-chevron-up mr-1"></i> Minimizar
-                            </button>
-                        </div>
-                        <div id="pos-history-content" class="text-sm text-slate-700 space-y-2"></div>
+                    <div id="pos-consulta-history-list" class="space-y-3">
+                        <!-- Cards de histórico serão renderizados aqui dinamicamente -->
                     </div>
                 </div>
 
@@ -684,38 +666,16 @@
                     </button>
                 </form>
 
-                <!-- HISTÓRICO DE AVALIAÇÕES PRÉ-OPERATÓRIAS (Colapsável) -->
-                <div id="preop-history" class="hidden mt-6">
-                    <div id="preop-history-card" class="bg-gradient-to-r from-purple-50 to-slate-50 p-4 rounded-xl border border-purple-200 cursor-pointer hover:shadow-md transition-all" onclick="togglePreOpHistory()">
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center gap-3">
-                                <div class="bg-purple-600 text-white p-2 rounded-lg">
-                                    <i class="fa-solid fa-heart-pulse"></i>
-                                </div>
-                                <div>
-                                    <h4 class="font-bold text-sm text-purple-900">Última Avaliação Pré-Operatória</h4>
-                                    <p id="preop-history-date" class="text-xs text-slate-500"></p>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span id="preop-history-status" class="text-xs px-2 py-1 rounded-full font-bold"></span>
-                                <i id="preop-history-arrow" class="fa-solid fa-chevron-down text-purple-600 transition-transform duration-300"></i>
-                            </div>
-                        </div>
-                        <!-- Preview -->
-                        <div id="preop-history-preview" class="mt-3 flex flex-wrap gap-2"></div>
+                <!-- HISTÓRICO DE AVALIAÇÕES PRÉ-OPERATÓRIAS (Lista de até 5) -->
+                <div id="preop-history-container" class="hidden mt-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-bold text-sm text-purple-900 flex items-center">
+                            <i class="fa-solid fa-history text-purple-600 mr-2"></i> Histórico de Avaliações
+                        </h3>
+                        <span class="text-xs text-slate-500" id="preop-history-count"></span>
                     </div>
-                    <!-- Detalhes expandidos -->
-                    <div id="preop-history-full" class="hidden bg-white p-4 rounded-xl border border-slate-200 mt-2 animate-fade-in">
-                        <div class="flex justify-between items-center mb-3">
-                            <h4 class="font-bold text-sm text-slate-700 flex items-center">
-                                <i class="fa-solid fa-clipboard-check text-purple-600 mr-2"></i> Detalhes da Avaliação
-                            </h4>
-                            <button onclick="event.stopPropagation(); togglePreOpHistory()" class="text-xs text-purple-600 hover:text-purple-800">
-                                <i class="fa-solid fa-chevron-up mr-1"></i> Minimizar
-                            </button>
-                        </div>
-                        <div id="preop-history-content" class="text-sm text-slate-700 space-y-3"></div>
+                    <div id="preop-history-list" class="space-y-3">
+                        <!-- Cards de histórico serão renderizados aqui dinamicamente -->
                     </div>
                 </div>
 
@@ -1839,6 +1799,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
                 if (response.ok && data.comorbidities) {
                     let hasConfirmed = false;
+                    const customComorbidities = []; // Para armazenar comorbidades customizadas
 
                     // Marca os checkboxes das comorbidades ativas
                     document.querySelectorAll('.pre-comorb').forEach(checkbox => {
@@ -1855,6 +1816,32 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                             }
                         }
                     });
+
+                    // Coleta comorbidades customizadas (is_custom = true)
+                    data.comorbidities.forEach(c => {
+                        if (c.is_custom && c.is_active) {
+                            customComorbidities.push(c.comorbidity);
+                            hasConfirmed = c.confirmed_at ? true : hasConfirmed;
+                        }
+                    });
+
+                    // Salva as comorbidades customizadas no currentUser para uso nas análises
+                    currentUser.customComorbidities = customComorbidities;
+
+                    // Exibe as comorbidades customizadas salvas
+                    const customContainer = document.getElementById('custom-comorbidities-display');
+                    if (customContainer && customComorbidities.length > 0) {
+                        customContainer.innerHTML = `
+                            <div class="flex flex-wrap gap-2 mt-2">
+                                ${customComorbidities.map(c => `
+                                    <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center">
+                                        <i class="fa-solid fa-notes-medical mr-1"></i> ${c}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        `;
+                        customContainer.classList.remove('hidden');
+                    }
 
                     // Se alguma comorbidade foi confirmada, desabilita o botão e o campo "Outras"
                     if (hasConfirmed) {
@@ -1891,6 +1878,49 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
         }
 
         // ====================================================================
+        // VALIDAÇÃO DE NOME DE DOENÇA COM IA
+        // Verifica se o texto digitado é uma doença/condição médica real
+        // ====================================================================
+        async function validateDiseaseName(diseaseName) {
+            try {
+                const prompt = `Você é um médico validando se um termo é uma doença ou condição médica real.
+
+Termo digitado pelo usuário: "${diseaseName}"
+
+Analise se este termo corresponde a uma doença, síndrome, condição médica ou comorbidade REAL reconhecida pela medicina.
+
+Responda APENAS em JSON:
+{
+    "isValid": true/false,
+    "normalizedName": "Nome correto/padronizado da doença se válido, ou null se inválido",
+    "reason": "Explicação breve"
+}
+
+Exemplos válidos: Asma, Diabetes Tipo 2, Hipotireoidismo, Artrite Reumatoide, DPOC, Fibromialgia, Lúpus, etc.
+Exemplos inválidos: "dor de cabeça" (sintoma, não doença), "cansaço" (sintoma), "abc123" (não é termo médico), "nada" (não é doença).`;
+
+                const result = await callGemini(prompt, true);
+
+                if (result.isValid) {
+                    return {
+                        isValid: true,
+                        normalizedName: result.normalizedName || diseaseName,
+                        message: `Doença válida: ${result.normalizedName || diseaseName}`
+                    };
+                } else {
+                    return {
+                        isValid: false,
+                        message: `"${diseaseName}" não é uma doença reconhecida. ${result.reason || 'Digite uma condição médica válida.'}`
+                    };
+                }
+            } catch (error) {
+                console.error('Erro na validação de doença:', error);
+                // Em caso de erro de API, permite salvar (fail-safe)
+                return { isValid: true, normalizedName: diseaseName, message: 'Validação ignorada' };
+            }
+        }
+
+        // ====================================================================
         // CONFIRMAR COMORBIDADES - Salva em lote com confirmação explícita
         // ====================================================================
         async function confirmComorbidities() {
@@ -1918,10 +1948,23 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
             // 4. Feedback visual de carregamento
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Validando...';
             btn.disabled = true;
 
             try {
+                // 4.1 VALIDAÇÃO DE DOENÇA CUSTOMIZADA COM IA
+                if (otherComorb.length > 0) {
+                    const validationResult = await validateDiseaseName(otherComorb);
+                    if (!validationResult.isValid) {
+                        showToast(validationResult.message, "error");
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        return;
+                    }
+                }
+
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Salvando...';
+
                 // 5. Enviar para o backend
                 const response = await fetch(`${BACKEND_URL}/api/comorbidities/confirm`, {
                     method: 'POST',
@@ -3157,6 +3200,12 @@ Sistema Conecta Saude`
                 // 3. Coleta de dados
                 const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c=>c.value);
                 const other = document.getElementById('pre-other-comorb').value; if(other) comorbs.push(other);
+                // Inclui comorbidades customizadas salvas anteriormente
+                if (currentUser.customComorbidities && currentUser.customComorbidities.length > 0) {
+                    currentUser.customComorbidities.forEach(c => {
+                        if (!comorbs.includes(c)) comorbs.push(c);
+                    });
+                }
                 const routine = document.getElementById('check-routine').checked;
                 const std = document.getElementById('check-std').checked;
                 const pregnancy = document.getElementById('check-pregnancy').checked;
@@ -4015,7 +4064,13 @@ Sistema Conecta Saude`
                 const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c => c.value);
                 const otherComorb = document.getElementById('pre-other-comorb').value;
                 if(otherComorb) comorbs.push(otherComorb);
-                
+                // Inclui comorbidades customizadas salvas anteriormente
+                if (currentUser.customComorbidities && currentUser.customComorbidities.length > 0) {
+                    currentUser.customComorbidities.forEach(c => {
+                        if (!comorbs.includes(c)) comorbs.push(c);
+                    });
+                }
+
                 const patientHistory = comorbs.length > 0 ? comorbs.join(", ") : "Paciente nega comorbidades (Hígido).";
 
                 let examsText = "";
@@ -4254,22 +4309,34 @@ Sistema Conecta Saude`
                         }
                     }
 
-                    // Restaurar última análise pós-consulta
-                    if (data.sessions.posConsulta) {
-                        const posDate = data.sessions.posConsulta.createdAt || data.sessions.posConsulta.created_at;
-                        console.log(`✅ Pós-consulta restaurada`);
-
-                        // Renderiza o card de histórico
-                        renderPosConsultaHistory({
-                            analysisResult: data.sessions.posConsulta.analysisResult || data.sessions.posConsulta.analysis_result,
-                            findings: data.sessions.posConsulta.findings,
-                            filesProcessed: data.sessions.posConsulta.filesProcessed || data.sessions.posConsulta.files_processed || 1
-                        }, posDate ? new Date(posDate) : new Date());
+                    // Restaurar histórico de pós-consulta (até 5 registros)
+                    if (data.sessions.posConsultaHistory && data.sessions.posConsultaHistory.length > 0) {
+                        console.log(`✅ Pós-consulta restaurada: ${data.sessions.posConsultaHistory.length} registro(s)`);
+                        renderPosConsultaHistoryList(data.sessions.posConsultaHistory);
+                    } else if (data.sessions.posConsulta) {
+                        // Compatibilidade: se não tiver lista, usa o único registro
+                        renderPosConsultaHistoryList([data.sessions.posConsulta]);
                     }
 
-                    // Restaurar última avaliação pré-operatória
-                    if (data.sessions.preOperatorio) {
-                        const preOpDate = data.sessions.preOperatorio.createdAt || data.sessions.preOperatorio.created_at;
+                    // Restaurar histórico pré-operatório (até 5 registros)
+                    if (data.sessions.preOperatorioHistory && data.sessions.preOperatorioHistory.length > 0) {
+                        console.log(`✅ Pré-operatório restaurado: ${data.sessions.preOperatorioHistory.length} avaliação(ões)`);
+
+                        // Guarda dados do primeiro resultado liberado para PDF
+                        const firstResult = data.sessions.preOperatorioHistory[0];
+                        if (firstResult) {
+                            currentUser.lastPreOpResult = {
+                                surgeryName: firstResult.surgeryName || firstResult.surgery_name,
+                                asa: firstResult.asaScore || firstResult.asa_score,
+                                lee: firstResult.leeIndex || firstResult.lee_index,
+                                missing_exams: firstResult.missingExams || firstResult.missing_exams || [],
+                                html_report: firstResult.aiReport || firstResult.ai_report
+                            };
+                        }
+
+                        renderPreOpHistoryList(data.sessions.preOperatorioHistory);
+                    } else if (data.sessions.preOperatorio) {
+                        // Compatibilidade: se não tiver lista, usa o único registro
                         currentUser.lastPreOpResult = {
                             surgeryName: data.sessions.preOperatorio.surgeryName || data.sessions.preOperatorio.surgery_name,
                             asa: data.sessions.preOperatorio.asaScore || data.sessions.preOperatorio.asa_score,
@@ -4277,10 +4344,7 @@ Sistema Conecta Saude`
                             missing_exams: data.sessions.preOperatorio.missingExams || data.sessions.preOperatorio.missing_exams || [],
                             html_report: data.sessions.preOperatorio.aiReport || data.sessions.preOperatorio.ai_report
                         };
-                        console.log(`✅ Pré-operatório restaurado: ${currentUser.lastPreOpResult.surgeryName}`);
-
-                        // Renderiza o card de histórico
-                        renderPreOpHistory(data.sessions.preOperatorio, preOpDate ? new Date(preOpDate) : new Date());
+                        renderPreOpHistoryList([data.sessions.preOperatorio]);
                     }
 
                     return data.sessions;
@@ -4359,217 +4423,214 @@ Sistema Conecta Saude`
             }
         }
 
-        // ========== HISTÓRICO PÓS-CONSULTA ==========
+        // ========== HISTÓRICO PÓS-CONSULTA (Lista de até 5) ==========
 
-        // Renderiza o card de histórico de pós-consulta
-        function renderPosConsultaHistory(analysisData, dateObj) {
-            const dateStr = dateObj ? dateObj.toLocaleDateString('pt-BR', {
-                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-            }) : new Date().toLocaleDateString('pt-BR');
+        // Renderiza a lista de históricos de pós-consulta
+        function renderPosConsultaHistoryList(historyList) {
+            if (!historyList || historyList.length === 0) return;
 
-            // Mostra o container
-            document.getElementById('pos-consulta-history').classList.remove('hidden');
+            const container = document.getElementById('pos-consulta-history-container');
+            const listEl = document.getElementById('pos-consulta-history-list');
+            const countEl = document.getElementById('pos-history-count');
 
-            // Atualiza dados do card
-            document.getElementById('pos-history-date').textContent = `Analisado em ${dateStr}`;
-            document.getElementById('pos-history-files').textContent = `${analysisData.filesProcessed || 1} arquivo(s)`;
+            container.classList.remove('hidden');
+            countEl.textContent = `${historyList.length} registro(s)`;
+            listEl.innerHTML = '';
 
-            // Preview (resumo truncado)
-            const summary = analysisData.analysisResult || analysisData.summary || 'Análise realizada com sucesso';
-            document.getElementById('pos-history-preview').innerHTML = `
-                <p class="line-clamp-2">${summary.substring(0, 150)}${summary.length > 150 ? '...' : ''}</p>
-            `;
+            historyList.forEach((item, index) => {
+                const dateStr = (item.createdAt || item.created_at) ?
+                    new Date(item.createdAt || item.created_at).toLocaleDateString('pt-BR', {
+                        day: '2-digit', month: 'short', year: 'numeric'
+                    }) : 'Data não informada';
 
-            // Conteúdo expandido
-            const contentEl = document.getElementById('pos-history-content');
-            let findingsHtml = '';
+                const summary = item.analysisResult || item.analysis_result || 'Análise realizada';
+                const filesCount = item.filesProcessed || item.files_processed || 1;
+                const cardId = `pos-history-card-${index}`;
 
-            if (analysisData.findings && Array.isArray(analysisData.findings)) {
-                findingsHtml = `
-                    <div class="mt-3">
-                        <p class="font-bold text-xs text-slate-500 uppercase mb-2">Achados:</p>
-                        <div class="space-y-2">
-                            ${analysisData.findings.map(f => `
-                                <div class="bg-slate-50 p-2 rounded border-l-2 ${f.status === 'alterado' ? 'border-red-500' : 'border-green-500'}">
-                                    <span class="font-medium">${f.item || f.name || 'Item'}:</span> ${f.value || ''}
-                                    <span class="text-xs text-slate-500">${f.explanation || ''}</span>
+                listEl.innerHTML += `
+                    <div class="bg-gradient-to-r from-green-50 to-slate-50 p-3 rounded-xl border border-green-200 cursor-pointer hover:shadow-md transition-all" onclick="toggleHistoryCard('${cardId}')">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-2">
+                                <div class="bg-green-600 text-white p-2 rounded-lg text-xs">
+                                    <i class="fa-solid fa-file-medical"></i>
                                 </div>
-                            `).join('')}
+                                <div>
+                                    <p class="font-bold text-xs text-green-900">${dateStr}</p>
+                                    <p class="text-xs text-slate-500">${filesCount} arquivo(s)</p>
+                                </div>
+                            </div>
+                            <i id="${cardId}-arrow" class="fa-solid fa-chevron-down text-green-600 transition-transform duration-300 text-xs"></i>
                         </div>
+                        <p class="text-xs text-slate-600 mt-2 line-clamp-2">${summary.substring(0, 100)}...</p>
+                    </div>
+                    <div id="${cardId}-full" class="hidden bg-white p-3 rounded-xl border border-slate-200 mt-1 text-sm text-slate-700">
+                        <p>${summary}</p>
                     </div>
                 `;
-            }
-
-            contentEl.innerHTML = `
-                <div class="bg-green-50 p-3 rounded-lg border border-green-100">
-                    <p class="text-green-800">${summary}</p>
-                </div>
-                ${findingsHtml}
-            `;
-
-            // Começa minimizado
-            document.getElementById('pos-history-full').classList.add('hidden');
-            document.getElementById('pos-history-arrow').style.transform = 'rotate(0deg)';
+            });
         }
 
-        // Toggle pós-consulta
+        // Compatibilidade: mantém função antiga para chamadas existentes
+        function renderPosConsultaHistory(analysisData, dateObj) {
+            renderPosConsultaHistoryList([{
+                ...analysisData,
+                created_at: dateObj
+            }]);
+        }
+
+        // Toggle genérico para cards de histórico
+        function toggleHistoryCard(cardId) {
+            const fullEl = document.getElementById(`${cardId}-full`);
+            const arrowEl = document.getElementById(`${cardId}-arrow`);
+            if (!fullEl || !arrowEl) return;
+
+            const isHidden = fullEl.classList.contains('hidden');
+            if (isHidden) {
+                fullEl.classList.remove('hidden');
+                arrowEl.style.transform = 'rotate(180deg)';
+            } else {
+                fullEl.classList.add('hidden');
+                arrowEl.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Toggle pós-consulta (compatibilidade)
         function togglePosConsultaHistory() {
-            const fullList = document.getElementById('pos-history-full');
-            const arrow = document.getElementById('pos-history-arrow');
-            const isHidden = fullList.classList.contains('hidden');
-
-            if (isHidden) {
-                fullList.classList.remove('hidden');
-                arrow.style.transform = 'rotate(180deg)';
-            } else {
-                fullList.classList.add('hidden');
-                arrow.style.transform = 'rotate(0deg)';
-            }
+            toggleHistoryCard('pos-history-card-0');
         }
 
-        // ========== HISTÓRICO PRÉ-OPERATÓRIO ==========
+        // ========== HISTÓRICO PRÉ-OPERATÓRIO (Lista de até 5) ==========
 
-        // Renderiza o card de histórico pré-operatório
+        // Renderiza a lista de históricos pré-operatórios
+        function renderPreOpHistoryList(historyList) {
+            if (!historyList || historyList.length === 0) return;
+
+            const container = document.getElementById('preop-history-container');
+            const listEl = document.getElementById('preop-history-list');
+            const countEl = document.getElementById('preop-history-count');
+
+            container.classList.remove('hidden');
+            countEl.textContent = `${historyList.length} avaliação(ões)`;
+            listEl.innerHTML = '';
+
+            historyList.forEach((item, index) => {
+                const dateStr = (item.createdAt || item.created_at) ?
+                    new Date(item.createdAt || item.created_at).toLocaleDateString('pt-BR', {
+                        day: '2-digit', month: 'short', year: 'numeric'
+                    }) : 'Data não informada';
+
+                const status = item.clearanceStatus || item.clearance_status || 'pendente';
+                const surgeryName = item.surgeryName || item.surgery_name || 'Cirurgia';
+                const asaScore = item.asaScore || item.asa_score || '-';
+                const leeIndex = item.leeIndex || item.lee_index || '-';
+                const missingExams = item.missingExams || item.missing_exams || [];
+                const cardId = `preop-history-card-${index}`;
+
+                // Status badge HTML
+                let statusBadge = '';
+                if (status === 'liberado') {
+                    statusBadge = '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold">✓ Liberado</span>';
+                } else if (status === 'cancelado') {
+                    statusBadge = '<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-bold">✗ Cancelado</span>';
+                } else {
+                    statusBadge = '<span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full font-bold">⏳ Pendente</span>';
+                }
+
+                // Guarda dados da primeira avaliação pendente para completar liberação
+                if (index === 0 && status === 'pendente' && missingExams.length > 0) {
+                    currentUser.pendingPreOpAssessment = {
+                        id: item.id,
+                        surgeryName,
+                        asaScore,
+                        leeIndex,
+                        missingExams,
+                        aiReport: item.aiReport || item.ai_report || ''
+                    };
+                }
+
+                // HTML do card expandido com área de upload (apenas para o primeiro pendente)
+                let expandedContent = `
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div class="bg-blue-50 p-2 rounded text-center">
+                            <p class="text-xs text-blue-600 font-bold">ASA</p>
+                            <p class="text-lg font-black text-blue-800">${asaScore}</p>
+                        </div>
+                        <div class="bg-purple-50 p-2 rounded text-center">
+                            <p class="text-xs text-purple-600 font-bold">Lee</p>
+                            <p class="text-lg font-black text-purple-800">${leeIndex}</p>
+                        </div>
+                    </div>
+                `;
+
+                if (missingExams.length > 0 && status === 'pendente') {
+                    expandedContent += `
+                        <div class="bg-red-50 p-2 rounded border border-red-200 mb-2">
+                            <p class="font-bold text-red-800 text-xs mb-1"><i class="fa-solid fa-exclamation-triangle mr-1"></i> Exames Pendentes:</p>
+                            <ul class="text-xs text-red-700">${missingExams.map(e => `<li>• ${e}</li>`).join('')}</ul>
+                        </div>
+                    `;
+
+                    // Área de upload apenas no primeiro item pendente
+                    if (index === 0) {
+                        expandedContent += `
+                            <div class="bg-gradient-to-r from-green-50 to-blue-50 p-3 rounded-xl border-2 border-dashed border-green-300 mt-2">
+                                <p class="text-center text-xs font-bold text-green-800 mb-2"><i class="fa-solid fa-upload mr-1"></i> Completar Liberação (SEM custo)</p>
+                                <div id="pending-upload-zone" class="bg-white border-2 border-dashed border-blue-200 rounded-lg p-3 text-center cursor-pointer hover:bg-blue-50 transition relative">
+                                    <input type="file" id="pending-exam-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf, .jpg, .png" multiple onchange="handlePendingExamFiles(this.files)">
+                                    <i class="fa-solid fa-cloud-arrow-up text-2xl text-blue-500 mb-1"></i>
+                                    <p class="text-xs text-blue-900 font-medium">Arraste ou clique (até 10 arquivos)</p>
+                                </div>
+                                <div id="pending-files-list" class="hidden mt-2 bg-white p-2 rounded border">
+                                    <div id="pending-files-names" class="text-xs text-slate-700"></div>
+                                </div>
+                                <button id="btn-complete-clearance" onclick="completePendingClearance()" class="hidden w-full mt-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg text-sm">
+                                    <i class="fa-solid fa-check-circle mr-1"></i> Verificar e Liberar
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
+
+                listEl.innerHTML += `
+                    <div class="bg-gradient-to-r from-purple-50 to-slate-50 p-3 rounded-xl border border-purple-200 cursor-pointer hover:shadow-md transition-all" onclick="toggleHistoryCard('${cardId}')">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-2">
+                                <div class="bg-purple-600 text-white p-2 rounded-lg text-xs">
+                                    <i class="fa-solid fa-heart-pulse"></i>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-xs text-purple-900">${surgeryName}</p>
+                                    <p class="text-xs text-slate-500">${dateStr}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${statusBadge}
+                                <i id="${cardId}-arrow" class="fa-solid fa-chevron-down text-purple-600 transition-transform duration-300 text-xs"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-1">
+                            <span class="bg-white text-slate-700 text-xs px-2 py-0.5 rounded-full border">ASA: ${asaScore}</span>
+                            <span class="bg-white text-slate-700 text-xs px-2 py-0.5 rounded-full border">Lee: ${leeIndex}</span>
+                        </div>
+                    </div>
+                    <div id="${cardId}-full" class="hidden bg-white p-3 rounded-xl border border-slate-200 mt-1">
+                        ${expandedContent}
+                    </div>
+                `;
+            });
+        }
+
+        // Compatibilidade: mantém função antiga para chamadas existentes
         function renderPreOpHistory(preOpData, dateObj) {
-            const dateStr = dateObj ? dateObj.toLocaleDateString('pt-BR', {
-                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-            }) : new Date().toLocaleDateString('pt-BR');
-
-            // Mostra o container
-            document.getElementById('preop-history').classList.remove('hidden');
-
-            // Atualiza dados do card
-            document.getElementById('preop-history-date').textContent = `Avaliado em ${dateStr}`;
-
-            // Status badge
-            const status = preOpData.clearanceStatus || preOpData.clearance_status || 'pendente';
-            const statusEl = document.getElementById('preop-history-status');
-            if (status === 'liberado') {
-                statusEl.className = 'bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold';
-                statusEl.textContent = '✓ Liberado';
-            } else if (status === 'cancelado') {
-                statusEl.className = 'bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-bold';
-                statusEl.textContent = '✗ Cancelado';
-            } else {
-                statusEl.className = 'bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full font-bold';
-                statusEl.textContent = '⏳ Pendente';
-            }
-
-            // Preview
-            const surgeryName = preOpData.surgeryName || preOpData.surgery_name || 'Cirurgia';
-            const asaScore = preOpData.asaScore || preOpData.asa_score || preOpData.asa || '-';
-            const leeIndex = preOpData.leeIndex || preOpData.lee_index || preOpData.lee || '-';
-
-            document.getElementById('preop-history-preview').innerHTML = `
-                <span class="bg-white text-slate-700 text-xs px-2 py-1 rounded-full border border-slate-200">
-                    <i class="fa-solid fa-hospital text-purple-500 mr-1"></i> ${surgeryName}
-                </span>
-                <span class="bg-white text-slate-700 text-xs px-2 py-1 rounded-full border border-slate-200">
-                    <i class="fa-solid fa-chart-line text-blue-500 mr-1"></i> ASA: ${asaScore}
-                </span>
-                <span class="bg-white text-slate-700 text-xs px-2 py-1 rounded-full border border-slate-200">
-                    <i class="fa-solid fa-heart text-red-500 mr-1"></i> Lee: ${leeIndex}
-                </span>
-            `;
-
-            // Conteúdo expandido
-            const missingExams = preOpData.missingExams || preOpData.missing_exams || [];
-            const aiReport = preOpData.aiReport || preOpData.ai_report || preOpData.html_report || '';
-
-            // Guarda dados da avaliação pendente para uso posterior
-            if (status === 'pendente' && missingExams.length > 0) {
-                currentUser.pendingPreOpAssessment = {
-                    id: preOpData.id,
-                    surgeryName,
-                    asaScore,
-                    leeIndex,
-                    missingExams,
-                    aiReport
-                };
-            }
-
-            let missingExamsHtml = '';
-            let completeButtonHtml = '';
-
-            if (missingExams.length > 0 && status === 'pendente') {
-                missingExamsHtml = `
-                    <div class="bg-red-50 p-3 rounded-lg border border-red-200 mb-3">
-                        <p class="font-bold text-red-800 text-xs uppercase mb-2">
-                            <i class="fa-solid fa-exclamation-triangle mr-1"></i> Exames Pendentes:
-                        </p>
-                        <ul class="text-sm text-red-700 space-y-1">
-                            ${missingExams.map(e => `<li>• ${e}</li>`).join('')}
-                        </ul>
-                    </div>
-                `;
-
-                // Botão e área para completar a liberação
-                completeButtonHtml = `
-                    <div class="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-xl border-2 border-dashed border-green-300 mt-3">
-                        <div class="text-center mb-3">
-                            <h4 class="font-bold text-green-800 flex items-center justify-center">
-                                <i class="fa-solid fa-upload mr-2"></i> Completar Liberação
-                            </h4>
-                            <p class="text-xs text-slate-600 mt-1">Anexe os exames realizados para finalizar a avaliação <strong>(SEM custo adicional)</strong></p>
-                        </div>
-
-                        <div id="pending-upload-zone" class="bg-white border-2 border-dashed border-blue-200 rounded-lg p-4 text-center cursor-pointer hover:bg-blue-50 transition relative">
-                            <input type="file" id="pending-exam-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf, .jpg, .png" multiple onchange="handlePendingExamFiles(this.files)">
-                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-blue-500 mb-2"></i>
-                            <p class="text-sm text-blue-900 font-medium">Arraste os exames aqui ou clique</p>
-                            <p class="text-xs text-slate-500 mt-1">PDF ou Imagem dos exames realizados <strong>(até 10 arquivos)</strong></p>
-                        </div>
-
-                        <div id="pending-files-list" class="hidden mt-3 bg-white p-3 rounded-lg border border-slate-200">
-                            <p class="text-xs text-slate-600 mb-2 font-bold">Arquivos selecionados:</p>
-                            <div id="pending-files-names" class="text-xs text-slate-700"></div>
-                        </div>
-
-                        <button id="btn-complete-clearance" onclick="completePendingClearance()" class="hidden w-full mt-3 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-lg transition flex items-center justify-center">
-                            <i class="fa-solid fa-check-circle mr-2"></i> Verificar e Liberar Paciente
-                        </button>
-                    </div>
-                `;
-            }
-
-            document.getElementById('preop-history-content').innerHTML = `
-                <div class="grid grid-cols-2 gap-3 mb-3">
-                    <div class="bg-blue-50 p-3 rounded-lg text-center">
-                        <p class="text-xs text-blue-600 font-bold uppercase">ASA Score</p>
-                        <p class="text-xl font-black text-blue-800">${asaScore}</p>
-                    </div>
-                    <div class="bg-purple-50 p-3 rounded-lg text-center">
-                        <p class="text-xs text-purple-600 font-bold uppercase">Índice Lee</p>
-                        <p class="text-xl font-black text-purple-800">${leeIndex}</p>
-                    </div>
-                </div>
-                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-3">
-                    <p class="font-bold text-xs text-slate-500 uppercase mb-1">Procedimento</p>
-                    <p class="text-slate-800 font-medium">${surgeryName}</p>
-                </div>
-                ${missingExamsHtml}
-                ${completeButtonHtml}
-                ${aiReport && status !== 'pendente' ? `<div class="prose text-sm text-slate-700 mt-3">${aiReport}</div>` : ''}
-            `;
-
-            // Começa minimizado
-            document.getElementById('preop-history-full').classList.add('hidden');
-            document.getElementById('preop-history-arrow').style.transform = 'rotate(0deg)';
+            renderPreOpHistoryList([{
+                ...preOpData,
+                created_at: dateObj
+            }]);
         }
 
-        // Toggle pré-operatório
+        // Toggle pré-operatório (compatibilidade)
         function togglePreOpHistory() {
-            const fullList = document.getElementById('preop-history-full');
-            const arrow = document.getElementById('preop-history-arrow');
-            const isHidden = fullList.classList.contains('hidden');
-
-            if (isHidden) {
-                fullList.classList.remove('hidden');
-                arrow.style.transform = 'rotate(180deg)';
-            } else {
-                fullList.classList.add('hidden');
-                arrow.style.transform = 'rotate(0deg)';
-            }
+            toggleHistoryCard('preop-history-card-0');
         }
 
         // ========== COMPLETAR LIBERAÇÃO PENDENTE ==========
