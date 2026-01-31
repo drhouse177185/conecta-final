@@ -4476,16 +4476,58 @@ Sistema Conecta Saude`
             const missingExams = preOpData.missingExams || preOpData.missing_exams || [];
             const aiReport = preOpData.aiReport || preOpData.ai_report || preOpData.html_report || '';
 
+            // Guarda dados da avaliação pendente para uso posterior
+            if (status === 'pendente' && missingExams.length > 0) {
+                currentUser.pendingPreOpAssessment = {
+                    id: preOpData.id,
+                    surgeryName,
+                    asaScore,
+                    leeIndex,
+                    missingExams,
+                    aiReport
+                };
+            }
+
             let missingExamsHtml = '';
-            if (missingExams.length > 0) {
+            let completeButtonHtml = '';
+
+            if (missingExams.length > 0 && status === 'pendente') {
                 missingExamsHtml = `
-                    <div class="bg-red-50 p-3 rounded-lg border border-red-200">
+                    <div class="bg-red-50 p-3 rounded-lg border border-red-200 mb-3">
                         <p class="font-bold text-red-800 text-xs uppercase mb-2">
                             <i class="fa-solid fa-exclamation-triangle mr-1"></i> Exames Pendentes:
                         </p>
                         <ul class="text-sm text-red-700 space-y-1">
                             ${missingExams.map(e => `<li>• ${e}</li>`).join('')}
                         </ul>
+                    </div>
+                `;
+
+                // Botão e área para completar a liberação
+                completeButtonHtml = `
+                    <div class="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-xl border-2 border-dashed border-green-300 mt-3">
+                        <div class="text-center mb-3">
+                            <h4 class="font-bold text-green-800 flex items-center justify-center">
+                                <i class="fa-solid fa-upload mr-2"></i> Completar Liberação
+                            </h4>
+                            <p class="text-xs text-slate-600 mt-1">Anexe os exames realizados para finalizar a avaliação <strong>(SEM custo adicional)</strong></p>
+                        </div>
+
+                        <div id="pending-upload-zone" class="bg-white border-2 border-dashed border-blue-200 rounded-lg p-4 text-center cursor-pointer hover:bg-blue-50 transition relative">
+                            <input type="file" id="pending-exam-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf, .jpg, .png" multiple onchange="handlePendingExamFiles(this.files)">
+                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-blue-500 mb-2"></i>
+                            <p class="text-sm text-blue-900 font-medium">Arraste os exames aqui ou clique</p>
+                            <p class="text-xs text-slate-500 mt-1">PDF ou Imagem dos exames realizados</p>
+                        </div>
+
+                        <div id="pending-files-list" class="hidden mt-3">
+                            <p class="text-xs text-slate-600 mb-2"><strong>Arquivos selecionados:</strong></p>
+                            <div id="pending-files-names" class="text-xs text-slate-700"></div>
+                        </div>
+
+                        <button id="btn-complete-clearance" onclick="completePendingClearance()" class="hidden w-full mt-3 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg shadow-lg transition flex items-center justify-center">
+                            <i class="fa-solid fa-check-circle mr-2"></i> Verificar e Liberar Paciente
+                        </button>
                     </div>
                 `;
             }
@@ -4506,7 +4548,8 @@ Sistema Conecta Saude`
                     <p class="text-slate-800 font-medium">${surgeryName}</p>
                 </div>
                 ${missingExamsHtml}
-                ${aiReport ? `<div class="prose text-sm text-slate-700 mt-3">${aiReport}</div>` : ''}
+                ${completeButtonHtml}
+                ${aiReport && status !== 'pendente' ? `<div class="prose text-sm text-slate-700 mt-3">${aiReport}</div>` : ''}
             `;
 
             // Começa minimizado
@@ -4527,6 +4570,174 @@ Sistema Conecta Saude`
                 fullList.classList.add('hidden');
                 arrow.style.transform = 'rotate(0deg)';
             }
+        }
+
+        // ========== COMPLETAR LIBERAÇÃO PENDENTE ==========
+
+        // Variável para guardar arquivos de exames pendentes
+        let pendingExamFiles = [];
+
+        // Manipula arquivos de exames para completar liberação
+        function handlePendingExamFiles(files) {
+            pendingExamFiles = Array.from(files);
+
+            if (pendingExamFiles.length > 0) {
+                // Mostra lista de arquivos
+                const filesList = document.getElementById('pending-files-list');
+                const filesNames = document.getElementById('pending-files-names');
+                const btn = document.getElementById('btn-complete-clearance');
+
+                filesNames.innerHTML = pendingExamFiles.map(f =>
+                    `<span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-1 mb-1">
+                        <i class="fa-solid fa-file-pdf mr-1"></i>${f.name.substring(0, 20)}${f.name.length > 20 ? '...' : ''}
+                    </span>`
+                ).join('');
+
+                filesList.classList.remove('hidden');
+                btn.classList.remove('hidden');
+
+                showToast(`${pendingExamFiles.length} arquivo(s) selecionado(s)`, 'info');
+            }
+        }
+
+        // Processa exames e verifica liberação (SEM cobrar créditos)
+        async function completePendingClearance() {
+            if (pendingExamFiles.length === 0) {
+                showToast('Selecione pelo menos um arquivo de exame', 'error');
+                return;
+            }
+
+            if (!currentUser.pendingPreOpAssessment) {
+                showToast('Nenhuma avaliação pendente encontrada', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('btn-complete-clearance');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Verificando exames...';
+            btn.disabled = true;
+
+            try {
+                // 1. Extrai texto dos arquivos (OCR/PDF)
+                let combinedText = "";
+                for (let file of pendingExamFiles) {
+                    const fileText = await extractTextFromFile(file);
+                    combinedText += fileText + "\n\n";
+                }
+
+                if (combinedText.length < 50) {
+                    throw new Error("Não foi possível ler os exames. Verifique a qualidade das imagens.");
+                }
+
+                // 2. Envia para IA verificar se os exames pendentes foram realizados
+                const pendingExams = currentUser.pendingPreOpAssessment.missingExams;
+                const surgeryName = currentUser.pendingPreOpAssessment.surgeryName;
+
+                const prompt = `Você é um assistente médico verificando exames pré-operatórios.
+
+O paciente precisa realizar os seguintes EXAMES PENDENTES para a cirurgia "${surgeryName}":
+${pendingExams.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+
+Texto extraído dos exames enviados pelo paciente:
+---
+${combinedText.substring(0, 8000)}
+---
+
+Verifique se os exames enviados COBREM os exames pendentes listados acima.
+
+Responda APENAS em JSON:
+{
+    "all_exams_complete": true/false,
+    "exams_found": ["lista dos exames encontrados nos arquivos"],
+    "exams_still_missing": ["lista dos exames que AINDA faltam, se houver"],
+    "clearance_message": "Mensagem de liberação se todos os exames foram realizados",
+    "observations": "Observações importantes sobre os exames"
+}`;
+
+                const result = await callGemini(prompt, true);
+
+                if (result.all_exams_complete) {
+                    // 3. LIBERADO! Atualiza no banco
+                    await updatePreOpStatus(currentUser.pendingPreOpAssessment.id, 'liberado');
+
+                    // Atualiza a variável local
+                    currentUser.lastPreOpResult = {
+                        ...currentUser.pendingPreOpAssessment,
+                        clearance_status: 'liberado',
+                        clearance_message: result.clearance_message
+                    };
+
+                    // Atualiza o card de histórico
+                    renderPreOpHistory({
+                        ...currentUser.pendingPreOpAssessment,
+                        clearanceStatus: 'liberado'
+                    }, new Date());
+
+                    // Mostra mensagem de sucesso
+                    showToast('🎉 PACIENTE LIBERADO! Todos os exames foram verificados.', 'success');
+
+                    // Mostra modal de liberação
+                    alert(`✅ LIBERAÇÃO CONFIRMADA!\n\n${result.clearance_message}\n\nExames verificados:\n${result.exams_found.join('\n')}`);
+
+                } else {
+                    // Ainda faltam exames
+                    showToast('Alguns exames ainda estão faltando', 'error');
+                    alert(`⚠️ EXAMES INCOMPLETOS\n\nAinda faltam:\n${result.exams_still_missing.join('\n')}\n\n${result.observations || ''}`);
+                }
+
+            } catch (error) {
+                console.error('Erro ao verificar exames:', error);
+                showToast('Erro ao processar exames: ' + error.message, 'error');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                pendingExamFiles = [];
+            }
+        }
+
+        // Função auxiliar para atualizar status no banco
+        async function updatePreOpStatus(assessmentId, newStatus) {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/preoperative/${assessmentId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    console.log(`✅ Status atualizado para: ${newStatus}`);
+                }
+                return data;
+            } catch (e) {
+                console.error('Erro ao atualizar status:', e);
+                throw e;
+            }
+        }
+
+        // Função auxiliar para extrair texto de arquivo (PDF ou Imagem)
+        async function extractTextFromFile(file) {
+            const fileType = file.type;
+
+            if (fileType === 'application/pdf') {
+                // Extrai texto do PDF
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                let text = '';
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    text += content.items.map(item => item.str).join(' ') + '\n';
+                }
+                return text;
+            } else if (fileType.startsWith('image/')) {
+                // OCR para imagens
+                const result = await Tesseract.recognize(file, 'por', {
+                    logger: m => console.log(m)
+                });
+                return result.data.text;
+            }
+
+            return '';
         }
 
         async function handleFiles(files, pageId) {
