@@ -4660,29 +4660,47 @@ Responda APENAS em JSON:
                     // 3. LIBERADO! Atualiza no banco
                     await updatePreOpStatus(currentUser.pendingPreOpAssessment.id, 'liberado');
 
-                    // Atualiza a variável local
+                    // Atualiza a variável local com dados para gerar PDF
                     currentUser.lastPreOpResult = {
-                        ...currentUser.pendingPreOpAssessment,
-                        clearance_status: 'liberado',
-                        clearance_message: result.clearance_message
+                        surgeryName: currentUser.pendingPreOpAssessment.surgeryName,
+                        asa: currentUser.pendingPreOpAssessment.asaScore,
+                        lee: currentUser.pendingPreOpAssessment.leeIndex,
+                        missing_exams: [],
+                        clearance_message: result.clearance_message || 'Paciente liberado para procedimento cirúrgico.',
+                        html_report: currentUser.pendingPreOpAssessment.aiReport
                     };
 
                     // Atualiza o card de histórico
                     renderPreOpHistory({
                         ...currentUser.pendingPreOpAssessment,
-                        clearanceStatus: 'liberado'
+                        clearanceStatus: 'liberado',
+                        missingExams: []
                     }, new Date());
 
-                    // Mostra mensagem de sucesso
-                    showToast('🎉 PACIENTE LIBERADO! Todos os exames foram verificados.', 'success');
+                    // Atualiza os campos visuais de ASA e Lee
+                    document.getElementById('res-asa').textContent = currentUser.lastPreOpResult.asa || '-';
+                    document.getElementById('res-lee').textContent = currentUser.lastPreOpResult.lee || '-';
+                    document.getElementById('ai-content-2').innerHTML = `
+                        <div class="bg-green-50 p-4 rounded-lg border border-green-200 mb-4">
+                            <p class="text-green-800 font-medium">
+                                <i class="fa-solid fa-check-circle mr-2"></i>
+                                ${result.clearance_message || 'Paciente apto para o procedimento cirúrgico.'}
+                            </p>
+                        </div>
+                        <p class="text-sm text-slate-600">Exames verificados: ${result.exams_found.join(', ')}</p>
+                    `;
 
-                    // Mostra modal de liberação
-                    alert(`✅ LIBERAÇÃO CONFIRMADA!\n\n${result.clearance_message}\n\nExames verificados:\n${result.exams_found.join('\n')}`);
+                    // Mostra os botões de liberação (esconde pendências, mostra liberação)
+                    document.getElementById('pending-exams-container')?.classList.add('hidden');
+                    document.getElementById('cleared-container')?.classList.remove('hidden');
+                    document.getElementById('results-2')?.classList.remove('hidden');
+
+                    // Mostra mensagem de sucesso
+                    showToast('🎉 PACIENTE LIBERADO! Baixe o laudo de liberação abaixo.', 'success');
 
                 } else {
                     // Ainda faltam exames
-                    showToast('Alguns exames ainda estão faltando', 'error');
-                    alert(`⚠️ EXAMES INCOMPLETOS\n\nAinda faltam:\n${result.exams_still_missing.join('\n')}\n\n${result.observations || ''}`);
+                    showToast(`Ainda faltam exames: ${result.exams_still_missing.join(', ')}`, 'error');
                 }
 
             } catch (error) {
