@@ -2508,11 +2508,11 @@ Sistema Conecta Saúde`
                                 ${isCancelado ? 'disabled' : ''}>
                                 <i class="fa-solid fa-check text-sm"></i>
                             </button>
-                            <button onclick="updatePreopStatus(${assessment.id}, 'pendente')"
+                            <button onclick="handlePendingExams(${assessment.id})"
                                 class="p-1.5 rounded ${isPendente ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-yellow-100 hover:text-yellow-600'} transition"
-                                title="Pendente de Exames"
-                                ${isCancelado ? 'disabled' : ''}>
-                                <i class="fa-solid fa-clock text-sm"></i>
+                                title="Gerar Solicitacao de Exames Pendentes"
+                                ${isCancelado || !isPendente ? 'disabled' : ''}>
+                                <i class="fa-solid fa-file-medical text-sm"></i>
                             </button>
                             <button onclick="cancelPreopAssessment(${assessment.id})"
                                 class="p-1.5 rounded ${isCancelado ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600'} transition"
@@ -2779,6 +2779,225 @@ Sistema Conecta Saude`
             window.open(gmailUrl, '_blank');
 
             showToast("Gmail aberto! Anexe o PDF baixado ao email.", "info");
+        }
+
+        // --- GERACAO DE PDF DE EXAMES PENDENTES (BOTAO AMARELO) ---
+        async function generatePendingExamsPDF(assessment) {
+            const wrapper = document.getElementById('pdf-content-wrapper');
+            const now = new Date().toLocaleDateString('pt-BR');
+
+            // Extrair dados do assessment
+            const patientName = assessment.patientName || assessment.patient_name || 'N/A';
+            const patientCpf = assessment.patientCpf || assessment.patient_cpf || 'N/A';
+            const surgeryName = assessment.surgeryName || assessment.surgery_name || 'N/A';
+            const missingExams = assessment.missingExams || assessment.missing_exams || [];
+
+            if (missingExams.length === 0) {
+                showToast("Nenhum exame pendente para este paciente.", "info");
+                return false;
+            }
+
+            showToast("Gerando PDF de Solicitacao de Exames...", "info");
+
+            // Categorizar exames por tipo
+            const labExams = [];
+            const imageExams = [];
+            const otherExams = [];
+
+            // Palavras-chave para categorização
+            const imageKeywords = ['raio', 'rx', 'radiografia', 'tomografia', 'ressonancia', 'ultrassom', 'ecografia', 'mamografia', 'densitometria', 'cintilografia', 'ecocardiograma', 'eletrocardiograma', 'ecg', 'holter'];
+            const labKeywords = ['hemograma', 'glicemia', 'colesterol', 'triglicerides', 'creatinina', 'ureia', 'tgo', 'tgp', 'tsh', 't4', 'hemoglobina', 'coagulograma', 'inr', 'ttp', 'plaquetas', 'leucocitos', 'hematocrito', 'vhs', 'pcr', 'sodio', 'potassio', 'calcio', 'magnesio', 'fosforo', 'acido urico', 'bilirrubina', 'albumina', 'proteina', 'urina', 'urocultura', 'sangue', 'soro', 'plasma'];
+
+            missingExams.forEach(exam => {
+                const examLower = exam.toLowerCase();
+                if (imageKeywords.some(kw => examLower.includes(kw))) {
+                    imageExams.push(exam);
+                } else if (labKeywords.some(kw => examLower.includes(kw))) {
+                    labExams.push(exam);
+                } else {
+                    otherExams.push(exam);
+                }
+            });
+
+            // Gerar HTML para cada categoria
+            let examSections = '';
+
+            if (labExams.length > 0) {
+                examSections += `
+                    <div style="background: #2563eb; color: white; padding: 10px 15px; margin-bottom: 15px; font-weight: bold; font-size: 13px;">
+                        EXAMES COMPLEMENTARES - LABORATORIO
+                    </div>
+                    <p style="font-size: 13px; margin-bottom: 15px;">Solicito a realizacao dos procedimentos abaixo listados para investigacao diagnostica:</p>
+                    <ul style="margin-bottom: 25px;">
+                        ${labExams.map(exam => `<li style="font-size: 13px; margin-bottom: 8px; border-bottom: 1px dashed #ccc; padding-bottom: 8px;">${exam}</li>`).join('')}
+                    </ul>
+                `;
+            }
+
+            if (imageExams.length > 0) {
+                examSections += `
+                    <div style="background: #8b5cf6; color: white; padding: 10px 15px; margin-bottom: 15px; font-weight: bold; font-size: 13px;">
+                        EXAMES COMPLEMENTARES - IMAGEM
+                    </div>
+                    <p style="font-size: 13px; margin-bottom: 15px;">Solicito a realizacao dos procedimentos abaixo listados para investigacao diagnostica:</p>
+                    <ul style="margin-bottom: 25px;">
+                        ${imageExams.map(exam => `<li style="font-size: 13px; margin-bottom: 8px; border-bottom: 1px dashed #ccc; padding-bottom: 8px;">${exam}</li>`).join('')}
+                    </ul>
+                `;
+            }
+
+            if (otherExams.length > 0) {
+                examSections += `
+                    <div style="background: #059669; color: white; padding: 10px 15px; margin-bottom: 15px; font-weight: bold; font-size: 13px;">
+                        EXAMES COMPLEMENTARES - OUTROS
+                    </div>
+                    <p style="font-size: 13px; margin-bottom: 15px;">Solicito a realizacao dos procedimentos abaixo listados para investigacao diagnostica:</p>
+                    <ul style="margin-bottom: 25px;">
+                        ${otherExams.map(exam => `<li style="font-size: 13px; margin-bottom: 8px; border-bottom: 1px dashed #ccc; padding-bottom: 8px;">${exam}</li>`).join('')}
+                    </ul>
+                `;
+            }
+
+            // Template do PDF
+            wrapper.innerHTML = `
+                <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333; position: relative;">
+                    <!-- CABECALHO PADRAO -->
+                    <div style="text-align: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 20px;">
+                        <h1 style="color: #1e3a8a; font-size: 24px; margin: 0; font-weight: 900; letter-spacing: 1px;">CONECTA SAUDE</h1>
+                        <p style="margin: 5px 0 0; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 2px;">Dr. Tiago Fernandes | Clinica Medica</p>
+                    </div>
+
+                    <!-- MENSAGEM DE LEMBRETE -->
+                    <div style="background: #fef3c7; border: 2px solid #f59e0b; padding: 15px; border-radius: 8px; margin-bottom: 25px;">
+                        <p style="color: #92400e; font-size: 13px; margin: 0; text-align: center;">
+                            <strong>⚠️ ATENÇÃO:</strong> Em anexo a guia de exames os quais você precisa realizar para liberação cirúrgica.
+                        </p>
+                    </div>
+
+                    <!-- DADOS DO PACIENTE -->
+                    <div style="background: #f1f5f9; padding: 15px; margin-bottom: 25px; border-radius: 8px;">
+                        <table style="width: 100%;">
+                            <tr>
+                                <td><p style="margin:0; font-size:12px; color:#64748b;">PACIENTE</p><p style="margin:0; font-weight:bold; font-size:16px;">${patientName}</p></td>
+                                <td style="text-align:right;"><p style="margin:0; font-size:12px; color:#64748b;">DATA</p><p style="margin:0; font-weight:bold; font-size:16px;">${now}</p></td>
+                            </tr>
+                            <tr>
+                                <td style="padding-top:10px;"><p style="margin:0; font-size:12px; color:#64748b;">CPF</p><p style="margin:0; font-weight:bold;">${patientCpf}</p></td>
+                                <td style="text-align:right; padding-top:10px;"><p style="margin:0; font-size:12px; color:#64748b;">CIRURGIA</p><p style="margin:0; font-weight:bold;">${surgeryName}</p></td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- SECOES DE EXAMES -->
+                    ${examSections}
+
+                    <!-- OBSERVACAO -->
+                    <div style="background: #e0f2fe; border-left: 4px solid #0284c7; padding: 12px 15px; margin-bottom: 30px;">
+                        <p style="font-size: 11px; color: #0c4a6e; margin: 0;">
+                            <strong>Observação:</strong> Este pedido médico é válido em todo território nacional. A realização destes exames é complementar à avaliação clínica para liberação cirúrgica.
+                        </p>
+                    </div>
+
+                    <!-- RODAPE COM ASSINATURA -->
+                    ${OFFICIAL_SIGNATURE_TEMPLATE}
+                </div>
+            `;
+
+            // Processamento do PDF
+            try {
+                wrapper.style.position = 'absolute';
+                wrapper.style.top = '0';
+                wrapper.style.left = '0';
+                wrapper.style.opacity = '1';
+                wrapper.style.zIndex = '-9999';
+
+                await new Promise(r => setTimeout(r, 800));
+
+                const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                const imgHeight = (canvas.height * 210) / canvas.width;
+                pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
+
+                const pdfBlob = pdf.output('blob');
+                const fileName = `Solicitacao_Exames_${patientName.split(' ')[0]}_PreOp.pdf`;
+
+                // Salvar PDF localmente
+                pdf.save(fileName);
+                showToast("PDF gerado com sucesso!", 'success');
+
+                // Compartilhar via Web Share API
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], fileName, { type: 'application/pdf' })] })) {
+                    const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+                    try {
+                        await navigator.share({
+                            title: `Solicitacao de Exames - ${patientName}`,
+                            text: `Exames pendentes para liberacao cirurgica - ${surgeryName}`,
+                            files: [pdfFile]
+                        });
+                        showToast("Compartilhamento concluido!", "success");
+                    } catch (shareError) {
+                        if (shareError.name !== 'AbortError') {
+                            openGmailComposerPendingExams(patientName, surgeryName, patientCpf, missingExams);
+                        }
+                    }
+                } else {
+                    openGmailComposerPendingExams(patientName, surgeryName, patientCpf, missingExams);
+                }
+
+                return true;
+
+            } catch(e) {
+                console.error(e);
+                showToast("Erro ao gerar PDF.", "error");
+                return false;
+            } finally {
+                wrapper.innerHTML = "";
+            }
+        }
+
+        // Gmail Composer para Exames Pendentes
+        function openGmailComposerPendingExams(patientName, surgeryName, cpf, missingExams) {
+            const examsList = missingExams.map(e => `- ${e}`).join('\n');
+            const subject = encodeURIComponent(`[EXAMES PENDENTES] ${patientName} - Liberacao Cirurgica`);
+            const body = encodeURIComponent(
+`Prezado(a) ${patientName},
+
+Para dar continuidade ao processo de liberacao para a cirurgia de ${surgeryName}, e necessario que voce realize os seguintes exames:
+
+${examsList}
+
+Apos a realizacao, por favor envie os resultados para nossa equipe.
+
+O PDF com a guia de solicitacao de exames foi gerado e esta disponivel para download.
+Por favor, anexe o arquivo PDF baixado a este email antes de enviar.
+
+Atenciosamente,
+Dr. Tiago Fernandes
+Sistema Conecta Saude`
+            );
+
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=&su=${subject}&body=${body}`;
+            window.open(gmailUrl, '_blank');
+            showToast("Gmail aberto! Anexe o PDF baixado ao email.", "info");
+        }
+
+        // Funcao chamada pelo botao amarelo (pendente)
+        async function handlePendingExams(assessmentId) {
+            const assessment = preopAssessmentsList.find(a => a.id === assessmentId);
+            if (!assessment) {
+                showToast("Avaliacao nao encontrada.", "error");
+                return;
+            }
+
+            const missingExams = assessment.missingExams || assessment.missing_exams || [];
+            if (missingExams.length === 0) {
+                showToast("Este paciente nao possui exames pendentes.", "info");
+                return;
+            }
+
+            await generatePendingExamsPDF(assessment);
         }
 
         // --- SEÇÃO: LÓGICA PRÉ-CONSULTA ---
