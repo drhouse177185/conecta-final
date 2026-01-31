@@ -2544,13 +2544,10 @@ Sistema Conecta Saúde`
                     preopAssessmentsList[idx].clearance_status = newStatus;
                     renderPreoperativeAssessments();
 
-                    // Se liberado, gerar PDF e enviar email
+                    // Se liberado, gerar PDF e abrir compartilhamento
                     if (newStatus === 'liberado') {
                         const assessment = preopAssessmentsList[idx];
-                        const pdfData = await generateSurgicalClearancePDF(assessment);
-                        if (pdfData) {
-                            await sendSurgicalClearanceEmail(assessmentId, pdfData);
-                        }
+                        await generateSurgicalClearancePDF(assessment);
                     }
                 }
 
@@ -2708,69 +2705,80 @@ Sistema Conecta Saúde`
 
                 // Gerar blob do PDF para envio por email
                 const pdfBlob = pdf.output('blob');
-                const pdfBase64 = await blobToBase64(pdfBlob);
+
+                // Nome do arquivo
+                const fileName = `Liberacao_Cirurgica_${patientName.split(' ')[0]}_${surgeryName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
                 // Salvar PDF localmente
-                const fileName = `Liberacao_Cirurgica_${patientName.split(' ')[0]}_${surgeryName}.pdf`;
                 pdf.save(fileName);
 
                 showToast("PDF gerado com sucesso!", 'success');
 
-                // Retornar dados para envio de email
-                return {
-                    pdfBase64: pdfBase64,
-                    fileName: fileName,
-                    patientName: patientName,
-                    surgeryName: surgeryName
-                };
+                // Tenta compartilhar via Web Share API (abre janela de compartilhamento do Windows)
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], fileName, { type: 'application/pdf' })] })) {
+                    const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+                    try {
+                        await navigator.share({
+                            title: `Liberacao Cirurgica - ${patientName}`,
+                            text: `Solicitacao de agendamento cirurgico para ${surgeryName}`,
+                            files: [pdfFile]
+                        });
+                        showToast("Compartilhamento concluido!", "success");
+                    } catch (shareError) {
+                        if (shareError.name !== 'AbortError') {
+                            // Se falhar, abre Gmail
+                            openGmailComposerSurgical(patientName, surgeryName, patientCpf, asaScore, leeIndex);
+                        }
+                    }
+                } else {
+                    // Fallback: abre Gmail
+                    openGmailComposerSurgical(patientName, surgeryName, patientCpf, asaScore, leeIndex);
+                }
+
+                return true;
 
             } catch(e) {
                 console.error(e);
                 showToast("Erro ao gerar PDF.", "error");
-                return null;
+                return false;
             } finally {
                 wrapper.innerHTML = "";
             }
         }
 
-        // Helper para converter Blob para Base64
-        function blobToBase64(blob) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-        }
+        // Abre Gmail Composer para Liberacao Cirurgica
+        function openGmailComposerSurgical(patientName, surgeryName, cpf, asaScore, leeIndex) {
+            const subject = encodeURIComponent(`[LIBERACAO CIRURGICA] ${patientName} - ${surgeryName}`);
+            const body = encodeURIComponent(
+`Prezados,
 
-        // Enviar email de liberacao cirurgica
-        async function sendSurgicalClearanceEmail(assessmentId, pdfData) {
-            try {
-                showToast("Enviando email para Gestao Cirurgica...", "info");
+Solicito agendamento de consulta com Cirurgiao ou agendamento do procedimento cirurgico para o paciente abaixo:
 
-                const res = await fetch(`${BACKEND_URL}/api/preoperative/${assessmentId}/send-clearance-email`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        pdfBase64: pdfData.pdfBase64,
-                        fileName: pdfData.fileName,
-                        patientName: pdfData.patientName,
-                        surgeryName: pdfData.surgeryName
-                    })
-                });
+DADOS DO PACIENTE:
+- Nome: ${patientName}
+- CPF: ${cpf}
+- Procedimento: ${surgeryName}
+- Classificacao ASA: ${asaScore}
+- Indice de Lee: ${leeIndex}
 
-                if (!res.ok) {
-                    throw new Error("Erro ao enviar email");
-                }
+STATUS: PACIENTE LIBERADO PARA PROCEDIMENTO CIRURGICO
 
-                showToast("Email enviado com sucesso para Gestao Cirurgica!", "success");
-                return true;
+Apos avaliacao pre-operatoria completa, o paciente encontra-se APTO para realizacao do procedimento cirurgico proposto.
 
-            } catch (error) {
-                console.error("Erro ao enviar email:", error);
-                showToast("Erro ao enviar email. PDF salvo localmente.", "error");
-                return false;
-            }
+O PDF com o laudo de liberacao foi gerado e esta disponivel para download.
+Por favor, anexe o arquivo PDF baixado a este email antes de enviar.
+
+Atenciosamente,
+Dr. Tiago Fernandes
+Sistema Conecta Saude`
+            );
+
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=&su=${subject}&body=${body}`;
+
+            // Abre em nova aba
+            window.open(gmailUrl, '_blank');
+
+            showToast("Gmail aberto! Anexe o PDF baixado ao email.", "info");
         }
 
         // --- SEÇÃO: LÓGICA PRÉ-CONSULTA ---
