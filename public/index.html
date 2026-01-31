@@ -4677,12 +4677,15 @@ Sistema Conecta Saude`
                 const imageFiles = pendingExamFiles.filter(f => f.type.startsWith('image/'));
                 const pdfFiles = pendingExamFiles.filter(f => f.type === 'application/pdf');
 
-                // 1. Extrai texto dos PDFs
+                // 1. Extrai texto dos PDFs (todas as páginas)
                 let combinedText = "";
                 for (let file of pdfFiles) {
+                    console.log(`📋 Processando PDF: ${file.name}`);
                     const fileText = await extractTextFromFile(file);
                     combinedText += `[PDF: ${file.name}]\n${fileText}\n\n`;
+                    console.log(`📋 Texto extraído do PDF: ${fileText.length} caracteres`);
                 }
+                console.log(`📋 Total de texto extraído: ${combinedText.length} caracteres`);
 
                 // 2. Envia para IA verificar (com imagens para análise visual)
                 const pendingExams = currentUser.pendingPreOpAssessment.missingExams;
@@ -4693,7 +4696,22 @@ Sistema Conecta Saude`
 O paciente precisa realizar os seguintes EXAMES PENDENTES para a cirurgia "${surgeryName}":
 ${pendingExams.map((e, i) => `${i + 1}. ${e}`).join('\n')}
 
-${pdfFiles.length > 0 ? `Texto extraído dos PDFs enviados:\n---\n${combinedText.substring(0, 6000)}\n---\n` : ''}
+${pdfFiles.length > 0 ? `Texto extraído dos PDFs enviados (LEIA TODO O CONTEÚDO ATENTAMENTE):
+---
+${combinedText.substring(0, 20000)}
+---
+
+INSTRUÇÕES PARA IDENTIFICAÇÃO DE EXAMES LABORATORIAIS:
+- Hemograma: procure por "HEMOGRAMA", "ERITROGRAMA", "LEUCOGRAMA", eritrócitos, hemoglobina, leucócitos, plaquetas
+- Coagulograma: procure por "COAGULOGRAMA", "TP", "TTPA", tempo de protrombina, INR
+- Glicose/Glicemia: procure por "GLICOSE", "GLICEMIA", valores em mg/dL
+- Ureia: procure por "UREIA", valores em mg/dL
+- Creatinina: procure por "CREATININA", valores em mg/dL, também pode aparecer como "CREA"
+- Função Renal: Ureia + Creatinina = Função Renal completa
+- Eletrólitos: Sódio (NA), Potássio (K)
+- Função Hepática: TGO (AST), TGP (ALT)
+
+IMPORTANTE: Um único PDF pode conter MÚLTIPLOS exames em páginas diferentes. Analise TODO o texto fornecido.` : ''}
 
 ${imageFiles.length > 0 ? `IMPORTANTE: ${imageFiles.length} imagem(ns) foram anexadas para análise visual. Analise VISUALMENTE cada imagem para identificar o tipo de exame.
 
@@ -4806,15 +4824,22 @@ Responda APENAS em JSON:
             const fileType = file.type;
 
             if (fileType === 'application/pdf') {
-                // Extrai texto do PDF
+                // Extrai texto do PDF - melhorado para múltiplas páginas
                 const arrayBuffer = await file.arrayBuffer();
                 const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                 let text = '';
+                console.log(`📄 PDF com ${pdf.numPages} página(s) - Extraindo texto...`);
+
                 for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
                     const content = await page.getTextContent();
-                    text += content.items.map(item => item.str).join(' ') + '\n';
+                    // Adiciona separador de página para melhor organização
+                    text += `\n--- PÁGINA ${i} ---\n`;
+                    // Extrai texto preservando quebras de linha
+                    const pageText = content.items.map(item => item.str).join(' ');
+                    text += pageText + '\n';
                 }
+                console.log(`✅ Texto extraído: ${text.length} caracteres`);
                 return text;
             } else if (fileType.startsWith('image/')) {
                 // OCR para imagens
