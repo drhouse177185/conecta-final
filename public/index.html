@@ -1828,7 +1828,13 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     // Salva as comorbidades customizadas no currentUser para uso nas análises
                     currentUser.customComorbidities = customComorbidities;
 
-                    // Exibe as comorbidades customizadas salvas
+                    // Preenche o campo "Outras" com as comorbidades customizadas salvas
+                    const otherInput = document.getElementById('pre-other-comorb');
+                    if (otherInput && customComorbidities.length > 0) {
+                        otherInput.value = customComorbidities.join(', ');
+                    }
+
+                    // Exibe as comorbidades customizadas salvas como badges
                     const customContainer = document.getElementById('custom-comorbidities-display');
                     if (customContainer && customComorbidities.length > 0) {
                         customContainer.innerHTML = `
@@ -4423,6 +4429,67 @@ Sistema Conecta Saude`
             }
         }
 
+        // ========== GERENCIAMENTO DE HISTÓRICOS OCULTOS ==========
+
+        // Obtém lista de históricos ocultos do localStorage
+        function getHiddenHistoryIds(type) {
+            const key = `hidden_history_${type}_${currentUser?.id || 'guest'}`;
+            const hidden = localStorage.getItem(key);
+            return hidden ? JSON.parse(hidden) : [];
+        }
+
+        // Adiciona um histórico à lista de ocultos
+        function hideHistoryItem(type, itemId) {
+            const key = `hidden_history_${type}_${currentUser?.id || 'guest'}`;
+            const hidden = getHiddenHistoryIds(type);
+            if (!hidden.includes(itemId)) {
+                hidden.push(itemId);
+                localStorage.setItem(key, JSON.stringify(hidden));
+            }
+            // Remove visualmente o card (suporta diferentes padrões de ID)
+            let cardWrapper = document.getElementById(`history-wrapper-${type}-${itemId}`);
+            if (!cardWrapper) {
+                cardWrapper = document.getElementById(`preop-card-wrapper-${itemId}`);
+            }
+            if (cardWrapper) {
+                cardWrapper.style.transition = 'opacity 0.3s, transform 0.3s';
+                cardWrapper.style.opacity = '0';
+                cardWrapper.style.transform = 'translateX(-20px)';
+                setTimeout(() => {
+                    cardWrapper.remove();
+                    // Remove também o conteúdo expandido se existir
+                    const expandedContent = cardWrapper.nextElementSibling;
+                    if (expandedContent && expandedContent.id && expandedContent.id.includes('-full')) {
+                        expandedContent.remove();
+                    }
+                }, 300);
+            }
+            showToast('Histórico removido da visualização', 'info');
+            // Atualiza contador
+            updateHistoryCount(type);
+        }
+
+        // Atualiza o contador de históricos visíveis
+        function updateHistoryCount(type) {
+            const listEl = document.getElementById(`${type}-history-list`);
+            const countEl = document.getElementById(`${type}-history-count` === 'preop' ? 'preop-history-count' : `${type}-history-count`);
+            const containerId = type === 'preop' ? 'preop-history-container' : `${type}-history-container`;
+
+            if (listEl && countEl) {
+                // Conta cards visíveis (suporta ambos os padrões de ID)
+                let visibleCards = listEl.querySelectorAll('[id^="history-wrapper-"]').length;
+                if (type === 'preop') {
+                    visibleCards = listEl.querySelectorAll('[id^="preop-card-wrapper-"]').length;
+                }
+
+                if (visibleCards === 0) {
+                    document.getElementById(containerId)?.classList.add('hidden');
+                } else {
+                    countEl.textContent = type === 'pos-consulta' ? `${visibleCards} registro(s)` : `${visibleCards} avaliação(ões)`;
+                }
+            }
+        }
+
         // ========== HISTÓRICO PÓS-CONSULTA (Lista de até 5) ==========
 
         // Renderiza a lista de históricos de pós-consulta
@@ -4433,11 +4500,18 @@ Sistema Conecta Saude`
             const listEl = document.getElementById('pos-consulta-history-list');
             const countEl = document.getElementById('pos-history-count');
 
+            // Filtra históricos ocultos
+            const hiddenIds = getHiddenHistoryIds('pos-consulta');
+            const visibleHistory = historyList.filter(item => !hiddenIds.includes(item.id));
+
+            if (visibleHistory.length === 0) return;
+
             container.classList.remove('hidden');
-            countEl.textContent = `${historyList.length} registro(s)`;
+            countEl.textContent = `${visibleHistory.length} registro(s)`;
             listEl.innerHTML = '';
 
-            historyList.forEach((item, index) => {
+            visibleHistory.forEach((item, index) => {
+                const itemId = item.id || index;
                 const dateStr = (item.createdAt || item.created_at) ?
                     new Date(item.createdAt || item.created_at).toLocaleDateString('pt-BR', {
                         day: '2-digit', month: 'short', year: 'numeric'
@@ -4448,23 +4522,30 @@ Sistema Conecta Saude`
                 const cardId = `pos-history-card-${index}`;
 
                 listEl.innerHTML += `
-                    <div class="bg-gradient-to-r from-green-50 to-slate-50 p-3 rounded-xl border border-green-200 cursor-pointer hover:shadow-md transition-all" onclick="toggleHistoryCard('${cardId}')">
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center gap-2">
-                                <div class="bg-green-600 text-white p-2 rounded-lg text-xs">
-                                    <i class="fa-solid fa-file-medical"></i>
+                    <div id="history-wrapper-pos-consulta-${itemId}" class="relative">
+                        <div class="bg-gradient-to-r from-green-50 to-slate-50 p-3 rounded-xl border border-green-200 cursor-pointer hover:shadow-md transition-all" onclick="toggleHistoryCard('${cardId}')">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <div class="bg-green-600 text-white p-2 rounded-lg text-xs">
+                                        <i class="fa-solid fa-file-medical"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-xs text-green-900">${dateStr}</p>
+                                        <p class="text-xs text-slate-500">${filesCount} arquivo(s)</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p class="font-bold text-xs text-green-900">${dateStr}</p>
-                                    <p class="text-xs text-slate-500">${filesCount} arquivo(s)</p>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="event.stopPropagation(); hideHistoryItem('pos-consulta', ${itemId})" class="text-slate-400 hover:text-red-500 transition p-1" title="Remover da visualização">
+                                        <i class="fa-solid fa-times text-xs"></i>
+                                    </button>
+                                    <i id="${cardId}-arrow" class="fa-solid fa-chevron-down text-green-600 transition-transform duration-300 text-xs"></i>
                                 </div>
                             </div>
-                            <i id="${cardId}-arrow" class="fa-solid fa-chevron-down text-green-600 transition-transform duration-300 text-xs"></i>
+                            <p class="text-xs text-slate-600 mt-2 line-clamp-2">${summary.substring(0, 100)}...</p>
                         </div>
-                        <p class="text-xs text-slate-600 mt-2 line-clamp-2">${summary.substring(0, 100)}...</p>
-                    </div>
-                    <div id="${cardId}-full" class="hidden bg-white p-3 rounded-xl border border-slate-200 mt-1 text-sm text-slate-700">
-                        <p>${summary}</p>
+                        <div id="${cardId}-full" class="hidden bg-white p-3 rounded-xl border border-slate-200 mt-1 text-sm text-slate-700">
+                            <p>${summary}</p>
+                        </div>
                     </div>
                 `;
             });
@@ -4509,11 +4590,17 @@ Sistema Conecta Saude`
             const listEl = document.getElementById('preop-history-list');
             const countEl = document.getElementById('preop-history-count');
 
+            // Filtra históricos ocultos
+            const hiddenIds = getHiddenHistoryIds('preop');
+            const visibleHistory = historyList.filter(item => !hiddenIds.includes(item.id));
+
+            if (visibleHistory.length === 0) return;
+
             container.classList.remove('hidden');
-            countEl.textContent = `${historyList.length} avaliação(ões)`;
+            countEl.textContent = `${visibleHistory.length} avaliação(ões)`;
             listEl.innerHTML = '';
 
-            historyList.forEach((item, index) => {
+            visibleHistory.forEach((item, index) => {
                 const dateStr = (item.createdAt || item.created_at) ?
                     new Date(item.createdAt || item.created_at).toLocaleDateString('pt-BR', {
                         day: '2-digit', month: 'short', year: 'numeric'
@@ -4591,8 +4678,9 @@ Sistema Conecta Saude`
                     }
                 }
 
+                const itemId = item.id;
                 listEl.innerHTML += `
-                    <div class="bg-gradient-to-r from-purple-50 to-slate-50 p-3 rounded-xl border border-purple-200 cursor-pointer hover:shadow-md transition-all" onclick="toggleHistoryCard('${cardId}')">
+                    <div id="preop-card-wrapper-${itemId}" class="bg-gradient-to-r from-purple-50 to-slate-50 p-3 rounded-xl border border-purple-200 cursor-pointer hover:shadow-md transition-all" onclick="toggleHistoryCard('${cardId}')">
                         <div class="flex justify-between items-center">
                             <div class="flex items-center gap-2">
                                 <div class="bg-purple-600 text-white p-2 rounded-lg text-xs">
@@ -4605,6 +4693,9 @@ Sistema Conecta Saude`
                             </div>
                             <div class="flex items-center gap-2">
                                 ${statusBadge}
+                                <button onclick="event.stopPropagation(); hideHistoryItem('preop', ${itemId})" class="text-slate-400 hover:text-red-500 transition p-1" title="Remover da visualização">
+                                    <i class="fa-solid fa-times text-xs"></i>
+                                </button>
                                 <i id="${cardId}-arrow" class="fa-solid fa-chevron-down text-purple-600 transition-transform duration-300 text-xs"></i>
                             </div>
                         </div>
