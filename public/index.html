@@ -5541,24 +5541,70 @@ Responda APENAS em JSON:
     if (type === 'PREOP_CLEARANCE') {
         title = "LAUDO DE LIBERAÇÃO CIRÚRGICA";
         headerColor = "#16a34a"; // Verde
+
+        // Explicações detalhadas do ASA
+        const asaExplanations = {
+            'ASA I': 'Paciente saudável, sem comorbidades. Risco cirúrgico mínimo.',
+            'ASA II': 'Doença sistêmica leve controlada (ex: hipertensão, diabetes controlados). Risco cirúrgico baixo.',
+            'ASA III': 'Doença sistêmica grave não incapacitante. Risco cirúrgico moderado.',
+            'ASA IV': 'Doença sistêmica grave com ameaça constante à vida. Risco cirúrgico alto.',
+            'ASA V': 'Paciente moribundo, sem expectativa de sobrevida sem cirurgia. Risco muito alto.'
+        };
+
+        // Explicações detalhadas do Índice de Lee
+        const leeExplanations = {
+            'Classe I (0 pontos)': 'Risco cardíaco muito baixo (<1%). Complicações cardiovasculares improváveis.',
+            'Classe I': 'Risco cardíaco muito baixo (<1%). Complicações cardiovasculares improváveis.',
+            'Classe II (1 ponto)': 'Risco cardíaco baixo (~1%). Monitorização padrão recomendada.',
+            'Classe II': 'Risco cardíaco baixo (~1%). Monitorização padrão recomendada.',
+            'Classe III (2 pontos)': 'Risco cardíaco moderado (~7%). Avaliação cardiológica pode ser necessária.',
+            'Classe III': 'Risco cardíaco moderado (~7%). Avaliação cardiológica pode ser necessária.',
+            'Classe IV (≥3 pontos)': 'Risco cardíaco elevado (>11%). Avaliação cardiológica obrigatória.',
+            'Classe IV': 'Risco cardíaco elevado (>11%). Avaliação cardiológica obrigatória.'
+        };
+
+        // Busca a explicação correspondente
+        const asaKey = Object.keys(asaExplanations).find(k => (data.asa || '').includes(k.replace('ASA ', ''))) || '';
+        const asaExpl = asaExplanations[asaKey] || 'Classificação de risco anestésico da Sociedade Americana de Anestesiologia.';
+
+        const leeKey = Object.keys(leeExplanations).find(k => (data.lee || '').toLowerCase().includes(k.toLowerCase().split(' ')[0])) || '';
+        const leeExpl = leeExplanations[leeKey] || 'Índice que avalia risco de complicações cardíacas perioperatórias.';
+
         bodyContent = `
             <div style="background-color: #f0fdf4; border-left: 5px solid #16a34a; padding: 15px; margin-bottom: 20px;">
                 <h3 style="color: #166534; margin: 0 0 5px 0; font-size: 16px;">PACIENTE APTO</h3>
-                <p style="margin: 0; font-style: italic; color: #333; font-size: 13px;">"${data.clearance_message || 'Paciente clinicamente compensado e liberado.'}"</p>
+                <p style="margin: 0; font-style: italic; color: #333; font-size: 12px;">"Apto para o procedimento de ${data.surgeryName || 'cirurgia'} com segurança anestésica e cardiovascular. Os dados clínicos atuais são suficientes para o manejo do risco perioperatório."</p>
             </div>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
                 <tr>
-                    <td style="border: 1px solid #e2e8f0; padding: 10px;"><strong>Risco ASA:</strong> <span style="color: #1e3a8a;">${data.asa}</span></td>
-                    <td style="border: 1px solid #e2e8f0; padding: 10px;"><strong>Índice de Lee:</strong> <span style="color: #6b21a8;">${data.lee}</span></td>
+                    <td style="border: 1px solid #e2e8f0; padding: 10px; width: 50%; vertical-align: top;">
+                        <strong>Risco ASA:</strong> <span style="color: #1e3a8a; font-weight: bold;">${data.asa || 'ASA I'}</span>
+                    </td>
+                    <td style="border: 1px solid #e2e8f0; padding: 10px; width: 50%; vertical-align: top;">
+                        <strong>Índice de Lee:</strong> <span style="color: #6b21a8; font-weight: bold;">${data.lee || 'Classe I'}</span>
+                    </td>
                 </tr>
                 <tr>
                     <td colspan="2" style="border: 1px solid #e2e8f0; padding: 10px;"><strong>Cirurgia:</strong> ${data.surgeryName || "Geral"}</td>
                 </tr>
             </table>
-            <div style="margin-bottom: 15px;">
-                <h4 style="color: #1e3a8a; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; font-size: 14px;">Orientações</h4>
-                <ul style="font-size: 12px; padding-left: 20px; color: #333;">
-                    ${(data.pre_op_instructions || ["Seguir jejum e orientações do cirurgião."]).map(i => `<li style="margin-bottom: 4px;">${i}</li>`).join('')}
+
+            <!-- EXPLICAÇÃO ASA E LEE -->
+            <div style="background: #f8fafc; padding: 12px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #e2e8f0;">
+                <p style="margin: 0 0 8px 0; font-size: 11px;"><strong style="color: #1e3a8a;">Sobre o Risco ASA:</strong> ${asaExpl}</p>
+                <p style="margin: 0; font-size: 11px;"><strong style="color: #6b21a8;">Sobre o Índice de Lee:</strong> ${leeExpl}</p>
+            </div>
+
+            <!-- ORIENTAÇÕES PRÉ-OPERATÓRIAS -->
+            <div style="margin-bottom: 12px;">
+                <h4 style="color: #1e3a8a; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 8px; font-size: 13px;">Orientações</h4>
+                <ul style="font-size: 11px; padding-left: 18px; color: #333; margin: 0;">
+                    <li style="margin-bottom: 4px;">Jejum absoluto (inclusive água) de 8 horas antes do horário programado da cirurgia. Caso tome medicações de uso contínuo, discuta com o oftalmologista quais devem ser tomadas com um gole pequeno de água.</li>
+                    <li style="margin-bottom: 4px;">Chegar à unidade cirúrgica com 2 horas de antecedência.</li>
+                    <li style="margin-bottom: 4px;">Não utilizar maquiagem, esmaltes ou joias no dia da cirurgia.</li>
+                    <li style="margin-bottom: 4px;">Trazer documento de identidade com foto e este laudo de liberação.</li>
+                    <li style="margin-bottom: 4px;">Estar acompanhado de pessoa maior de 18 anos para a alta hospitalar.</li>
                 </ul>
             </div>
         `;
