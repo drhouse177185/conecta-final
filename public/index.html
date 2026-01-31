@@ -454,9 +454,39 @@
                                     <a href="https://www.google.com/maps/search/Laboratorio+de+Analises+Clinicas+proximo" target="_blank" class="map-link-card"><div class="bg-green-100 p-2 rounded-full mr-3 text-green-600"><i class="fa-solid fa-flask"></i></div><div><p class="font-bold text-sm">Laboratórios</p><p class="text-xs text-slate-500">Coleta</p></div></a>
                                 </div>
                             </div>
-                            <div class="bg-slate-50 p-4 rounded border mb-4">
-                                <h4 class="font-bold text-sm text-slate-700 mb-2">Exames Solicitados:</h4>
-                                <ul id="generated-exam-list" class="list-disc pl-5 text-sm text-slate-700 space-y-1"></ul>
+                            <!-- HISTÓRICO COLAPSÁVEL DE EXAMES -->
+                            <div id="exam-history-card" class="bg-gradient-to-r from-blue-50 to-slate-50 p-4 rounded-xl border border-blue-200 mb-4 cursor-pointer hover:shadow-md transition-all" onclick="toggleExamHistory()">
+                                <!-- Cabeçalho Compacto (sempre visível) -->
+                                <div class="flex justify-between items-center">
+                                    <div class="flex items-center gap-3">
+                                        <div class="bg-blue-600 text-white p-2 rounded-lg">
+                                            <i class="fa-solid fa-clipboard-list"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-sm text-blue-900">Solicitação de Exames</h4>
+                                            <p id="exam-history-date" class="text-xs text-slate-500"></p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span id="exam-history-count" class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-bold"></span>
+                                        <i id="exam-history-arrow" class="fa-solid fa-chevron-down text-blue-600 transition-transform duration-300"></i>
+                                    </div>
+                                </div>
+                                <!-- Preview dos exames (sempre visível) -->
+                                <div id="exam-history-preview" class="mt-3 flex flex-wrap gap-2"></div>
+                            </div>
+
+                            <!-- Lista Completa (oculta por padrão) -->
+                            <div id="exam-history-full" class="hidden bg-white p-4 rounded-xl border border-slate-200 mb-4 animate-fade-in">
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="font-bold text-sm text-slate-700 flex items-center">
+                                        <i class="fa-solid fa-list-check text-blue-600 mr-2"></i> Todos os Exames Solicitados
+                                    </h4>
+                                    <button onclick="event.stopPropagation(); toggleExamHistory()" class="text-xs text-blue-600 hover:text-blue-800 flex items-center">
+                                        <i class="fa-solid fa-chevron-up mr-1"></i> Minimizar
+                                    </button>
+                                </div>
+                                <ul id="generated-exam-list" class="space-y-1"></ul>
                             </div>
                             
                             <!-- BOTOES DE AÇÃO: PDF E WHATSAPP -->
@@ -3139,11 +3169,10 @@ Sistema Conecta Saude`
 
                 // NOVO: Salva sessão de pré-consulta para persistência
                 savePreConsultaSession(finalExams, comorbs);
-                
-                // 6. Renderização
-                const ul = document.getElementById('generated-exam-list'); 
-                ul.innerHTML = finalExams.map(e=>`<li class="py-1 border-b border-gray-100 last:border-0 flex items-center text-sm"><i class="fa-solid fa-check text-green-500 mr-2"></i>${e}</li>`).join('');
-                
+
+                // 6. Renderização com card colapsável
+                renderExamHistoryCard(finalExams, new Date());
+
                 document.getElementById('pre-results').classList.remove('hidden');
                 showToast("Guia gerada com sucesso!", 'success');
 
@@ -4128,14 +4157,12 @@ Sistema Conecta Saude`
                     // Restaurar última sessão de pré-consulta
                     if (data.sessions.preConsulta && data.sessions.preConsulta.examList) {
                         currentUser.lastGeneratedExams = data.sessions.preConsulta.examList;
+                        const sessionDate = data.sessions.preConsulta.createdAt || data.sessions.preConsulta.created_at;
                         console.log(`✅ Pré-consulta restaurada: ${currentUser.lastGeneratedExams.length} exames`);
 
-                        // Renderiza a lista se existir o container
-                        const ul = document.getElementById('generated-exam-list');
-                        if (ul && currentUser.lastGeneratedExams.length > 0) {
-                            ul.innerHTML = currentUser.lastGeneratedExams.map(e =>
-                                `<li class="py-1 border-b border-gray-100 last:border-0 flex items-center text-sm"><i class="fa-solid fa-check text-green-500 mr-2"></i>${e}</li>`
-                            ).join('');
+                        // Renderiza com o card colapsável
+                        if (currentUser.lastGeneratedExams.length > 0) {
+                            renderExamHistoryCard(currentUser.lastGeneratedExams, sessionDate ? new Date(sessionDate) : new Date());
                             document.getElementById('pre-results')?.classList.remove('hidden');
                         }
                     }
@@ -4158,6 +4185,74 @@ Sistema Conecta Saude`
                 console.error("Erro ao carregar sessões salvas:", e);
             }
             return null;
+        }
+
+        // NOVO: Renderiza o card colapsável de histórico de exames
+        function renderExamHistoryCard(examList, dateObj) {
+            // Formata a data
+            const dateStr = dateObj ? dateObj.toLocaleDateString('pt-BR', {
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            }) : new Date().toLocaleDateString('pt-BR');
+
+            // Categoriza exames (lab vs imagem)
+            const labKeywords = ['hemograma', 'glicemia', 'colesterol', 'triglicerídeos', 'creatinina', 'ureia', 'tgo', 'tgp', 'tsh', 't4', 'urina', 'urocultura', 'parasitológico', 'hemoglobina', 'psa', 'vitamina', 'beta', 'hcg'];
+            const labExams = examList.filter(e => labKeywords.some(k => e.toLowerCase().includes(k)));
+            const imgExams = examList.filter(e => !labKeywords.some(k => e.toLowerCase().includes(k)));
+
+            // Atualiza elementos do card
+            document.getElementById('exam-history-date').textContent = `Gerado em ${dateStr}`;
+            document.getElementById('exam-history-count').textContent = `${examList.length} exames`;
+
+            // Preview (primeiros 4 exames como badges)
+            const previewContainer = document.getElementById('exam-history-preview');
+            const previewExams = examList.slice(0, 4);
+            const remaining = examList.length - 4;
+
+            previewContainer.innerHTML = previewExams.map(e =>
+                `<span class="bg-white text-slate-700 text-xs px-2 py-1 rounded-full border border-slate-200 flex items-center">
+                    <i class="fa-solid ${labKeywords.some(k => e.toLowerCase().includes(k)) ? 'fa-flask text-purple-500' : 'fa-x-ray text-blue-500'} mr-1 text-[10px]"></i>
+                    ${e.length > 18 ? e.substring(0, 18) + '...' : e}
+                </span>`
+            ).join('') + (remaining > 0 ? `<span class="text-xs text-blue-600 font-bold">+${remaining} mais</span>` : '');
+
+            // Lista completa
+            const ul = document.getElementById('generated-exam-list');
+            ul.innerHTML = examList.map(e =>
+                `<li class="py-2 border-b border-gray-100 last:border-0 flex items-center text-sm">
+                    <i class="fa-solid ${labKeywords.some(k => e.toLowerCase().includes(k)) ? 'fa-flask text-purple-500' : 'fa-x-ray text-blue-500'} mr-3"></i>
+                    <span>${e}</span>
+                </li>`
+            ).join('');
+
+            // Resumo por categoria
+            if (labExams.length > 0 || imgExams.length > 0) {
+                const summary = `
+                    <div class="mt-3 pt-3 border-t border-slate-100 flex gap-4 text-xs text-slate-500">
+                        ${labExams.length > 0 ? `<span><i class="fa-solid fa-flask text-purple-500 mr-1"></i> ${labExams.length} laboratoriais</span>` : ''}
+                        ${imgExams.length > 0 ? `<span><i class="fa-solid fa-x-ray text-blue-500 mr-1"></i> ${imgExams.length} imagem</span>` : ''}
+                    </div>
+                `;
+                ul.innerHTML += summary;
+            }
+
+            // Garante que começa minimizado
+            document.getElementById('exam-history-full').classList.add('hidden');
+            document.getElementById('exam-history-arrow').style.transform = 'rotate(0deg)';
+        }
+
+        // NOVO: Alterna entre visualização compacta e expandida
+        function toggleExamHistory() {
+            const fullList = document.getElementById('exam-history-full');
+            const arrow = document.getElementById('exam-history-arrow');
+            const isHidden = fullList.classList.contains('hidden');
+
+            if (isHidden) {
+                fullList.classList.remove('hidden');
+                arrow.style.transform = 'rotate(180deg)';
+            } else {
+                fullList.classList.add('hidden');
+                arrow.style.transform = 'rotate(0deg)';
+            }
         }
 
         async function handleFiles(files, pageId) {
