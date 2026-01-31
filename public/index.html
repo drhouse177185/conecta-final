@@ -3312,7 +3312,22 @@ Sistema Conecta Saúde`
                     surgeryName: surgeryObj.nome,
                     aiResult: data
                 });
-                
+
+                // Salvar avaliacao pre-operatoria na nova tabela
+                const clearanceStatus = (data.missing_exams && data.missing_exams.length > 0) ? 'pendente' : 'liberado';
+                await savePreoperativeAssessment({
+                    userId: safeUser.id,
+                    patientName: safeUser.name,
+                    patientAge: safeUser.age,
+                    patientCpf: safeUser.cpf,
+                    surgeryName: surgeryObj.nome,
+                    clearanceStatus: clearanceStatus,
+                    missingExams: data.missing_exams || [],
+                    asaScore: data.asa || null,
+                    leeIndex: data.lee || null,
+                    aiReport: data.html_report || null
+                });
+
                 deductCredits(100);
 
                 // Renderiza Scores
@@ -3375,7 +3390,27 @@ Sistema Conecta Saúde`
                 }
             } catch (e) { console.error("Erro ao salvar:", e); }
         }
-     
+
+        // Salvar avaliacao pre-operatoria na nova tabela
+        async function savePreoperativeAssessment(assessmentData) {
+            try {
+                if (currentUser.role === 'admin') return;
+                if (!currentUser.id) return;
+                console.log(`📋 Salvando avaliação pré-operatória...`);
+                const res = await fetch(`${BACKEND_URL}/api/preoperative/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(assessmentData)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    console.log(`✅ Avaliação pré-operatória salva - ID: ${data.assessment.id}`);
+                } else {
+                    console.error("Erro ao salvar avaliação:", data.error);
+                }
+            } catch (e) { console.error("Erro ao salvar avaliação pré-operatória:", e); }
+        }
+
         async function handleFiles(files, pageId) {
             // Página 1: Pós-consulta
             if(pageId === 1) return processDiagnosisFiles(files);

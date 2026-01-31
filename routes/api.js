@@ -9,6 +9,7 @@ const setupController = require('../controllers/setupController');
 const catalogController = require('../controllers/catalogController');
 const referralController = require('../controllers/referralController');
 const comorbidityController = require('../controllers/comorbidityController'); // NOVO: Controller de comorbidades
+const preoperativeController = require('../controllers/preoperativeController'); // NOVO: Controller de avaliacoes pre-operatorias
 
 // --- Rotas Básicas ---
 router.get('/saudacao', mainController.saudacao);
@@ -47,6 +48,12 @@ router.get('/comorbidities/:userId/history', comorbidityController.getFullHistor
 // --- Rotas de Funcionalidades ---
 router.post('/history/save', historyController.saveHistory);
 router.post('/create_preference', paymentController.createPreference);
+
+// --- ROTAS DE AVALIACOES PRE-OPERATORIAS ---
+router.post('/preoperative/save', preoperativeController.saveAssessment);
+router.get('/preoperative', preoperativeController.getAllAssessments);
+router.get('/preoperative/user/:userId', preoperativeController.getUserAssessments);
+router.get('/preoperative/:id', preoperativeController.getAssessmentById);
 
 module.exports = router;
 // ... (dentro do arquivo routes/api.js)
