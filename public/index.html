@@ -4517,11 +4517,11 @@ Sistema Conecta Saude`
                             <input type="file" id="pending-exam-input" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf, .jpg, .png" multiple onchange="handlePendingExamFiles(this.files)">
                             <i class="fa-solid fa-cloud-arrow-up text-3xl text-blue-500 mb-2"></i>
                             <p class="text-sm text-blue-900 font-medium">Arraste os exames aqui ou clique</p>
-                            <p class="text-xs text-slate-500 mt-1">PDF ou Imagem dos exames realizados</p>
+                            <p class="text-xs text-slate-500 mt-1">PDF ou Imagem dos exames realizados <strong>(até 10 arquivos)</strong></p>
                         </div>
 
-                        <div id="pending-files-list" class="hidden mt-3">
-                            <p class="text-xs text-slate-600 mb-2"><strong>Arquivos selecionados:</strong></p>
+                        <div id="pending-files-list" class="hidden mt-3 bg-white p-3 rounded-lg border border-slate-200">
+                            <p class="text-xs text-slate-600 mb-2 font-bold">Arquivos selecionados:</p>
                             <div id="pending-files-names" class="text-xs text-slate-700"></div>
                         </div>
 
@@ -4577,26 +4577,81 @@ Sistema Conecta Saude`
         // Variável para guardar arquivos de exames pendentes
         let pendingExamFiles = [];
 
-        // Manipula arquivos de exames para completar liberação
+        // Manipula arquivos de exames para completar liberação (até 10 arquivos)
         function handlePendingExamFiles(files) {
-            pendingExamFiles = Array.from(files);
+            const newFiles = Array.from(files);
+            const totalFiles = pendingExamFiles.length + newFiles.length;
+
+            if (totalFiles > 10) {
+                const slotsDisponiveis = 10 - pendingExamFiles.length;
+                if (slotsDisponiveis > 0) {
+                    pendingExamFiles = [...pendingExamFiles, ...newFiles.slice(0, slotsDisponiveis)];
+                    showToast(`Limite de 10 arquivos! Adicionamos apenas ${slotsDisponiveis}.`, 'error');
+                } else {
+                    showToast('Limite de 10 arquivos atingido!', 'error');
+                    return;
+                }
+            } else {
+                pendingExamFiles = [...pendingExamFiles, ...newFiles];
+            }
+
+            updatePendingFilesDisplay();
+        }
+
+        // Limpa a lista de arquivos pendentes
+        function clearPendingFiles() {
+            pendingExamFiles = [];
+            updatePendingFilesDisplay();
+            showToast('Lista de arquivos limpa', 'info');
+        }
+
+        // Atualiza a exibição dos arquivos selecionados
+        function updatePendingFilesDisplay() {
+            const filesList = document.getElementById('pending-files-list');
+            const filesNames = document.getElementById('pending-files-names');
+            const btn = document.getElementById('btn-complete-clearance');
+            const uploadZone = document.getElementById('pending-upload-zone');
 
             if (pendingExamFiles.length > 0) {
-                // Mostra lista de arquivos
-                const filesList = document.getElementById('pending-files-list');
-                const filesNames = document.getElementById('pending-files-names');
-                const btn = document.getElementById('btn-complete-clearance');
-
-                filesNames.innerHTML = pendingExamFiles.map(f =>
-                    `<span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-1 mb-1">
-                        <i class="fa-solid fa-file-pdf mr-1"></i>${f.name.substring(0, 20)}${f.name.length > 20 ? '...' : ''}
-                    </span>`
-                ).join('');
+                filesNames.innerHTML = `
+                    <div class="flex flex-wrap gap-1 mb-2">
+                        ${pendingExamFiles.map(f =>
+                            `<span class="inline-flex items-center bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                                <i class="fa-solid fa-file-pdf mr-1"></i>${f.name.substring(0, 15)}${f.name.length > 15 ? '...' : ''}
+                            </span>`
+                        ).join('')}
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-slate-500">${pendingExamFiles.length}/10 arquivos</span>
+                        <button onclick="event.stopPropagation(); clearPendingFiles();" class="text-xs text-red-500 hover:text-red-700 underline">
+                            <i class="fa-solid fa-trash mr-1"></i>Limpar lista
+                        </button>
+                    </div>
+                `;
 
                 filesList.classList.remove('hidden');
                 btn.classList.remove('hidden');
 
-                showToast(`${pendingExamFiles.length} arquivo(s) selecionado(s)`, 'info');
+                // Atualiza texto do upload zone
+                if (uploadZone) {
+                    const uploadText = uploadZone.querySelector('p.text-sm');
+                    if (uploadText) {
+                        uploadText.textContent = pendingExamFiles.length < 10
+                            ? `Adicionar mais arquivos (${10 - pendingExamFiles.length} restantes)`
+                            : 'Limite atingido (10 arquivos)';
+                    }
+                }
+            } else {
+                filesList.classList.add('hidden');
+                btn.classList.add('hidden');
+
+                // Restaura texto original
+                if (uploadZone) {
+                    const uploadText = uploadZone.querySelector('p.text-sm');
+                    if (uploadText) {
+                        uploadText.textContent = 'Arraste os exames aqui ou clique';
+                    }
+                }
             }
         }
 
