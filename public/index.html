@@ -798,6 +798,51 @@
                 </div>
             </div>
 
+            <!-- E. GESTAO DE PREPAROS CIRURGICOS -->
+            <div class="bg-white rounded-xl shadow-md border border-teal-100 overflow-hidden">
+                <div class="bg-teal-50 p-4 border-b border-teal-100 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <i class="fa-solid fa-heart-pulse text-teal-600 mr-3 text-xl"></i>
+                        <h2 class="text-lg font-bold text-teal-900">Gestao de Preparos Cirurgicos</h2>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="loadPreoperativeAssessments()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition">
+                            <i class="fa-solid fa-rotate mr-1"></i> Atualizar
+                        </button>
+                        <span class="text-xs bg-teal-200 text-teal-800 px-2 py-1 rounded font-bold">Avaliacoes Pre-Operatorias</span>
+                    </div>
+                </div>
+
+                <div class="p-0 overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                            <tr>
+                                <th scope="col" class="px-4 py-3">Paciente</th>
+                                <th scope="col" class="px-4 py-3 text-center">Idade</th>
+                                <th scope="col" class="px-4 py-3 text-center">CPF</th>
+                                <th scope="col" class="px-4 py-3">Cirurgia</th>
+                                <th scope="col" class="px-4 py-3 text-center">Status</th>
+                                <th scope="col" class="px-4 py-3 text-center">Data</th>
+                                <th scope="col" class="px-4 py-3 text-center">Acoes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="preop-assessments-list" class="bg-white divide-y divide-gray-200">
+                            <!-- Conteudo preenchido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="preop-empty-state" class="hidden p-8 text-center text-gray-500">
+                    <i class="fa-solid fa-clipboard-list text-4xl text-gray-300 mb-3"></i>
+                    <p>Nenhuma avaliacao pre-operatoria encontrada.</p>
+                </div>
+                <div class="p-4 bg-teal-50 text-xs text-teal-800 text-center flex items-center justify-center">
+                    <i class="fa-solid fa-circle-info mr-2"></i>
+                    <span class="text-green-600 font-bold mr-2">Verde = Liberado</span> |
+                    <span class="text-yellow-600 font-bold mx-2">Amarelo = Pendente</span> |
+                    <span class="text-red-600 font-bold ml-2">Vermelho = Cancelar</span>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -2377,9 +2422,156 @@ Sistema Conecta Saúde`
             renderExamList('lab', 'adm-list-lab');
             renderExamList('img', 'adm-list-img');
             renderSurgeryList();
+            loadPreoperativeAssessments();
         }
 
         function filterUsers(val) { renderUserList(val); }
+
+        // --- GESTAO DE PREPAROS CIRURGICOS ---
+        let preopAssessmentsList = [];
+
+        async function loadPreoperativeAssessments() {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/preoperative`);
+                if (!res.ok) {
+                    throw new Error("Erro ao buscar avaliacoes");
+                }
+                const data = await res.json();
+                preopAssessmentsList = data.assessments || [];
+                renderPreoperativeAssessments();
+            } catch (error) {
+                console.error("Erro ao carregar avaliacoes:", error);
+                showToast("Erro ao carregar avaliacoes pre-operatorias", "error");
+            }
+        }
+
+        function renderPreoperativeAssessments() {
+            const container = document.getElementById('preop-assessments-list');
+            const emptyState = document.getElementById('preop-empty-state');
+
+            if (preopAssessmentsList.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            container.innerHTML = preopAssessmentsList.map(assessment => {
+                const statusBadge = assessment.clearance_status === 'liberado'
+                    ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><i class="fa-solid fa-check mr-1"></i> Liberado</span>'
+                    : assessment.clearance_status === 'cancelado'
+                    ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"><i class="fa-solid fa-times mr-1"></i> Cancelado</span>'
+                    : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"><i class="fa-solid fa-clock mr-1"></i> Pendente</span>';
+
+                const createdDate = new Date(assessment.created_at).toLocaleDateString('pt-BR');
+
+                const isLiberado = assessment.clearance_status === 'liberado';
+                const isPendente = assessment.clearance_status === 'pendente';
+                const isCancelado = assessment.clearance_status === 'cancelado';
+
+                return `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">
+                        ${assessment.patient_name}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-gray-600">
+                        ${assessment.patient_age} anos
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-gray-600 text-xs">
+                        ${assessment.patient_cpf}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-gray-700">
+                        ${assessment.surgery_name}
+                        ${assessment.asa_score ? `<div class="text-xs text-gray-400">${assessment.asa_score}</div>` : ''}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center">
+                        ${statusBadge}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center text-gray-500 text-xs">
+                        ${createdDate}
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-center">
+                        <div class="flex items-center justify-center space-x-1">
+                            <button onclick="updatePreopStatus(${assessment.id}, 'liberado')"
+                                class="p-1.5 rounded ${isLiberado ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-400 hover:bg-green-100 hover:text-green-600'} transition"
+                                title="Liberado para Cirurgia"
+                                ${isCancelado ? 'disabled' : ''}>
+                                <i class="fa-solid fa-check text-sm"></i>
+                            </button>
+                            <button onclick="updatePreopStatus(${assessment.id}, 'pendente')"
+                                class="p-1.5 rounded ${isPendente ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-yellow-100 hover:text-yellow-600'} transition"
+                                title="Pendente de Exames"
+                                ${isCancelado ? 'disabled' : ''}>
+                                <i class="fa-solid fa-clock text-sm"></i>
+                            </button>
+                            <button onclick="cancelPreopAssessment(${assessment.id})"
+                                class="p-1.5 rounded ${isCancelado ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600'} transition"
+                                title="Cancelar Processo">
+                                <i class="fa-solid fa-ban text-sm"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        async function updatePreopStatus(assessmentId, newStatus) {
+            try {
+                showToast("Atualizando status...", "info");
+                const res = await fetch(`${BACKEND_URL}/api/preoperative/${assessmentId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                if (!res.ok) {
+                    throw new Error("Erro ao atualizar status");
+                }
+
+                const idx = preopAssessmentsList.findIndex(a => a.id === assessmentId);
+                if (idx > -1) {
+                    preopAssessmentsList[idx].clearance_status = newStatus;
+                    renderPreoperativeAssessments();
+                }
+
+                const statusText = newStatus === 'liberado' ? 'LIBERADO' : 'PENDENTE';
+                showToast(`Status atualizado para ${statusText}!`, "success");
+
+            } catch (error) {
+                console.error("Erro ao atualizar status:", error);
+                showToast("Erro ao atualizar status", "error");
+            }
+        }
+
+        async function cancelPreopAssessment(assessmentId) {
+            if (!confirm("Tem certeza que deseja CANCELAR este preparo cirurgico? Esta acao nao pode ser desfeita.")) return;
+
+            try {
+                showToast("Cancelando...", "info");
+                const res = await fetch(`${BACKEND_URL}/api/preoperative/${assessmentId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'cancelado' })
+                });
+
+                if (!res.ok) {
+                    throw new Error("Erro ao cancelar");
+                }
+
+                const idx = preopAssessmentsList.findIndex(a => a.id === assessmentId);
+                if (idx > -1) {
+                    preopAssessmentsList[idx].clearance_status = 'cancelado';
+                    renderPreoperativeAssessments();
+                }
+
+                showToast("Preparo cirurgico CANCELADO!", "success");
+
+            } catch (error) {
+                console.error("Erro ao cancelar:", error);
+                showToast("Erro ao cancelar preparo", "error");
+            }
+        }
 
         // --- SEÇÃO: LÓGICA PRÉ-CONSULTA ---
         function unlockPreConsulta() {

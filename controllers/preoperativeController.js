@@ -146,9 +146,55 @@ const getAssessmentById = async (req, res) => {
     }
 };
 
+// Atualizar status da avaliacao (liberado, pendente, cancelado)
+const updateStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        // Validar status
+        const validStatuses = ['liberado', 'pendente', 'cancelado'];
+        if (!status || !validStatuses.includes(status)) {
+            return res.status(400).json({
+                error: 'Status invalido. Use: liberado, pendente ou cancelado'
+            });
+        }
+
+        const assessment = await PreoperativeAssessment.findByPk(id);
+
+        if (!assessment) {
+            return res.status(404).json({ error: 'Avaliacao nao encontrada' });
+        }
+
+        // Atualizar status
+        assessment.clearanceStatus = status;
+        await assessment.save();
+
+        console.log(`[PreOp] Status atualizado - ID: ${id}, Novo Status: ${status}`);
+
+        return res.status(200).json({
+            success: true,
+            message: `Status atualizado para ${status}`,
+            assessment: {
+                id: assessment.id,
+                patientName: assessment.patientName,
+                clearanceStatus: assessment.clearanceStatus
+            }
+        });
+
+    } catch (error) {
+        console.error('[PreOp] Erro ao atualizar status:', error);
+        return res.status(500).json({
+            error: 'Erro interno ao atualizar status',
+            details: error.message
+        });
+    }
+};
+
 module.exports = {
     saveAssessment,
     getAllAssessments,
     getUserAssessments,
-    getAssessmentById
+    getAssessmentById,
+    updateStatus
 };
