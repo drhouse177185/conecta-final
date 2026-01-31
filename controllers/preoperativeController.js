@@ -1,4 +1,5 @@
 const PreoperativeAssessment = require('../models/PreoperativeAssessment');
+const emailService = require('../services/emailService');
 
 // Salvar nova avaliacao pre-operatoria
 const saveAssessment = async (req, res) => {
@@ -195,7 +196,7 @@ const updateStatus = async (req, res) => {
 const sendClearanceEmail = async (req, res) => {
     try {
         const { id } = req.params;
-        const { patientName, surgeryName, fileName } = req.body;
+        const { patientName, surgeryName, fileName, pdfBase64 } = req.body;
 
         const assessment = await PreoperativeAssessment.findByPk(id);
 
@@ -203,25 +204,30 @@ const sendClearanceEmail = async (req, res) => {
             return res.status(404).json({ error: 'Avaliacao nao encontrada' });
         }
 
-        // Atualizar status de email enviado
-        // Nota: Em producao, aqui seria integrado com nodemailer ou outro servico de email
-        // Por enquanto, apenas registramos que o email foi "enviado" (PDF gerado e baixado)
+        // Extrair dados do assessment
+        const patientCpf = assessment.patientCpf;
+        const asaScore = assessment.asaScore;
+        const leeIndex = assessment.leeIndex;
 
-        console.log(`[PreOp] Email de liberacao enviado - ID: ${id}, Paciente: ${patientName}, Cirurgia: ${surgeryName}`);
-        console.log(`[PreOp] Arquivo PDF: ${fileName}`);
+        console.log(`[PreOp] Enviando email de liberacao - ID: ${id}, Paciente: ${patientName}, Cirurgia: ${surgeryName}`);
 
-        // TODO: Integrar com Gmail/SMTP para envio real
-        // const transporter = nodemailer.createTransport({...});
-        // await transporter.sendMail({
-        //     from: 'noreply@conectasaude.com',
-        //     to: 'gestao.cirurgica@hospital.com',
-        //     subject: `Liberacao Cirurgica - ${patientName} - ${surgeryName}`,
-        //     attachments: [{ filename: fileName, content: pdfBuffer }]
-        // });
+        // Enviar email real via Gmail
+        const emailResult = await emailService.sendSurgicalClearanceEmail({
+            patientName,
+            patientCpf,
+            surgeryName,
+            asaScore,
+            leeIndex,
+            pdfBase64,
+            fileName
+        });
+
+        console.log(`[PreOp] Email enviado com sucesso! Message ID: ${emailResult.messageId}`);
 
         return res.status(200).json({
             success: true,
-            message: 'Email de liberacao cirurgica registrado com sucesso',
+            message: 'Email de liberacao cirurgica enviado com sucesso',
+            emailSentTo: emailResult.destination,
             assessment: {
                 id: assessment.id,
                 patientName: assessment.patientName,
@@ -232,7 +238,7 @@ const sendClearanceEmail = async (req, res) => {
     } catch (error) {
         console.error('[PreOp] Erro ao enviar email de liberacao:', error);
         return res.status(500).json({
-            error: 'Erro interno ao enviar email',
+            error: 'Erro ao enviar email. Verifique as configuracoes SMTP.',
             details: error.message
         });
     }
