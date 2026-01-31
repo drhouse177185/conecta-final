@@ -55,6 +55,7 @@ router.get('/preoperative', preoperativeController.getAllAssessments);
 router.get('/preoperative/user/:userId', preoperativeController.getUserAssessments);
 router.get('/preoperative/:id', preoperativeController.getAssessmentById);
 router.put('/preoperative/:id/status', preoperativeController.updateStatus);
+router.post('/preoperative/:id/send-clearance-email', preoperativeController.sendClearanceEmail);
 
 module.exports = router;
 // ... (dentro do arquivo routes/api.js)

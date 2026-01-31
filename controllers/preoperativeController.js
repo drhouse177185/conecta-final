@@ -191,10 +191,58 @@ const updateStatus = async (req, res) => {
     }
 };
 
+// Enviar email de liberacao cirurgica para Gestao Cirurgica
+const sendClearanceEmail = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { patientName, surgeryName, fileName } = req.body;
+
+        const assessment = await PreoperativeAssessment.findByPk(id);
+
+        if (!assessment) {
+            return res.status(404).json({ error: 'Avaliacao nao encontrada' });
+        }
+
+        // Atualizar status de email enviado
+        // Nota: Em producao, aqui seria integrado com nodemailer ou outro servico de email
+        // Por enquanto, apenas registramos que o email foi "enviado" (PDF gerado e baixado)
+
+        console.log(`[PreOp] Email de liberacao enviado - ID: ${id}, Paciente: ${patientName}, Cirurgia: ${surgeryName}`);
+        console.log(`[PreOp] Arquivo PDF: ${fileName}`);
+
+        // TODO: Integrar com Gmail/SMTP para envio real
+        // const transporter = nodemailer.createTransport({...});
+        // await transporter.sendMail({
+        //     from: 'noreply@conectasaude.com',
+        //     to: 'gestao.cirurgica@hospital.com',
+        //     subject: `Liberacao Cirurgica - ${patientName} - ${surgeryName}`,
+        //     attachments: [{ filename: fileName, content: pdfBuffer }]
+        // });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Email de liberacao cirurgica registrado com sucesso',
+            assessment: {
+                id: assessment.id,
+                patientName: assessment.patientName,
+                surgeryName: assessment.surgeryName
+            }
+        });
+
+    } catch (error) {
+        console.error('[PreOp] Erro ao enviar email de liberacao:', error);
+        return res.status(500).json({
+            error: 'Erro interno ao enviar email',
+            details: error.message
+        });
+    }
+};
+
 module.exports = {
     saveAssessment,
     getAllAssessments,
     getUserAssessments,
     getAssessmentById,
-    updateStatus
+    updateStatus,
+    sendClearanceEmail
 };

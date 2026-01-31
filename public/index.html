@@ -2543,6 +2543,15 @@ Sistema Conecta Saúde`
                     preopAssessmentsList[idx].clearanceStatus = newStatus;
                     preopAssessmentsList[idx].clearance_status = newStatus;
                     renderPreoperativeAssessments();
+
+                    // Se liberado, gerar PDF e enviar email
+                    if (newStatus === 'liberado') {
+                        const assessment = preopAssessmentsList[idx];
+                        const pdfData = await generateSurgicalClearancePDF(assessment);
+                        if (pdfData) {
+                            await sendSurgicalClearanceEmail(assessmentId, pdfData);
+                        }
+                    }
                 }
 
                 const statusText = newStatus === 'liberado' ? 'LIBERADO' : 'PENDENTE';
@@ -2581,6 +2590,186 @@ Sistema Conecta Saúde`
             } catch (error) {
                 console.error("Erro ao cancelar:", error);
                 showToast("Erro ao cancelar preparo", "error");
+            }
+        }
+
+        // --- GERACAO DE PDF DE LIBERACAO CIRURGICA ---
+        async function generateSurgicalClearancePDF(assessment) {
+            const wrapper = document.getElementById('pdf-content-wrapper');
+            const now = new Date().toLocaleDateString('pt-BR');
+
+            // Extrair dados do assessment (suporte camelCase e snake_case)
+            const patientName = assessment.patientName || assessment.patient_name || 'N/A';
+            const patientAge = assessment.patientAge || assessment.patient_age || 'N/A';
+            const patientCpf = assessment.patientCpf || assessment.patient_cpf || 'N/A';
+            const surgeryName = assessment.surgeryName || assessment.surgery_name || 'N/A';
+            const asaScore = assessment.asaScore || assessment.asa_score || 'N/A';
+            const leeIndex = assessment.leeIndex || assessment.lee_index || 'N/A';
+
+            showToast("Gerando PDF de Liberacao Cirurgica...", "info");
+
+            // Template do PDF de Liberacao Cirurgica
+            wrapper.innerHTML = `
+                <div class="pdf-report" style="background: white; padding: 50px; font-family: 'Arial', sans-serif; color: #333; position: relative;">
+                    <!-- CABECALHO PADRAO -->
+                    <div style="text-align: center; border-bottom: 3px solid #1e3a8a; padding-bottom: 20px; margin-bottom: 30px;">
+                        <h1 style="color: #1e3a8a; font-size: 24px; margin: 0; font-weight: 900; letter-spacing: 1px;">CONECTA SAUDE</h1>
+                        <p style="margin: 5px 0 0; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 2px;">Sistema Integrado de Diagnostico</p>
+                    </div>
+
+                    <!-- DADOS DO PACIENTE -->
+                    <div style="background: #f1f5f9; padding: 15px; margin-bottom: 30px; border-radius: 8px;">
+                        <table style="width: 100%;">
+                            <tr>
+                                <td><p style="margin:0; font-size:12px; color:#64748b;">PACIENTE</p><p style="margin:0; font-weight:bold; font-size:16px;">${patientName}</p></td>
+                                <td style="text-align:right;"><p style="margin:0; font-size:12px; color:#64748b;">DATA EMISSAO</p><p style="margin:0; font-weight:bold; font-size:16px;">${now}</p></td>
+                            </tr>
+                            <tr>
+                                <td style="padding-top:10px;"><p style="margin:0; font-size:12px; color:#64748b;">CPF</p><p style="margin:0; font-weight:bold;">${patientCpf}</p></td>
+                                <td style="text-align:right; padding-top:10px;"><p style="margin:0; font-size:12px; color:#64748b;">IDADE</p><p style="margin:0; font-weight:bold;">${patientAge} anos</p></td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- TITULO DO DOCUMENTO -->
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <span style="background: #16a34a; color: white; padding: 8px 20px; font-weight: bold; font-size: 14px; text-transform: uppercase; border-radius: 4px;">
+                            LAUDO DE LIBERACAO CIRURGICA
+                        </span>
+                    </div>
+
+                    <!-- CIRURGIA PRETENDIDA -->
+                    <div style="margin-bottom: 25px;">
+                        <p style="font-size: 14px;"><strong>Procedimento Cirurgico:</strong> <span style="color: #1e3a8a; font-weight: bold; font-size: 16px;">${surgeryName.toUpperCase()}</span></p>
+                    </div>
+
+                    <!-- AVALIACAO DE RISCO -->
+                    <div style="background: #f0fdf4; border-left: 5px solid #16a34a; padding: 20px; margin-bottom: 25px;">
+                        <p style="color: #166534; font-size: 14px; font-weight: bold; margin: 0 0 15px 0;">AVALIACAO DE RISCO PRE-OPERATORIO</p>
+                        <table style="width: 100%;">
+                            <tr>
+                                <td style="padding: 8px 0;">
+                                    <span style="color: #166534; font-size: 13px;"><strong>Classificacao ASA:</strong></span>
+                                    <span style="background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 4px; font-weight: bold; margin-left: 10px;">${asaScore}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0;">
+                                    <span style="color: #166534; font-size: 13px;"><strong>Indice de Lee:</strong></span>
+                                    <span style="background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 4px; font-weight: bold; margin-left: 10px;">${leeIndex}</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- MENSAGEM DE LIBERACAO -->
+                    <div style="background: #ecfdf5; border: 2px solid #16a34a; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                        <div style="text-align: center;">
+                            <p style="color: #166534; font-size: 16px; font-weight: bold; margin: 0 0 10px 0;">
+                                <span style="font-size: 24px;">✓</span> PACIENTE LIBERADO PARA PROCEDIMENTO CIRURGICO
+                            </p>
+                            <p style="color: #166534; font-size: 13px; line-height: 1.6; margin: 0;">
+                                Apos avaliacao pre-operatoria completa, o(a) paciente <strong>${patientName}</strong> encontra-se <strong>APTO(A)</strong> para realizacao do procedimento cirurgico proposto, sem restricoes clinicas identificadas.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- SOLICITACAO -->
+                    <div style="background: #eff6ff; border: 1px solid #3b82f6; padding: 15px; border-radius: 8px; margin-bottom: 25px;">
+                        <p style="color: #1e40af; font-size: 14px; font-weight: bold; margin: 0 0 10px 0;">
+                            <span style="font-size: 18px;">📋</span> SOLICITACAO A GESTAO CIRURGICA
+                        </p>
+                        <p style="color: #1e40af; font-size: 13px; margin: 0;">
+                            Solicitamos agendamento de <strong>consulta com o Cirurgiao Responsavel</strong> ou <strong>agendamento do procedimento cirurgico</strong> para o paciente acima identificado, conforme disponibilidade da agenda cirurgica.
+                        </p>
+                    </div>
+
+                    <!-- RODAPE COM ASSINATURA -->
+                    ${OFFICIAL_SIGNATURE_TEMPLATE}
+                </div>
+            `;
+
+            // Processamento do PDF (html2canvas + jsPDF)
+            try {
+                wrapper.style.position = 'absolute';
+                wrapper.style.top = '0';
+                wrapper.style.left = '0';
+                wrapper.style.opacity = '1';
+                wrapper.style.zIndex = '-9999';
+
+                await new Promise(r => setTimeout(r, 800)); // Aguarda renderizacao
+
+                const canvas = await html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                const imgHeight = (canvas.height * 210) / canvas.width;
+                pdf.addImage(imgData, 'JPEG', 0, 0, 210, imgHeight);
+
+                // Gerar blob do PDF para envio por email
+                const pdfBlob = pdf.output('blob');
+                const pdfBase64 = await blobToBase64(pdfBlob);
+
+                // Salvar PDF localmente
+                const fileName = `Liberacao_Cirurgica_${patientName.split(' ')[0]}_${surgeryName}.pdf`;
+                pdf.save(fileName);
+
+                showToast("PDF gerado com sucesso!", 'success');
+
+                // Retornar dados para envio de email
+                return {
+                    pdfBase64: pdfBase64,
+                    fileName: fileName,
+                    patientName: patientName,
+                    surgeryName: surgeryName
+                };
+
+            } catch(e) {
+                console.error(e);
+                showToast("Erro ao gerar PDF.", "error");
+                return null;
+            } finally {
+                wrapper.innerHTML = "";
+            }
+        }
+
+        // Helper para converter Blob para Base64
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        // Enviar email de liberacao cirurgica
+        async function sendSurgicalClearanceEmail(assessmentId, pdfData) {
+            try {
+                showToast("Enviando email para Gestao Cirurgica...", "info");
+
+                const res = await fetch(`${BACKEND_URL}/api/preoperative/${assessmentId}/send-clearance-email`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        pdfBase64: pdfData.pdfBase64,
+                        fileName: pdfData.fileName,
+                        patientName: pdfData.patientName,
+                        surgeryName: pdfData.surgeryName
+                    })
+                });
+
+                if (!res.ok) {
+                    throw new Error("Erro ao enviar email");
+                }
+
+                showToast("Email enviado com sucesso para Gestao Cirurgica!", "success");
+                return true;
+
+            } catch (error) {
+                console.error("Erro ao enviar email:", error);
+                showToast("Erro ao enviar email. PDF salvo localmente.", "error");
+                return false;
             }
         }
 
