@@ -410,7 +410,7 @@
                             <div class="space-y-4">
                                 <div>
                                     <label class="font-bold text-sm text-slate-700">Possui comorbidades ou doenças crônicas?</label>
-                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2" id="standard-comorbidities-grid">
                                         <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Hipertensão" class="pre-comorb rounded text-blue-600"><span class="text-sm">Hipertensão</span></label>
                                         <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Diabetes" class="pre-comorb rounded text-blue-600"><span class="text-sm">Diabetes</span></label>
                                         <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Cardiopatia" class="pre-comorb rounded text-blue-600"><span class="text-sm">Cardiopatia</span></label>
@@ -418,17 +418,22 @@
                                         <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Dislipidemia" class="pre-comorb rounded text-blue-600"><span class="text-sm">Colesterol Alto</span></label>
                                         <label class="flex items-center space-x-2 p-2 border rounded hover:bg-blue-50 cursor-pointer"><input type="checkbox" value="Tabagismo" class="pre-comorb rounded text-blue-600"><span class="text-sm">Tabagismo</span></label>
                                     </div>
-                                    <div class="flex gap-2 mt-2">
-                                        <input type="text" id="pre-other-comorb" class="house-input flex-1 p-2 rounded text-sm" placeholder="Outras? Digite aqui...">
+                                    <!-- Container para comorbidades customizadas salvas (checkboxes dinâmicos) -->
+                                    <div id="custom-comorbidities-checkboxes" class="hidden mt-3">
+                                        <p class="text-xs text-purple-600 font-bold mb-2 flex items-center">
+                                            <i class="fa-solid fa-notes-medical mr-1"></i> Suas outras condições médicas:
+                                        </p>
+                                        <div id="custom-comorbidities-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                            <!-- Checkboxes dinâmicos serão inseridos aqui -->
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-2 mt-3">
+                                        <input type="text" id="pre-other-comorb" class="house-input flex-1 p-2 rounded text-sm" placeholder="Adicionar outra doença...">
                                         <button onclick="confirmComorbidities()" id="btn-confirm-comorb" class="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 rounded text-sm transition shadow flex items-center gap-2">
                                             <i class="fa-solid fa-check-circle"></i> Confirmar Comorbidades
                                         </button>
                                     </div>
                                     <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-info-circle mr-1"></i> Ao confirmar, suas comorbidades serão salvas permanentemente no histórico médico.</p>
-                                    <!-- Container para exibir comorbidades customizadas salvas -->
-                                    <div id="custom-comorbidities-display" class="hidden mt-2">
-                                        <p class="text-xs text-blue-600 font-medium mb-1"><i class="fa-solid fa-bookmark mr-1"></i> Suas condições médicas salvas:</p>
-                                    </div>
                                 </div>
                                 <div class="bg-indigo-50 p-4 rounded border border-indigo-100">
                                     <h4 class="font-bold text-indigo-900 text-sm mb-2">Solicitação Específica</h4>
@@ -1801,8 +1806,8 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     let hasConfirmed = false;
                     const customComorbidities = []; // Para armazenar comorbidades customizadas
 
-                    // Marca os checkboxes das comorbidades ativas
-                    document.querySelectorAll('.pre-comorb').forEach(checkbox => {
+                    // Marca os checkboxes das comorbidades padrão ativas
+                    document.querySelectorAll('.pre-comorb:not(.custom-comorb)').forEach(checkbox => {
                         const comorbidity = checkbox.value;
                         const found = data.comorbidities.find(c => c.comorbidity === comorbidity && c.is_active);
                         if (found) {
@@ -1820,55 +1825,106 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     // Coleta comorbidades customizadas (is_custom = true)
                     data.comorbidities.forEach(c => {
                         if (c.is_custom && c.is_active) {
-                            customComorbidities.push(c.comorbidity);
-                            hasConfirmed = c.confirmed_at ? true : hasConfirmed;
+                            customComorbidities.push({
+                                name: c.comorbidity,
+                                confirmed: !!c.confirmed_at
+                            });
+                            if (c.confirmed_at) hasConfirmed = true;
                         }
                     });
 
                     // Salva as comorbidades customizadas no currentUser para uso nas análises
-                    currentUser.customComorbidities = customComorbidities;
+                    currentUser.customComorbidities = customComorbidities.map(c => c.name);
 
-                    // Preenche o campo "Outras" com as comorbidades customizadas salvas
-                    const otherInput = document.getElementById('pre-other-comorb');
-                    if (otherInput && customComorbidities.length > 0) {
-                        otherInput.value = customComorbidities.join(', ');
+                    // Cria checkboxes dinâmicos para comorbidades customizadas
+                    const customCheckboxContainer = document.getElementById('custom-comorbidities-checkboxes');
+                    const customGrid = document.getElementById('custom-comorbidities-grid');
+
+                    if (customCheckboxContainer && customGrid && customComorbidities.length > 0) {
+                        customGrid.innerHTML = '';
+
+                        customComorbidities.forEach(comorb => {
+                            const checkboxId = `custom-comorb-${comorb.name.replace(/\s+/g, '-').toLowerCase()}`;
+                            const isConfirmed = comorb.confirmed;
+
+                            const labelEl = document.createElement('label');
+                            labelEl.className = `flex items-center space-x-2 p-2 border rounded cursor-pointer ${isConfirmed ? 'bg-purple-50 border-purple-300' : 'hover:bg-purple-50 border-purple-200'}`;
+                            if (isConfirmed) {
+                                labelEl.classList.add('opacity-70', 'cursor-not-allowed');
+                            }
+
+                            labelEl.innerHTML = `
+                                <input type="checkbox" value="${comorb.name}" id="${checkboxId}"
+                                    class="pre-comorb custom-comorb rounded text-purple-600"
+                                    checked ${isConfirmed ? 'disabled' : ''}>
+                                <span class="text-sm text-purple-800">${comorb.name}</span>
+                                ${isConfirmed ? '<i class="fa-solid fa-check-circle text-purple-500 text-xs ml-auto"></i>' : ''}
+                            `;
+
+                            customGrid.appendChild(labelEl);
+
+                            // Adiciona listener para salvar alterações (apenas se não confirmado)
+                            if (!isConfirmed) {
+                                const checkbox = labelEl.querySelector('input');
+                                checkbox.addEventListener('change', function() {
+                                    saveComorbidity(this.value, this.checked, true);
+                                });
+                            }
+                        });
+
+                        customCheckboxContainer.classList.remove('hidden');
                     }
 
-                    // Exibe as comorbidades customizadas salvas como badges
-                    const customContainer = document.getElementById('custom-comorbidities-display');
-                    if (customContainer && customComorbidities.length > 0) {
-                        customContainer.innerHTML = `
-                            <div class="flex flex-wrap gap-2 mt-2">
-                                ${customComorbidities.map(c => `
-                                    <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full flex items-center">
-                                        <i class="fa-solid fa-notes-medical mr-1"></i> ${c}
-                                    </span>
-                                `).join('')}
-                            </div>
-                        `;
-                        customContainer.classList.remove('hidden');
-                    }
-
-                    // Se alguma comorbidade foi confirmada, desabilita o botão e o campo "Outras"
+                    // Se alguma comorbidade foi confirmada, ajusta a UI
                     if (hasConfirmed) {
                         const btn = document.getElementById('btn-confirm-comorb');
-                        const otherInput = document.getElementById('pre-other-comorb');
-
                         if (btn) {
-                            btn.innerHTML = '<i class="fa-solid fa-check-double mr-2"></i> Confirmado';
+                            btn.innerHTML = '<i class="fa-solid fa-plus-circle mr-2"></i> Adicionar Nova';
                             btn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                            btn.classList.add('bg-gray-400', 'cursor-not-allowed');
-                            btn.disabled = true;
-                        }
-
-                        if (otherInput) {
-                            otherInput.disabled = true;
-                            otherInput.classList.add('opacity-50', 'cursor-not-allowed');
+                            btn.classList.add('bg-purple-600', 'hover:bg-purple-700');
                         }
                     }
                 }
             } catch (error) {
                 console.error('Erro ao carregar comorbidades:', error);
+            }
+        }
+
+        // Adiciona um checkbox de comorbidade customizada dinamicamente
+        function addCustomComorbidityCheckbox(comorbName, isConfirmed = false) {
+            const customCheckboxContainer = document.getElementById('custom-comorbidities-checkboxes');
+            const customGrid = document.getElementById('custom-comorbidities-grid');
+
+            if (!customCheckboxContainer || !customGrid) return;
+
+            // Verifica se já existe checkbox com esse valor
+            const existingCheckbox = customGrid.querySelector(`input[value="${comorbName}"]`);
+            if (existingCheckbox) return;
+
+            // Mostra o container se estava oculto
+            customCheckboxContainer.classList.remove('hidden');
+
+            const checkboxId = `custom-comorb-${comorbName.replace(/\s+/g, '-').toLowerCase()}`;
+
+            const labelEl = document.createElement('label');
+            labelEl.className = `flex items-center space-x-2 p-2 border rounded cursor-pointer ${isConfirmed ? 'bg-purple-50 border-purple-300 opacity-70 cursor-not-allowed' : 'hover:bg-purple-50 border-purple-200'}`;
+
+            labelEl.innerHTML = `
+                <input type="checkbox" value="${comorbName}" id="${checkboxId}"
+                    class="pre-comorb custom-comorb rounded text-purple-600"
+                    checked ${isConfirmed ? 'disabled' : ''}>
+                <span class="text-sm text-purple-800">${comorbName}</span>
+                ${isConfirmed ? '<i class="fa-solid fa-check-circle text-purple-500 text-xs ml-auto"></i>' : ''}
+            `;
+
+            customGrid.appendChild(labelEl);
+
+            // Adiciona listener para salvar alterações (apenas se não confirmado)
+            if (!isConfirmed) {
+                const checkbox = labelEl.querySelector('input');
+                checkbox.addEventListener('change', function() {
+                    saveComorbidity(this.value, this.checked, true);
+                });
             }
         }
 
@@ -1985,27 +2041,39 @@ Exemplos inválidos: "dor de cabeça" (sintoma, não doença), "cansaço" (sinto
                 const data = await response.json();
 
                 if (response.ok) {
-                    // 6. Sucesso: Desabilita checkboxes e mostra mensagem
+                    // 6. Sucesso
                     showToast(data.message, "success");
 
-                    // Desabilita todos os checkboxes e o campo "Outras"
-                    document.querySelectorAll('.pre-comorb').forEach(checkbox => {
+                    // Desabilita checkboxes padrão que foram marcados
+                    document.querySelectorAll('.pre-comorb:not(.custom-comorb):checked').forEach(checkbox => {
                         checkbox.disabled = true;
-                        if (checkbox.checked) {
-                            checkbox.parentElement.classList.add('opacity-50', 'cursor-not-allowed');
-                        }
+                        checkbox.parentElement.classList.add('opacity-50', 'cursor-not-allowed');
                     });
 
-                    if (otherComorbInput) {
-                        otherComorbInput.disabled = true;
-                        otherComorbInput.classList.add('opacity-50', 'cursor-not-allowed');
+                    // Se adicionou nova comorbidade customizada, recarrega a lista de checkboxes
+                    if (otherComorb.length > 0) {
+                        // Limpa o campo de texto
+                        if (otherComorbInput) {
+                            otherComorbInput.value = '';
+                        }
+
+                        // Adiciona a nova comorbidade customizada como checkbox dinâmico
+                        addCustomComorbidityCheckbox(otherComorb, true);
+
+                        // Atualiza o array no currentUser
+                        if (!currentUser.customComorbidities) {
+                            currentUser.customComorbidities = [];
+                        }
+                        if (!currentUser.customComorbidities.includes(otherComorb)) {
+                            currentUser.customComorbidities.push(otherComorb);
+                        }
                     }
 
-                    // Muda o botão para "Confirmado"
-                    btn.innerHTML = '<i class="fa-solid fa-check-double mr-2"></i> Confirmado';
+                    // Muda o botão para permitir adicionar mais
+                    btn.innerHTML = '<i class="fa-solid fa-plus-circle mr-2"></i> Adicionar Nova';
                     btn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                    btn.classList.add('bg-gray-400', 'cursor-not-allowed');
-                    btn.disabled = true;
+                    btn.classList.add('bg-purple-600', 'hover:bg-purple-700');
+                    btn.disabled = false;
 
                     // Log para debug
                     console.log('✅ Comorbidades confirmadas:', data.savedComorbidities);
