@@ -1820,7 +1820,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
                     console.log('📋 Comorbidades normalizadas:', normalizedComorbidities);
 
-                    // Marca os checkboxes das comorbidades padrão ativas
+                    // Marca os checkboxes das comorbidades padrão ativas (sem desabilitar)
                     document.querySelectorAll('.pre-comorb:not(.custom-comorb)').forEach(checkbox => {
                         const comorbidity = checkbox.value;
 
@@ -1832,14 +1832,12 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                         if (found) {
                             checkbox.checked = true;
                             console.log(`✅ Marcando checkbox: ${comorbidity}`, found);
-
-                            // Se foi confirmada, desabilita o checkbox
-                            if (found.confirmed_at) {
-                                hasConfirmed = true;
-                                checkbox.disabled = true;
-                                checkbox.parentElement.classList.add('opacity-50', 'cursor-not-allowed');
-                            }
+                            if (found.confirmed_at) hasConfirmed = true;
                         }
+
+                        // Garante que o checkbox está habilitado para edição
+                        checkbox.disabled = false;
+                        checkbox.parentElement.classList.remove('opacity-50', 'cursor-not-allowed');
                     });
 
                     // Coleta comorbidades customizadas (is_custom = true OU não está na lista padrão)
@@ -1873,42 +1871,55 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
                         customComorbidities.forEach(comorb => {
                             const checkboxId = `custom-comorb-${comorb.name.replace(/\s+/g, '-').toLowerCase()}`;
-                            const isConfirmed = comorb.confirmed;
+                            const wrapperId = `custom-wrapper-${comorb.name.replace(/\s+/g, '-').toLowerCase()}`;
+
+                            const wrapperEl = document.createElement('div');
+                            wrapperEl.id = wrapperId;
+                            wrapperEl.className = 'flex items-center gap-1';
 
                             const labelEl = document.createElement('label');
-                            labelEl.className = `flex items-center space-x-2 p-2 border rounded cursor-pointer ${isConfirmed ? 'bg-green-50 border-green-300' : 'hover:bg-green-50 border-green-200'}`;
-                            if (isConfirmed) {
-                                labelEl.classList.add('opacity-70', 'cursor-not-allowed');
-                            }
+                            labelEl.className = 'flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-green-50 border-green-200 flex-1';
 
                             labelEl.innerHTML = `
                                 <input type="checkbox" value="${comorb.name}" id="${checkboxId}"
-                                    class="pre-comorb custom-comorb rounded text-green-600"
-                                    checked ${isConfirmed ? 'disabled' : ''}>
+                                    class="pre-comorb custom-comorb rounded text-green-600" checked>
                                 <span class="text-sm text-green-800">${comorb.name}</span>
-                                ${isConfirmed ? '<i class="fa-solid fa-check-circle text-green-600 text-xs ml-auto"></i>' : ''}
                             `;
 
-                            customGrid.appendChild(labelEl);
+                            // Botão para remover a comorbidade customizada
+                            const removeBtn = document.createElement('button');
+                            removeBtn.type = 'button';
+                            removeBtn.className = 'p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition';
+                            removeBtn.title = 'Remover esta condição';
+                            removeBtn.innerHTML = '<i class="fa-solid fa-times"></i>';
+                            removeBtn.onclick = (function(name, id) {
+                                return function(e) {
+                                    e.preventDefault();
+                                    removeCustomComorbidity(name, id);
+                                };
+                            })(comorb.name, wrapperId);
 
-                            // Adiciona listener para salvar alterações (apenas se não confirmado)
-                            if (!isConfirmed) {
-                                const checkbox = labelEl.querySelector('input');
-                                checkbox.addEventListener('change', function() {
-                                    saveComorbidity(this.value, this.checked, true);
-                                });
-                            }
+                            wrapperEl.appendChild(labelEl);
+                            wrapperEl.appendChild(removeBtn);
+                            customGrid.appendChild(wrapperEl);
+
+                            // Adiciona listener para salvar alterações ao marcar/desmarcar
+                            const checkbox = labelEl.querySelector('input');
+                            checkbox.addEventListener('change', function() {
+                                saveComorbidity(this.value, this.checked, true);
+                            });
                         });
 
                         customCheckboxContainer.classList.remove('hidden');
                     }
 
-                    // Se alguma comorbidade foi confirmada, ajusta a UI
-                    if (hasConfirmed) {
-                        const btn = document.getElementById('btn-confirm-comorb');
-                        if (btn) {
-                            btn.innerHTML = '<i class="fa-solid fa-plus-circle mr-2"></i> Adicionar Comorbidade';
-                        }
+                    // Atualiza o botão para mostrar que pode confirmar
+                    const btn = document.getElementById('btn-confirm-comorb');
+                    if (btn) {
+                        btn.innerHTML = '<i class="fa-solid fa-check-circle mr-2"></i> Confirmar Comorbidades';
+                        btn.disabled = false;
+                        btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                        btn.classList.add('bg-green-600', 'hover:bg-green-700');
                     }
                 }
             } catch (error) {
@@ -1931,27 +1942,71 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             customCheckboxContainer.classList.remove('hidden');
 
             const checkboxId = `custom-comorb-${comorbName.replace(/\s+/g, '-').toLowerCase()}`;
+            const wrapperId = `custom-wrapper-${comorbName.replace(/\s+/g, '-').toLowerCase()}`;
+
+            const wrapperEl = document.createElement('div');
+            wrapperEl.id = wrapperId;
+            wrapperEl.className = 'flex items-center gap-1';
 
             const labelEl = document.createElement('label');
-            labelEl.className = `flex items-center space-x-2 p-2 border rounded cursor-pointer ${isConfirmed ? 'bg-green-50 border-green-300 opacity-70 cursor-not-allowed' : 'hover:bg-green-50 border-green-200'}`;
+            labelEl.className = 'flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-green-50 border-green-200 flex-1';
 
             labelEl.innerHTML = `
                 <input type="checkbox" value="${comorbName}" id="${checkboxId}"
-                    class="pre-comorb custom-comorb rounded text-green-600"
-                    checked ${isConfirmed ? 'disabled' : ''}>
+                    class="pre-comorb custom-comorb rounded text-green-600" checked>
                 <span class="text-sm text-green-800">${comorbName}</span>
-                ${isConfirmed ? '<i class="fa-solid fa-check-circle text-green-600 text-xs ml-auto"></i>' : ''}
             `;
 
-            customGrid.appendChild(labelEl);
+            // Botão para remover a comorbidade customizada
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition';
+            removeBtn.title = 'Remover esta condição';
+            removeBtn.innerHTML = '<i class="fa-solid fa-times"></i>';
+            removeBtn.onclick = function(e) {
+                e.preventDefault();
+                removeCustomComorbidity(comorbName, wrapperId);
+            };
 
-            // Adiciona listener para salvar alterações (apenas se não confirmado)
-            if (!isConfirmed) {
-                const checkbox = labelEl.querySelector('input');
-                checkbox.addEventListener('change', function() {
-                    saveComorbidity(this.value, this.checked, true);
-                });
+            wrapperEl.appendChild(labelEl);
+            wrapperEl.appendChild(removeBtn);
+            customGrid.appendChild(wrapperEl);
+
+            // Adiciona listener para salvar alterações
+            const checkbox = labelEl.querySelector('input');
+            checkbox.addEventListener('change', function() {
+                saveComorbidity(this.value, this.checked, true);
+            });
+        }
+
+        // Remove uma comorbidade customizada
+        function removeCustomComorbidity(comorbName, wrapperId) {
+            // Remove visualmente
+            const wrapper = document.getElementById(wrapperId);
+            if (wrapper) {
+                wrapper.style.transition = 'opacity 0.3s, transform 0.3s';
+                wrapper.style.opacity = '0';
+                wrapper.style.transform = 'translateX(-10px)';
+                setTimeout(() => wrapper.remove(), 300);
             }
+
+            // Remove do array currentUser
+            if (currentUser.customComorbidities) {
+                currentUser.customComorbidities = currentUser.customComorbidities.filter(c => c !== comorbName);
+            }
+
+            // Salva no banco como inativa
+            saveComorbidity(comorbName, false, true);
+
+            // Verifica se ainda há comorbidades customizadas visíveis
+            setTimeout(() => {
+                const customGrid = document.getElementById('custom-comorbidities-grid');
+                if (customGrid && customGrid.children.length === 0) {
+                    document.getElementById('custom-comorbidities-checkboxes')?.classList.add('hidden');
+                }
+            }, 350);
+
+            showToast(`"${comorbName}" removida da lista`, 'info');
         }
 
         // Configura listeners nos checkboxes de comorbidades
