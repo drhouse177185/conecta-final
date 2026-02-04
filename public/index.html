@@ -1802,16 +1802,36 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 const response = await fetch(`${BACKEND_URL}/api/comorbidities/${currentUser.id}`);
                 const data = await response.json();
 
+                console.log('📋 Comorbidades carregadas do banco:', data.comorbidities);
+
                 if (response.ok && data.comorbidities) {
                     let hasConfirmed = false;
                     const customComorbidities = []; // Para armazenar comorbidades customizadas
 
+                    // Lista de comorbidades padrão
+                    const standardComorbNames = ['Hipertensão', 'Diabetes', 'Cardiopatia', 'Obesidade', 'Dislipidemia', 'Tabagismo'];
+
+                    // Converte is_custom e is_active para booleanos (podem vir como 0/1 do banco)
+                    const normalizedComorbidities = data.comorbidities.map(c => ({
+                        ...c,
+                        is_custom: c.is_custom === true || c.is_custom === 1 || c.is_custom === '1',
+                        is_active: c.is_active === true || c.is_active === 1 || c.is_active === '1'
+                    }));
+
+                    console.log('📋 Comorbidades normalizadas:', normalizedComorbidities);
+
                     // Marca os checkboxes das comorbidades padrão ativas
                     document.querySelectorAll('.pre-comorb:not(.custom-comorb)').forEach(checkbox => {
                         const comorbidity = checkbox.value;
-                        const found = data.comorbidities.find(c => c.comorbidity === comorbidity && c.is_active);
+
+                        // Busca qualquer comorbidade ativa que corresponda ao nome
+                        const found = normalizedComorbidities.find(c =>
+                            c.is_active && c.comorbidity.toLowerCase() === comorbidity.toLowerCase()
+                        );
+
                         if (found) {
                             checkbox.checked = true;
+                            console.log(`✅ Marcando checkbox: ${comorbidity}`, found);
 
                             // Se foi confirmada, desabilita o checkbox
                             if (found.confirmed_at) {
@@ -1822,14 +1842,22 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                         }
                     });
 
-                    // Coleta comorbidades customizadas (is_custom = true)
-                    data.comorbidities.forEach(c => {
-                        if (c.is_custom && c.is_active) {
-                            customComorbidities.push({
-                                name: c.comorbidity,
-                                confirmed: !!c.confirmed_at
-                            });
-                            if (c.confirmed_at) hasConfirmed = true;
+                    // Coleta comorbidades customizadas (is_custom = true OU não está na lista padrão)
+                    normalizedComorbidities.forEach(c => {
+                        if (c.is_active) {
+                            const isStandard = standardComorbNames.some(s => s.toLowerCase() === c.comorbidity.toLowerCase());
+
+                            if (c.is_custom || !isStandard) {
+                                // É customizada
+                                customComorbidities.push({
+                                    name: c.comorbidity,
+                                    confirmed: !!c.confirmed_at
+                                });
+                                if (c.confirmed_at) hasConfirmed = true;
+                            } else {
+                                // É padrão - verifica se tem confirmed_at
+                                if (c.confirmed_at) hasConfirmed = true;
+                            }
                         }
                     });
 
@@ -3251,7 +3279,11 @@ Sistema Conecta Saude`
         // --- SEÇÃO: LÓGICA PRÉ-CONSULTA ---
         function unlockPreConsulta() {
             const s2 = document.getElementById('pre-step-2'); s2.classList.remove('hidden');
-            setTimeout(() => s2.classList.remove('opacity-50', 'pointer-events-none'), 100);
+            setTimeout(() => {
+                s2.classList.remove('opacity-50', 'pointer-events-none');
+                // Recarrega comorbidades após desbloquear o passo 2
+                loadUserComorbidities();
+            }, 100);
             const btn = document.getElementById('btn-confirm-data'); btn.innerHTML = "<i class='fa-solid fa-check mr-1'></i> Confirmado"; btn.classList.replace('bg-blue-600', 'bg-green-600');
         }
     
