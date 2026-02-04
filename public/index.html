@@ -3588,7 +3588,7 @@ Sistema Conecta Saude`
 
                 loadText.textContent = "Analisando...";
 
-                // --- PROMPT REFINADO COM DETECÇÃO ROBUSTA DE EXAMES ---
+                // --- PROMPT REFINADO COM DETECÇÃO ROBUSTA DE EXAMES E PROCEDIMENTOS ESPECÍFICOS ---
                 const prompt = `
                     Atue como um Médico Clínico Geral Sênior do "Conecta Saúde" com HABILIDADE AVANÇADA em interpretar documentos médicos.
                     PACIENTE: ${currentUser.name}.
@@ -3620,6 +3620,27 @@ Sistema Conecta Saude`
                     1. Se as alterações forem LEVES (ex: colesterol levemente alto, glicemia limítrofe), manejo na Atenção Primária.
                     2. Se as alterações forem GRAVES (ex: troponina alta, suspeita de câncer), encaminhe para Especialista.
 
+                    PASSO 3 - PROCEDIMENTOS SUGERIDOS (OBRIGATÓRIO):
+                    Com base nas ALTERAÇÕES encontradas nos exames do paciente, você DEVE sugerir entre 3 e 8 exames complementares específicos para investigação, acompanhamento ou confirmação diagnóstica.
+
+                    REGRAS PARA PROCEDIMENTOS SUGERIDOS:
+                    - Mínimo 3, máximo 8 exames. NUNCA deixe vazio ou com menos de 3.
+                    - Os exames devem ser DIRETAMENTE RELACIONADOS às alterações encontradas nos resultados.
+                    - Inclua uma MISTURA de tipos quando apropriado:
+                      • LABORATORIAIS: exames de sangue, urina, dosagens específicas (ex: HbA1c, microalbuminúria, TSH, ferritina, PCR ultrassensível, etc.)
+                      • IMAGEM: ultrassonografia, tomografia, ressonância, raio-x, mamografia, densitometria, etc.
+                      • GRÁFICOS/FUNCIONAIS: eletrocardiograma, ecocardiograma, espirometria, teste ergométrico, holter 24h, MAPA, etc.
+                    - Use nomes OFICIAIS dos exames como são conhecidos no Brasil.
+                    - Cada exame sugerido deve ter justificativa clínica baseada nos achados.
+                    - Se o exame analisado estiver NORMAL/SEM ALTERAÇÕES, sugira exames de rotina de acompanhamento e rastreio adequados para o perfil do paciente (idade, sexo, histórico).
+                    - EXEMPLOS por alteração:
+                      • Glicemia alterada → HbA1c, Glicemia pós-prandial, Insulina basal, TOTG 75g, Frutosamina, Perfil lipídico, Creatinina com TFG
+                      • Colesterol alto → Perfil lipídico completo, PCR ultrassensível, Ecocardiograma, Teste ergométrico, Doppler de carótidas
+                      • Hemograma alterado → Reticulócitos, Ferritina, Ferro sérico, Vitamina B12, Ácido fólico, Eletroforese de hemoglobina
+                      • ECG alterado → Ecocardiograma, Holter 24h, Teste ergométrico, Troponina, BNP/NT-proBNP, Rx de tórax
+                      • Função renal alterada → Microalbuminúria, Proteinúria 24h, USG de vias urinárias, Ácido úrico, Eletrólitos, Gasometria
+                      • Função hepática alterada → USG de abdome total, Hepatograma completo, GGT, Sorologias para hepatites, Alfafetoproteína
+
                     RESPONDA APENAS NESTE JSON:
                     {
                         "is_valid_exam": true ou false,
@@ -3630,9 +3651,14 @@ Sistema Conecta Saude`
                         "diagnostic_possibilities": "Texto explicativo sobre as hipóteses diagnósticas. Se não for exame válido, deixe string vazia.",
                         "findings": [ {"item": "Nome exame", "value": "Valor encontrado", "status": "Normal/Alterado/Ilegível", "explanation": "Explicação para leigos"} ],
                         "specialist": "Especialista recomendado. Se não for exame válido ou não necessário, preencha 'Nenhum'.",
-                        "recommended_procedures": ["Exame 1", "Exame 2"],
+                        "recommended_procedures": ["Exame complementar 1", "Exame complementar 2", "Exame complementar 3"],
                         "follow_up": "Texto curto de orientação."
                     }
+
+                    REGRA CRÍTICA SOBRE recommended_procedures:
+                    - SEMPRE preencha com 3 a 8 exames ESPECÍFICOS. Nunca use termos genéricos como "acompanhamento" ou "retorno médico".
+                    - Cada item deve ser um NOME DE EXAME real e específico (ex: "Ecocardiograma Transtorácico", não "exame do coração").
+                    - Os exames devem ser o próximo passo lógico de investigação baseado nos achados do documento analisado.
 
                     REGRA CRÍTICA: Se a imagem estiver com qualidade RUIM mas você conseguir identificar que É um exame médico,
                     preencha is_valid_exam=true e faça o MELHOR ESFORÇO para analisar. Marque findings com status "Ilegível" quando não conseguir ler valores específicos.
