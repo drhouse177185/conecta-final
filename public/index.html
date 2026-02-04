@@ -3431,9 +3431,15 @@ Sistema Conecta Saude`
                       • "Ressonância de Coluna" (para doenças da coluna vertebral)
                       • "Ultrassonografia de Abdome" (para doenças abdominais)
                       A região deve ser APROPRIADA para a comorbidade sendo investigada.
+                    - REGRA DE NÃO-REDUNDÂNCIA DE IMAGEM (OBRIGATÓRIA mesmo no modo CM):
+                      • Solicite NO MÁXIMO 1 exame de imagem por região anatômica/órgão.
+                      • NUNCA solicite Raio-X e Tomografia da mesma região (ex: Rx de Tórax + TC de Tórax).
+                      • NUNCA solicite Tomografia e Ressonância da mesma região (ex: TC de Crânio + RM de Crânio).
+                      • Prioridade: Ressonância > Tomografia > Raio-X (escolha o mais adequado, não todos).
+                      • Exames de sangue e gráficos continuam LIVRES (sem restrição de quantidade).
                     - Se o exame relevante NÃO estiver no CATÁLOGO abaixo, inclua-o MESMO ASSIM com o nome
                       correto usado no Brasil (a validação será flexível para o modo CM).
-                    - O Choosing Wisely NÃO se aplica aos exames das comorbidades CM.
+                    - O Choosing Wisely NÃO se aplica aos exames LABORATORIAIS das comorbidades CM (mas a regra de imagem acima SIM).
                     `;
                 }
 
@@ -3465,6 +3471,11 @@ Sistema Conecta Saude`
                        - Se "Incluir Sorologias" pelo usuario for "SIM": Inclua o painel básico de rastreio (HIV, Sífilis, Hepatites B e C).
                 7. EXAMES PROIBIDOS (não solicitar em hipótese alguma):
                        - Cariótipo (dificuldade de realização no Brasil pelo SUS)
+                8. REGRA DE EXAMES DE IMAGEM (OBRIGATÓRIA para todos os modos):
+                       - Solicite NO MÁXIMO 1 exame de imagem por região anatômica/órgão.
+                       - NUNCA solicite redundâncias como: Raio-X de Tórax + Tomografia de Tórax, ou TC de Crânio + RM de Crânio.
+                       - Priorize o exame mais adequado: Ressonância > Tomografia > Raio-X (escolha UM, não todos).
+                       - Exames laboratoriais e gráficos NÃO têm essa restrição.
 
                 Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
             `;
