@@ -160,7 +160,7 @@ const getWelcomeEmailTemplate = (userName, confirmationLink, lgpdLink) => `
 
                 <ul style="color: #334155; font-size: 15px; line-height: 1.8; padding-left: 20px;">
                     <li><strong>Pré-Consulta:</strong> Geração inteligente de pedidos de exames</li>
-                    <li><strong>Pós-Consulta:</strong> Análise de resultados de exames com IA</li>
+                    <li><strong>Pós-Consulta:</strong> Análise de resultados de exames a partir de um Algoritmo Inteligente</li>
                     <li><strong>Pré-Operatório:</strong> Avaliação de risco cirúrgico</li>
                     <li><strong>Clínicas Próximas:</strong> Encontre estabelecimentos de saúde perto de você</li>
                 </ul>
