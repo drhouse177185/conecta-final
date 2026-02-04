@@ -90,6 +90,8 @@ exports.getUserComorbidities = async (req, res) => {
                 id,
                 comorbidity,
                 is_active,
+                is_custom,
+                confirmed_at,
                 first_marked_at,
                 last_updated_at
              FROM user_comorbidities

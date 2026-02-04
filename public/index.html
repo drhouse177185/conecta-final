@@ -420,7 +420,7 @@
                                     </div>
                                     <!-- Container para comorbidades customizadas salvas (checkboxes dinâmicos) -->
                                     <div id="custom-comorbidities-checkboxes" class="hidden mt-3">
-                                        <p class="text-xs text-purple-600 font-bold mb-2 flex items-center">
+                                        <p class="text-xs text-green-700 font-bold mb-2 flex items-center">
                                             <i class="fa-solid fa-notes-medical mr-1"></i> Suas outras condições médicas:
                                         </p>
                                         <div id="custom-comorbidities-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1848,17 +1848,17 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                             const isConfirmed = comorb.confirmed;
 
                             const labelEl = document.createElement('label');
-                            labelEl.className = `flex items-center space-x-2 p-2 border rounded cursor-pointer ${isConfirmed ? 'bg-purple-50 border-purple-300' : 'hover:bg-purple-50 border-purple-200'}`;
+                            labelEl.className = `flex items-center space-x-2 p-2 border rounded cursor-pointer ${isConfirmed ? 'bg-green-50 border-green-300' : 'hover:bg-green-50 border-green-200'}`;
                             if (isConfirmed) {
                                 labelEl.classList.add('opacity-70', 'cursor-not-allowed');
                             }
 
                             labelEl.innerHTML = `
                                 <input type="checkbox" value="${comorb.name}" id="${checkboxId}"
-                                    class="pre-comorb custom-comorb rounded text-purple-600"
+                                    class="pre-comorb custom-comorb rounded text-green-600"
                                     checked ${isConfirmed ? 'disabled' : ''}>
-                                <span class="text-sm text-purple-800">${comorb.name}</span>
-                                ${isConfirmed ? '<i class="fa-solid fa-check-circle text-purple-500 text-xs ml-auto"></i>' : ''}
+                                <span class="text-sm text-green-800">${comorb.name}</span>
+                                ${isConfirmed ? '<i class="fa-solid fa-check-circle text-green-600 text-xs ml-auto"></i>' : ''}
                             `;
 
                             customGrid.appendChild(labelEl);
@@ -1880,8 +1880,6 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                         const btn = document.getElementById('btn-confirm-comorb');
                         if (btn) {
                             btn.innerHTML = '<i class="fa-solid fa-plus-circle mr-2"></i> Adicionar Nova';
-                            btn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                            btn.classList.add('bg-purple-600', 'hover:bg-purple-700');
                         }
                     }
                 }
@@ -1907,14 +1905,14 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             const checkboxId = `custom-comorb-${comorbName.replace(/\s+/g, '-').toLowerCase()}`;
 
             const labelEl = document.createElement('label');
-            labelEl.className = `flex items-center space-x-2 p-2 border rounded cursor-pointer ${isConfirmed ? 'bg-purple-50 border-purple-300 opacity-70 cursor-not-allowed' : 'hover:bg-purple-50 border-purple-200'}`;
+            labelEl.className = `flex items-center space-x-2 p-2 border rounded cursor-pointer ${isConfirmed ? 'bg-green-50 border-green-300 opacity-70 cursor-not-allowed' : 'hover:bg-green-50 border-green-200'}`;
 
             labelEl.innerHTML = `
                 <input type="checkbox" value="${comorbName}" id="${checkboxId}"
-                    class="pre-comorb custom-comorb rounded text-purple-600"
+                    class="pre-comorb custom-comorb rounded text-green-600"
                     checked ${isConfirmed ? 'disabled' : ''}>
-                <span class="text-sm text-purple-800">${comorbName}</span>
-                ${isConfirmed ? '<i class="fa-solid fa-check-circle text-purple-500 text-xs ml-auto"></i>' : ''}
+                <span class="text-sm text-green-800">${comorbName}</span>
+                ${isConfirmed ? '<i class="fa-solid fa-check-circle text-green-600 text-xs ml-auto"></i>' : ''}
             `;
 
             customGrid.appendChild(labelEl);
@@ -2069,10 +2067,8 @@ Exemplos inválidos: "dor de cabeça" (sintoma, não doença), "cansaço" (sinto
                         }
                     }
 
-                    // Muda o botão para permitir adicionar mais
+                    // Muda o botão para permitir adicionar mais (mantém verde)
                     btn.innerHTML = '<i class="fa-solid fa-plus-circle mr-2"></i> Adicionar Nova';
-                    btn.classList.remove('bg-green-600', 'hover:bg-green-700');
-                    btn.classList.add('bg-purple-600', 'hover:bg-purple-700');
                     btn.disabled = false;
 
                     // Log para debug
