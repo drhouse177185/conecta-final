@@ -2083,10 +2083,10 @@ Exemplos inválidos: "dor de cabeça" (sintoma, não doença), "cansaço" (sinto
             const otherComorbInput = document.getElementById('pre-other-comorb');
             const otherComorb = otherComorbInput ? otherComorbInput.value.trim() : '';
 
-            // 3. Validação: Pelo menos uma comorbidade deve estar marcada
+            // 3. Se nenhuma comorbidade marcada, confirma para desativar todas
             if (selectedComorbidities.length === 0 && otherComorb.length === 0) {
-                showToast("Marque pelo menos uma comorbidade ou digite em 'Outras'.", "error");
-                return;
+                // Permite salvar vazio para desmarcar todas as comorbidades
+                console.log('📋 Nenhuma comorbidade marcada - desativando todas');
             }
 
             // 4. Feedback visual de carregamento

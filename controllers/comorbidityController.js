@@ -202,11 +202,45 @@ exports.confirmComorbidities = async (req, res) => {
 
         t = await sequelize.transaction();
         const savedComorbidities = [];
+        const allActiveComorbidities = [...(comorbidities || [])];
 
-        // 1. Salvar comorbidades dos checkboxes
+        // Adiciona a comorbidade customizada à lista de ativas (se houver)
+        if (otherComorbidities && otherComorbidities.trim().length > 0) {
+            allActiveComorbidities.push(otherComorbidities.trim());
+        }
+
+        // 1. DESATIVAR todas as comorbidades que NÃO estão na lista de marcadas
+        // (exceto as removidas pelo admin)
+        if (allActiveComorbidities.length > 0) {
+            await sequelize.query(
+                `UPDATE user_comorbidities
+                 SET is_active = false, last_updated_at = NOW()
+                 WHERE user_id = :userId
+                   AND removed_by_admin = false
+                   AND comorbidity NOT IN (:activeList)`,
+                {
+                    replacements: { userId, activeList: allActiveComorbidities },
+                    type: QueryTypes.UPDATE,
+                    transaction: t
+                }
+            );
+        } else {
+            // Se nenhuma comorbidade está marcada, desativa todas
+            await sequelize.query(
+                `UPDATE user_comorbidities
+                 SET is_active = false, last_updated_at = NOW()
+                 WHERE user_id = :userId AND removed_by_admin = false`,
+                {
+                    replacements: { userId },
+                    type: QueryTypes.UPDATE,
+                    transaction: t
+                }
+            );
+        }
+
+        // 2. Salvar/Ativar comorbidades marcadas dos checkboxes
         if (comorbidities && Array.isArray(comorbidities)) {
             for (const comorbidity of comorbidities) {
-                // Verifica se já existe
                 const existing = await sequelize.query(
                     `SELECT id, removed_by_admin FROM user_comorbidities
                      WHERE user_id = :userId AND comorbidity = :comorbidity`,
@@ -218,11 +252,10 @@ exports.confirmComorbidities = async (req, res) => {
                 );
 
                 if (existing.length > 0 && existing[0].removed_by_admin) {
-                    continue; // Pula se foi removida pelo admin
+                    continue;
                 }
 
                 if (existing.length > 0) {
-                    // Atualiza existente
                     await sequelize.query(
                         `UPDATE user_comorbidities
                          SET is_active = true, confirmed_at = NOW(), last_updated_at = NOW()
@@ -234,7 +267,6 @@ exports.confirmComorbidities = async (req, res) => {
                         }
                     );
                 } else {
-                    // Cria nova
                     await sequelize.query(
                         `INSERT INTO user_comorbidities
                          (user_id, comorbidity, is_active, is_custom, confirmed_at, first_marked_at)
@@ -250,7 +282,7 @@ exports.confirmComorbidities = async (req, res) => {
             }
         }
 
-        // 2. Salvar comorbidade customizada (campo "Outras")
+        // 3. Salvar comorbidade customizada (campo "Outras")
         if (otherComorbidities && otherComorbidities.trim().length > 0) {
             const customComorbidity = otherComorbidities.trim();
 
@@ -264,7 +296,18 @@ exports.confirmComorbidities = async (req, res) => {
                 }
             );
 
-            if (existing.length === 0) {
+            if (existing.length > 0) {
+                await sequelize.query(
+                    `UPDATE user_comorbidities
+                     SET is_active = true, is_custom = true, confirmed_at = NOW(), last_updated_at = NOW()
+                     WHERE id = :id`,
+                    {
+                        replacements: { id: existing[0].id },
+                        type: QueryTypes.UPDATE,
+                        transaction: t
+                    }
+                );
+            } else {
                 await sequelize.query(
                     `INSERT INTO user_comorbidities
                      (user_id, comorbidity, is_active, is_custom, confirmed_at, first_marked_at)
@@ -275,8 +318,8 @@ exports.confirmComorbidities = async (req, res) => {
                         transaction: t
                     }
                 );
-                savedComorbidities.push(customComorbidity);
             }
+            savedComorbidities.push(customComorbidity);
         }
 
         await t.commit();
@@ -285,7 +328,9 @@ exports.confirmComorbidities = async (req, res) => {
 
         res.json({
             success: true,
-            message: `${savedComorbidities.length} comorbidade(s) confirmada(s) e salva(s) no histórico médico.`,
+            message: savedComorbidities.length > 0
+                ? `${savedComorbidities.length} comorbidade(s) confirmada(s).`
+                : 'Todas as comorbidades foram desmarcadas.',
             savedComorbidities: savedComorbidities
         });
 
