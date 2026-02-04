@@ -3420,6 +3420,17 @@ Sistema Conecta Saude`
                       • Exames de imagem específicos (TC, RM, USG especializadas, cintilografias, etc.)
                       • Testes funcionais e provocativos
                       • Marcadores inflamatórios e metabólicos específicos
+                    - IMPORTANTE para EXAMES DE IMAGEM: SEMPRE especifique a REGIÃO ANATÔMICA no nome do exame.
+                      NÃO use apenas "Tomografia", "Raio-X" ou "Ressonância".
+                      Exemplos CORRETOS:
+                      • "Tomografia de Tórax" (para Asma, DPOC, doenças pulmonares)
+                      • "Tomografia de Crânio" (para Epilepsia, doenças neurológicas)
+                      • "Tomografia de Abdome" (para doenças hepáticas, renais, intestinais)
+                      • "Raio-X de Tórax" (para doenças cardiopulmonares)
+                      • "Ressonância de Crânio" (para doenças neurológicas)
+                      • "Ressonância de Coluna" (para doenças da coluna vertebral)
+                      • "Ultrassonografia de Abdome" (para doenças abdominais)
+                      A região deve ser APROPRIADA para a comorbidade sendo investigada.
                     - Se o exame relevante NÃO estiver no CATÁLOGO abaixo, inclua-o MESMO ASSIM com o nome
                       correto usado no Brasil (a validação será flexível para o modo CM).
                     - O Choosing Wisely NÃO se aplica aos exames das comorbidades CM.
@@ -3452,7 +3463,8 @@ Sistema Conecta Saude`
                 6. REGRA DE SOROLOGIA:
                        - Se "Incluir Sorologias" pelo usuario for "NÃO": PROIBIDO incluir HIV, VDRL, HBsAg, Anti-HCV ou quaisquer testes virais, a menos que o histórico mencione explicitamente "exposição de risco" ou "DST".
                        - Se "Incluir Sorologias" pelo usuario for "SIM": Inclua o painel básico de rastreio (HIV, Sífilis, Hepatites B e C).
-
+                7. EXAMES PROIBIDOS (não solicitar em hipótese alguma):
+                       - Cariótipo (dificuldade de realização no Brasil pelo SUS)
 
                 Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
             `;
@@ -6038,19 +6050,41 @@ Responda APENAS em JSON:
 
         const baseTitle = type === 'PRE' ? 'SOLICITAÇÃO DE EXAMES' : 'PENDÊNCIAS PRÉ-OPERATÓRIAS';
 
-        // Página 1: Exames Laboratoriais
+        // Função para dividir array em chunks (máx 20 exames por página)
+        const MAX_EXAMS_PER_PAGE = 20;
+        const chunkArray = (arr, size) => {
+            const chunks = [];
+            for (let i = 0; i < arr.length; i += size) {
+                chunks.push(arr.slice(i, i + size));
+            }
+            return chunks;
+        };
+
+        // Páginas de Exames Laboratoriais (pode ter múltiplas)
         if (categorized.laboratorio.length > 0) {
-            pages.push(generatePageHTML(`${baseTitle} - LABORATÓRIO`, categorized.laboratorio, '#1e3a8a')); // Azul
+            const labChunks = chunkArray(categorized.laboratorio, MAX_EXAMS_PER_PAGE);
+            labChunks.forEach((chunk, index) => {
+                const pageLabel = labChunks.length > 1 ? ` (${index + 1}/${labChunks.length})` : '';
+                pages.push(generatePageHTML(`${baseTitle} - LABORATÓRIO${pageLabel}`, chunk, '#1e3a8a')); // Azul
+            });
         }
 
-        // Página 2: Exames de Imagem
+        // Páginas de Exames de Imagem (pode ter múltiplas)
         if (categorized.imagem.length > 0) {
-            pages.push(generatePageHTML(`${baseTitle} - IMAGEM`, categorized.imagem, '#7c3aed')); // Roxo
+            const imgChunks = chunkArray(categorized.imagem, MAX_EXAMS_PER_PAGE);
+            imgChunks.forEach((chunk, index) => {
+                const pageLabel = imgChunks.length > 1 ? ` (${index + 1}/${imgChunks.length})` : '';
+                pages.push(generatePageHTML(`${baseTitle} - IMAGEM${pageLabel}`, chunk, '#7c3aed')); // Roxo
+            });
         }
 
-        // Página 3: Exames Gráficos
+        // Páginas de Exames Gráficos (pode ter múltiplas)
         if (categorized.grafico.length > 0) {
-            pages.push(generatePageHTML(`${baseTitle} - GRÁFICOS`, categorized.grafico, '#dc2626')); // Vermelho
+            const grafChunks = chunkArray(categorized.grafico, MAX_EXAMS_PER_PAGE);
+            grafChunks.forEach((chunk, index) => {
+                const pageLabel = grafChunks.length > 1 ? ` (${index + 1}/${grafChunks.length})` : '';
+                pages.push(generatePageHTML(`${baseTitle} - GRÁFICOS${pageLabel}`, chunk, '#dc2626')); // Vermelho
+            });
         }
 
         return pages; // Retorna ARRAY de páginas
