@@ -3341,80 +3341,132 @@ Sistema Conecta Saude`
             }, 100);
             const btn = document.getElementById('btn-confirm-data'); btn.innerHTML = "<i class='fa-solid fa-check mr-1'></i> Confirmado"; btn.classList.replace('bg-blue-600', 'bg-green-600');
         }
-    
-      async function generateRationalExams() {
+
+        async function generateRationalExams() {
             // 1. Verificações de bloqueio e saldo
             if (currentUser.blocked_features && currentUser.blocked_features.preConsulta) {
                 return showToast("Funcionalidade bloqueada pelo administrador.", "error");
             }
             if (!hasCredits(80)) return;
 
-            const btn = document.getElementById('btn-gen-exams'); 
-            btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin mr-2'></i> Gerando..."; 
+            const btn = document.getElementById('btn-gen-exams');
+            btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin mr-2'></i> Gerando...";
             btn.disabled = true;
-            
+
             try {
                 // 3. Coleta de dados
-                const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c=>c.value);
-                const other = document.getElementById('pre-other-comorb').value; if(other) comorbs.push(other);
+                const comorbs = Array.from(document.querySelectorAll('.pre-comorb:checked')).map(c => c.value);
+                const other = document.getElementById('pre-other-comorb').value;
+                if (other) comorbs.push(other);
+
                 // Inclui comorbidades customizadas salvas anteriormente
                 if (currentUser.customComorbidities && currentUser.customComorbidities.length > 0) {
                     currentUser.customComorbidities.forEach(c => {
                         if (!comorbs.includes(c)) comorbs.push(c);
                     });
                 }
+
+                // =============================================
+                // FUNÇÃO CM - Detecção e separação
+                // =============================================
+                const cmComorbidities = [];      // Comorbidades com flag CM (investigação completa)
+                const normalComorbidities = [];  // Comorbidades normais (Choosing Wisely)
+
+                comorbs.forEach(c => {
+                    const trimmed = c.trim();
+                    // Verifica se termina com "CM" (case insensitive), ex: "Asma CM", "DPOC CM"
+                    if (/\s+CM$/i.test(trimmed)) {
+                        // Remove o " CM" do final e guarda o nome limpo da comorbidade
+                        const cleanName = trimmed.replace(/\s+CM$/i, '').trim();
+                        if (cleanName) cmComorbidities.push(cleanName);
+                    } else {
+                        normalComorbidities.push(trimmed);
+                    }
+                });
+
+                const hasCM = cmComorbidities.length > 0;
+                console.log('📋 Modo CM:', hasCM ? `ATIVADO para ${cmComorbidities.join(', ')}` : 'Desativado');
+                // =============================================
+
                 const routine = document.getElementById('check-routine').checked;
                 const std = document.getElementById('check-std').checked;
                 const pregnancy = document.getElementById('check-pregnancy').checked;
 
                 // 4. Lista ATIVA (O que a IA pode pedir)
-                // Pega os objetos reais do SYSTEM_SETTINGS para validação posterior
                 const activeLabItems = SYSTEM_SETTINGS.exams.lab.filter(e => e.ativo);
                 const activeImgItems = SYSTEM_SETTINGS.exams.img.filter(e => e.ativo);
                 const activeNamesList = [...activeLabItems, ...activeImgItems].map(e => e.nome);
-                
-                // String para o prompt
+
                 const menuString = activeNamesList.join(", ");
 
                 if (!menuString) throw new Error("Nenhum exame disponível no catálogo (Contate o Admin).");
 
+                // =============================================
+                // MONTAGEM DO PROMPT - Com ou sem CM
+                // =============================================
+                let cmBlock = "";
+                if (hasCM) {
+                    cmBlock = `
+                    ⚠️ MODO INVESTIGAÇÃO COMPLETA (CM) ATIVADO para: ${cmComorbidities.join(", ")}
+                    INSTRUÇÕES CM (PRIORIDADE MÁXIMA - sobrepõe o Choosing Wisely para estas comorbidades):
+                    - Para CADA comorbidade listada acima no modo CM, você DEVE solicitar TODOS os exames
+                      laboratoriais e de imagem existentes e disponíveis no Brasil que sejam relevantes para
+                      investigação, diagnóstico, acompanhamento e controle dessa comorbidade.
+                    - NÃO economize. Inclua exames específicos, complementares e especializados.
+                    - Exemplos do que incluir (quando aplicável à comorbidade CM):
+                      • Provas de função (pulmonar, hepática, renal, tireoidiana, etc.)
+                      • Dosagens específicas (IgE total, complemento, autoanticorpos, marcadores tumorais, etc.)
+                      • Sorologias e painéis imunológicos relevantes
+                      • Exames de imagem específicos (TC, RM, USG especializadas, cintilografias, etc.)
+                      • Testes funcionais e provocativos
+                      • Marcadores inflamatórios e metabólicos específicos
+                    - Se o exame relevante NÃO estiver no CATÁLOGO abaixo, inclua-o MESMO ASSIM com o nome
+                      correto usado no Brasil (a validação será flexível para o modo CM).
+                    - O Choosing Wisely NÃO se aplica aos exames das comorbidades CM.
+                    `;
+                }
+
+                const historicoString = normalComorbidities.length > 0
+                    ? normalComorbidities.join(", ")
+                    : (hasCM ? "Ver modo CM acima" : "Hígido");
+
                 const prompt = `
                     Atue como um Médico Auditor rigoroso seguindo o protocolo internacional 'Choosing Wisely'.
                     PACIENTE: ${currentUser.name}, ${currentUser.age} anos, Sexo: ${currentUser.sex}.
-                    HISTÓRICO: ${comorbs.join(", ") || "Hígido"}.
+                    HISTÓRICO (Choosing Wisely): ${historicoString}.
+                    ${cmBlock}
                     PEDIDO: ${routine ? "Check-up" : ""} ${std ? "+ DSTs" : ""} ${pregnancy ? "+ Gravidez" : ""}.
-                    
-                    MENU DE EXAMES DISPONÍVEIS
+
+                    MENU DE EXAMES DISPONÍVEIS (CATÁLOGO DO SISTEMA)
                     [${menuString}]
 
                 DIRETRIZES ESTRITAS DE SOLICITAÇÃO (LEIA COM ATENÇÃO):
-                1. SEJA ECONÔMICO: Solicite APENAS exames baseados em evidência para a idade e sexo.
-                2. EVITE EXCESSOS: Pacientes jovens e assintomáticos NÃO precisam de bateria completa (ex: TSH, Vitamina D, etc) a menos que haja indicação específica.
-                3. PROIBIÇÃO: NÃO invente nomes de exames. Use EXATAMENTE os nomes listados no CATÁLOGO acima.
-                4. REGRAS ESPECÍFICAS:
+                1. PARA COMORBIDADES NORMAIS (sem CM): SEJA ECONÔMICO conforme Choosing Wisely. Solicite APENAS exames baseados em evidência para a idade e sexo.
+                2. PARA COMORBIDADES CM: IGNORE a economia. Solicite TODOS os exames relevantes existentes no Brasil (veja instruções CM acima).
+                3. EVITE EXCESSOS apenas para condições sem flag CM: Pacientes jovens e assintomáticos NÃO precisam de bateria completa a menos que haja indicação específica.
+                4. Para exames do CATÁLOGO, use EXATAMENTE os nomes listados. Para exames CM fora do catálogo, use o nome oficial brasileiro.
+                5. REGRAS ESPECÍFICAS:
                    - Mulheres > 40 anos: Adicionar Mamografia.
                    - Homens > 50 anos: Adicionar PSA.
-                   - Leve em consideração as comorbidades do paciente caso seja necessario algum Exame nao listado em nossa lista previa.
-                5. REGRA DE SOROLOGIA:
+                   - Leve em consideração as comorbidades do paciente caso seja necessário algum exame não listado em nossa lista prévia.
+                6. REGRA DE SOROLOGIA:
                        - Se "Incluir Sorologias" pelo usuario for "NÃO": PROIBIDO incluir HIV, VDRL, HBsAg, Anti-HCV ou quaisquer testes virais, a menos que o histórico mencione explicitamente "exposição de risco" ou "DST".
                        - Se "Incluir Sorologias" pelo usuario for "SIM": Inclua o painel básico de rastreio (HIV, Sífilis, Hepatites B e C).
-                 
-                
+
+
                 Saída esperada (JSON estrito): { "exams": ["Nome Exame 1", "Nome Exame 2"] }
             `;
-                
+
                 // 5. Chamada à IA
                 const res = await callGemini(prompt, true);
-                
-                // --- CORREÇÃO DA VALIDAÇÃO (O PULO DO GATO) ---
-                // Verifica se o exame da IA "bate" com algum do catálogo, mesmo parcialmente
+
+                // --- VALIDAÇÃO (ajustada para aceitar exames CM fora do catálogo) ---
                 const validExams = [];
-                
+
                 if (res.exams && Array.isArray(res.exams)) {
                     res.exams.forEach(aiExam => {
                         // Tenta encontrar um match no catálogo ativo
-                        const match = activeNamesList.find(activeName => 
-                            // Verifica igualdade ou se um contém o outro (case insensitive)
+                        const match = activeNamesList.find(activeName =>
                             activeName.toLowerCase() === aiExam.toLowerCase() ||
                             activeName.toLowerCase().includes(aiExam.toLowerCase()) ||
                             aiExam.toLowerCase().includes(activeName.toLowerCase())
@@ -3422,10 +3474,13 @@ Sistema Conecta Saude`
 
                         if (match) {
                             validExams.push(match); // Usa o nome oficial do catálogo
+                        } else if (hasCM) {
+                            // No modo CM, aceita exames fora do catálogo (a IA pode sugerir exames extras)
+                            validExams.push(aiExam);
                         }
                     });
                 }
-                
+
                 // Remove duplicatas
                 const finalExams = [...new Set(validExams)];
 
@@ -3440,7 +3495,7 @@ Sistema Conecta Saude`
                 saveHistoryToBackend('pre_consulta', 80, {
                     comorbidades: comorbs,
                     exames: finalExams,
-                    flags: { rotina: routine, dst: std, gravidez: pregnancy }
+                    flags: { rotina: routine, dst: std, gravidez: pregnancy, modoCM: hasCM, comorbidadesCM: cmComorbidities }
                 });
 
                 // NOVO: Salva sessão de pré-consulta para persistência
@@ -3450,17 +3505,23 @@ Sistema Conecta Saude`
                 renderExamHistoryCard(finalExams, new Date());
 
                 document.getElementById('pre-results').classList.remove('hidden');
-                showToast("Guia gerada com sucesso!", 'success');
 
-            } catch(e) { 
+                if (hasCM) {
+                    showToast(`Guia CM gerada! ${cmComorbidities.length} comorbidade(s) com investigação completa.`, 'success');
+                } else {
+                    showToast("Guia gerada com sucesso!", 'success');
+                }
+
+            } catch(e) {
                 console.error(e);
-                showToast(e.message, "error"); 
-            } finally { 
-                btn.innerHTML = "<i class='fa-solid fa-file-medical mr-2'></i> Gerar Guia de Exame"; 
-                btn.disabled = false; 
+                showToast(e.message, "error");
+            } finally {
+                btn.innerHTML = "<i class='fa-solid fa-file-medical mr-2'></i> Gerar Guia de Exame";
+                btn.disabled = false;
             }
         }
-            // --- SEÇÃO: LÓGICA PÓS-CONSULTA (Processamento de Arquivos) ---
+
+        // --- SEÇÃO: LÓGICA PÓS-CONSULTA (Processamento de Arquivos) ---
         async function processDiagnosisFiles(files) {
             // Check de Creditos
             if (!hasCredits(10)) return;
