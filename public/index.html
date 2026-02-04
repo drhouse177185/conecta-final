@@ -3938,31 +3938,23 @@ Sistema Conecta Saude`
 
         // 3. Renderiza Resultados (CORRIGIDA COM VALIDAÇÃO DE EXAME)
         function renderDiagnosticResults(data) {
-            // Verifica se é um exame válido
-            const isValidExam = data.is_valid_exam !== false; // Se não vier o campo, assume válido por compatibilidade
-
             document.getElementById('ai-summary').innerHTML = data.summary ? data.summary.replace(/\n/g, '<br>') : "";
 
             // Exibe Cards de Achados
             const findingsDiv = document.getElementById('ai-findings');
             findingsDiv.innerHTML = '';
-            if(data.findings && data.findings.length > 0) {
+            if(data.findings) {
                 data.findings.filter(f=>f.status!=='Normal').forEach(f => {
-                    // Cor diferente para itens ilegíveis
-                    const bgColor = f.status === 'Ilegível' ? 'bg-yellow-50 border-yellow-400' : 'bg-orange-50 border-orange-400';
-                    const textColor = f.status === 'Ilegível' ? 'text-yellow-800' : 'text-orange-800';
-                    findingsDiv.innerHTML += `<div class="${bgColor} border-l-4 p-3 rounded"><p class="font-bold ${textColor}">${f.item} <span class="font-normal text-sm">(${f.value || f.status})</span></p><p class="text-sm text-slate-700">${f.explanation}</p></div>`;
+                    findingsDiv.innerHTML += `<div class="bg-orange-50 border-l-4 border-orange-400 p-3 rounded"><p class="font-bold text-orange-800">${f.item} <span class="font-normal text-sm">(${f.value})</span></p><p class="text-sm text-slate-700">${f.explanation}</p></div>`;
                 });
             }
 
-            // Exibe Possibilidades (somente se for exame válido e tiver conteúdo)
+            // Exibe Possibilidades
             const possDiv = document.getElementById('ai-possibilities');
-            if(data.diagnostic_possibilities && data.diagnostic_possibilities.trim().length > 0 && isValidExam) {
+            if(data.diagnostic_possibilities) {
                 possDiv.classList.remove('hidden');
                 document.getElementById('possibilities-text').innerHTML = data.diagnostic_possibilities.replace(/\n/g, '<br>');
-            } else {
-                possDiv.classList.add('hidden');
-            }
+            } else possDiv.classList.add('hidden');
 
             // --- LÓGICA ATUALIZADA DO ESPECIALISTA ---
             const spec = (data.specialist || "Clínico Geral").trim();
@@ -3977,9 +3969,9 @@ Sistema Conecta Saude`
             const oldBtn = document.getElementById('btn-schedule-wrapper');
             if(oldBtn) oldBtn.remove();
 
-            // Lista de termos que indicam que NÃO deve mostrar botões
+            // Apenas ignora se for "nenhum" ou "n/a" - INCLUI Clínico Geral e Médico de Família agora!
             const ignoreList = ["nenhum", "n/a", "não se aplica"];
-            const shouldShowButton = isValidExam && !ignoreList.some(term => spec.toLowerCase().includes(term));
+            const shouldShowButton = !ignoreList.some(term => spec.toLowerCase().includes(term));
 
             if(shouldShowButton) {
                 const safeSpec = spec.replace(/'/g, "\\'");
@@ -4004,49 +3996,34 @@ Sistema Conecta Saude`
                 headerEl.appendChild(btnDiv);
             }
 
-            // Botão "Encontrar Especialista" - desativa se não for exame válido
-            const actionBtn = document.getElementById('action-btn');
-            if (isValidExam && !ignoreList.some(term => spec.toLowerCase().includes(term))) {
-                actionBtn.href = `https://www.google.com/maps/search/${encodeURIComponent(spec + " perto de mim")}`;
-                actionBtn.classList.remove('opacity-50', 'pointer-events-none');
-                actionBtn.classList.add('hover:bg-indigo-700');
-            } else {
-                actionBtn.href = '#';
-                actionBtn.classList.add('opacity-50', 'pointer-events-none');
-                actionBtn.classList.remove('hover:bg-indigo-700');
-            }
+            document.getElementById('action-btn').href = `https://www.google.com/maps/search/${encodeURIComponent(spec + " perto de mim")}`;
 
             const procList = document.getElementById('procedures-list');
             procList.innerHTML = '';
-            if(data.recommended_procedures && data.recommended_procedures.length > 0) {
-                data.recommended_procedures.forEach(p => procList.innerHTML += `<li>${p}</li>`);
-            }
+            if(data.recommended_procedures) data.recommended_procedures.forEach(p => procList.innerHTML += `<li>${p}</li>`);
 
             // --- LÓGICA DO BOTÃO DE EXAMES ESPECÍFICOS ---
             const procHeader = document.getElementById('procedures-header');
             const oldExamBtn = document.getElementById('btn-exam-wrapper');
             if(oldExamBtn) oldExamBtn.remove();
 
-            // Só mostra botão de exames específicos se for exame válido
-            if (isValidExam) {
-                // Filtra apenas exames (não fisioterapia, psicologia, etc.)
-                const exams = filterOnlyExams(data.recommended_procedures || []);
+            // Filtra apenas exames (não fisioterapia, psicologia, etc.)
+            const exams = filterOnlyExams(data.recommended_procedures || []);
 
-                if(exams.length > 0) {
-                    const examBtnDiv = document.createElement('div');
-                    examBtnDiv.id = 'btn-exam-wrapper';
-                    examBtnDiv.innerHTML = `
-                        <button id="btn-specific-exams"
-                            onclick="openExamConfirmationModal()"
-                            class="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-sm font-extrabold py-2.5 px-5 rounded-lg border-2 border-orange-600 transition-all duration-300 flex items-center shadow-lg hover:shadow-xl transform hover:scale-105 whitespace-nowrap">
-                            <i class="fa-solid fa-vial-circle-check mr-2 text-lg"></i> EXAMES ESPECÍFICOS
-                        </button>
-                    `;
-                    procHeader.appendChild(examBtnDiv);
+            if(exams.length > 0) {
+                const examBtnDiv = document.createElement('div');
+                examBtnDiv.id = 'btn-exam-wrapper';
+                examBtnDiv.innerHTML = `
+                    <button id="btn-specific-exams"
+                        onclick="openExamConfirmationModal()"
+                        class="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-sm font-extrabold py-2.5 px-5 rounded-lg border-2 border-orange-600 transition-all duration-300 flex items-center shadow-lg hover:shadow-xl transform hover:scale-105 whitespace-nowrap">
+                        <i class="fa-solid fa-vial-circle-check mr-2 text-lg"></i> EXAMES ESPECÍFICOS
+                    </button>
+                `;
+                procHeader.appendChild(examBtnDiv);
 
-                    // Armazena os exames para uso posterior
-                    window.currentExamList = exams;
-                }
+                // Armazena os exames para uso posterior
+                window.currentExamList = exams;
             }
 
             const fullText = `${data.summary || ''}. ${data.diagnostic_possibilities || ''}. Encontramos os seguintes achados: ${data.findings ? data.findings.map(f => f.item + ' ' + f.value + ', ' + f.explanation).join('. ') : ''}.`;
