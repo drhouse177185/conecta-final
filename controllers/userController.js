@@ -1,4 +1,5 @@
 const { User, sequelize } = require('../models');
+const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 
 // --- LOGIN ---
@@ -6,8 +7,14 @@ exports.login = async (req, res) => {
     try {
         let { email, password } = req.body;
         if(!email || !password) return res.status(400).json({ message: "Dados incompletos." });
-        
-        const user = await User.findOne({ where: { email: email.trim() } });
+
+        // Busca case-insensitive (ignora maiúsculas/minúsculas)
+        const user = await User.findOne({
+            where: sequelize.where(
+                sequelize.fn('LOWER', sequelize.col('email')),
+                email.trim().toLowerCase()
+            )
+        });
         if (!user) return res.status(404).json({ message: "E-mail não encontrado." });
 
         const isMatch = await bcrypt.compare(password, user.password).catch(() => false);
@@ -31,7 +38,13 @@ exports.login = async (req, res) => {
 exports.register = async (req, res) => {
     try {
         let { name, email, password, cpf, age, sex } = req.body;
-        const existing = await User.findOne({ where: { email: email.trim() } });
+        // Verifica se já existe (case-insensitive)
+        const existing = await User.findOne({
+            where: sequelize.where(
+                sequelize.fn('LOWER', sequelize.col('email')),
+                email.trim().toLowerCase()
+            )
+        });
         if (existing) return res.status(400).json({ message: "Email já cadastrado." });
 
         const hashedPassword = await bcrypt.hash(password.trim(), 10);
