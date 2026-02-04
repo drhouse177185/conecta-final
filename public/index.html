@@ -3546,58 +3546,65 @@ Sistema Conecta Saude`
             const errorBox = document.getElementById('error-box-1');
             const results = document.getElementById('results-1');
             const loadText = document.getElementById('loading-text-1');
-            
+
             loading.classList.remove('hidden'); errorBox.classList.add('hidden'); results.classList.add('hidden');
             loadText.textContent = `Lendo ${files.length} arquivos...`;
 
             try {
-                // OCR e Extração de Texto
-                let combinedText = "";
-                let processedFiles = 0;
-                let failedFiles = [];
+                // NOVO: Separar arquivos de imagem e PDFs
+                const imageFiles = [];
+                const pdfFiles = [];
+                const otherFiles = [];
 
-                for(let file of files) {
-                    loadText.textContent = `Lendo arquivo ${processedFiles + 1}/${files.length}: ${file.name}...`;
-
-                    let text = "";
-                    if(file.type === 'application/pdf') {
-                        text = await extractPdfText(file);
-                    } else if(file.type.startsWith('image/')) {
-                        text = await extractImageText(file);
+                for (const file of files) {
+                    if (file.type.startsWith('image/')) {
+                        imageFiles.push(file);
+                    } else if (file.type === 'application/pdf') {
+                        pdfFiles.push(file);
                     } else {
+                        otherFiles.push(file);
                         console.warn(`⚠️ Tipo de arquivo não suportado: ${file.type} (${file.name})`);
-                        text = `[Arquivo ${file.name} - tipo não suportado: ${file.type}]`;
-                    }
-
-                    if(text && text.trim().length > 0) {
-                        combinedText += `\n--- ARQUIVO: ${file.name} ---\n${text}\n`;
-                        processedFiles++;
-                    } else {
-                        failedFiles.push(file.name);
                     }
                 }
 
-                console.log(`📊 Processamento concluído: ${processedFiles} de ${files.length} arquivos lidos com sucesso`);
+                console.log(`📊 Arquivos: ${imageFiles.length} imagens, ${pdfFiles.length} PDFs, ${otherFiles.length} outros`);
 
-                if(!combinedText || combinedText.trim().length === 0) {
-                    const errorMsg = failedFiles.length > 0
-                        ? `Não foi possível ler nenhum arquivo. Arquivos com problema: ${failedFiles.join(', ')}. Verifique se são PDFs válidos ou imagens com texto legível.`
-                        : "Não foi possível ler os arquivos. Verifique sua conexão com a internet e tente novamente.";
-                    throw new Error(errorMsg);
+                // Extração de texto apenas para PDFs (imagens serão analisadas diretamente pelo Gemini Vision)
+                let combinedText = "";
+                let processedFiles = 0;
+
+                for(let file of pdfFiles) {
+                    loadText.textContent = `Extraindo texto do PDF ${processedFiles + 1}/${pdfFiles.length}: ${file.name}...`;
+
+                    const text = await extractPdfText(file);
+                    if(text && text.trim().length > 0) {
+                        combinedText += `\n--- PDF: ${file.name} ---\n${text}\n`;
+                        processedFiles++;
+                    }
+                }
+
+                // Verificação: precisa ter pelo menos imagens OU texto extraído de PDFs
+                if(imageFiles.length === 0 && combinedText.trim().length === 0) {
+                    throw new Error("Nenhum arquivo válido encontrado. Envie imagens (JPG, PNG) ou PDFs com texto legível.");
                 }
 
                 loadText.textContent = "Analisando...";
 
                 // --- PROMPT REFINADO COM DETECÇÃO ROBUSTA DE EXAMES E PROCEDIMENTOS ESPECÍFICOS ---
+                // Ajusta o prompt dependendo se há imagens (análise visual direta) ou só texto extraído
+                const hasImages = imageFiles.length > 0;
+                const hasPdfText = combinedText.trim().length > 0;
+
                 const prompt = `
-                    Atue como um Médico Clínico Geral Sênior do "Conecta Saúde" com HABILIDADE AVANÇADA em interpretar documentos médicos.
+                    Atue como um Médico Clínico Geral Sênior do "Conecta Saúde" com HABILIDADE AVANÇADA em interpretar documentos médicos e EXCELENTE VISÃO para analisar imagens de exames.
                     PACIENTE: ${currentUser.name}.
-                    TEXTO EXTRAÍDO DO DOCUMENTO: "${combinedText.substring(0, 30000)}"
+                    ${hasImages ? `IMAGENS ANEXADAS: ${imageFiles.length} imagem(ns) de exame(s) médico(s). ANALISE VISUALMENTE cada imagem com atenção.` : ''}
+                    ${hasPdfText ? `TEXTO EXTRAÍDO DE PDF(s): "${combinedText.substring(0, 30000)}"` : ''}
 
                     PASSO 1 - IDENTIFICAÇÃO DO DOCUMENTO (CRÍTICO):
-                    Analise CUIDADOSAMENTE o texto extraído e determine se é um EXAME MÉDICO VÁLIDO.
+                    ${hasImages ? 'Analise VISUALMENTE as imagens anexadas. Use sua capacidade de visão computacional para LER DIRETAMENTE o conteúdo das imagens.' : 'Analise CUIDADOSAMENTE o texto extraído.'} Determine se é um EXAME MÉDICO VÁLIDO.
 
-                    SINAIS de que É um exame médico (mesmo com texto parcial/ilegível):
+                    SINAIS de que É um exame médico (mesmo com qualidade ruim):
                     - Nomes de exames (hemograma, glicemia, colesterol, ECG, eletrocardiograma, raio-x, tomografia, ressonância, etc.)
                     - Valores numéricos com unidades (mg/dL, U/L, mm/h, %, mEq/L, bpm, ms, mV, etc.)
                     - Termos médicos (sérico, plasmático, leucócitos, eritrócitos, plaquetas, frequência cardíaca, ritmo sinusal, etc.)
@@ -3606,15 +3613,16 @@ Sistema Conecta Saude`
                     - Valores de referência
                     - Laudo, resultado, conclusão médica
                     - Padrões gráficos (ondas P, QRS, T para ECG)
+                    - Layout típico de laudos laboratoriais (tabelas, colunas de valores e referências)
 
                     SINAIS de que NÃO É um exame médico:
-                    - Texto completamente ilegível sem NENHUM termo médico identificável
-                    - Foto de objeto claramente não relacionado a saúde
-                    - Apenas ruídos ou caracteres aleatórios sem sentido
-                    - Receituário sem resultados de exames
+                    - Foto de objeto claramente não relacionado a saúde (comida, paisagem, selfie, etc.)
+                    - Documento administrativo sem resultados de exames
+                    - Imagem completamente desfocada/escura onde NADA é identificável
+                    - Apenas texto aleatório sem contexto médico
 
-                    IMPORTANTE: Se houver QUALQUER indício de exame médico (mesmo parcial), considere como válido e tente extrair o máximo.
-                    Use seu conhecimento médico para INFERIR informações quando o texto estiver parcialmente legível.
+                    IMPORTANTE: Se houver QUALQUER indício de exame médico (mesmo parcial ou com baixa qualidade), considere como válido e EXTRAIA O MÁXIMO de informações que conseguir ver.
+                    ${hasImages ? 'Use sua VISÃO DIRETA para ler números, nomes de exames e valores - não dependa apenas de OCR.' : ''}
 
                     PASSO 2 - ANÁLISE CLÍNICA (se for exame válido):
                     1. Se as alterações forem LEVES (ex: colesterol levemente alto, glicemia limítrofe), Encaminhe ao Medico de Familia.
@@ -3646,7 +3654,7 @@ Sistema Conecta Saude`
                         "is_valid_exam": true ou false,
                         "exam_type_detected": "Tipo de exame identificado (ex: Hemograma, ECG, Perfil Lipídico) ou 'Não identificado'",
                         "image_quality": "boa/média/ruim/ilegível",
-                        "patient_name_found": "Nome achado no texto ou 'Não encontrado'",
+                        "patient_name_found": "Nome achado no documento ou 'Não encontrado'",
                         "summary": "Resumo clínico acolhedor (Markdown). Comece com 'Olá [Nome]'. Se NÃO for exame válido, explique educadamente que não foi possível identificar um exame médico na imagem enviada.",
                         "diagnostic_possibilities": "Texto explicativo sobre as hipóteses diagnósticas. Se não for exame válido, deixe string vazia.",
                         "findings": [ {"item": "Nome exame", "value": "Valor encontrado", "status": "Normal/Alterado/Ilegível", "explanation": "Explicação para leigos"} ],
@@ -3660,11 +3668,19 @@ Sistema Conecta Saude`
                     - Cada item deve ser um NOME DE EXAME real e específico (ex: "Ecocardiograma Transtorácico", não "exame do coração").
                     - Os exames devem ser o próximo passo lógico de investigação baseado nos achados do documento analisado.
 
-                    REGRA CRÍTICA: Se a imagem estiver com qualidade RUIM mas você conseguir identificar que É um exame médico,
+                    REGRA CRÍTICA: Se a imagem/documento estiver com qualidade RUIM mas você conseguir identificar que É um exame médico,
                     preencha is_valid_exam=true e faça o MELHOR ESFORÇO para analisar. Marque findings com status "Ilegível" quando não conseguir ler valores específicos.
                 `;
 
-                const data = await callGemini(prompt, true);
+                // NOVO: Usa análise multimodal (visão) se houver imagens, senão usa só texto
+                let data;
+                if (hasImages) {
+                    console.log(`🖼️ Usando análise MULTIMODAL (visão direta) para ${imageFiles.length} imagem(ns)`);
+                    data = await callGeminiWithImages(prompt, imageFiles, true);
+                } else {
+                    console.log(`📄 Usando análise de TEXTO para ${pdfFiles.length} PDF(s)`);
+                    data = await callGemini(prompt, true);
+                }
 
                 // SALVAR
                 saveHistoryToBackend('pos_consulta', 10, { aiResult: data });
