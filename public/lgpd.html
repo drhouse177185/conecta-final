@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Termo de Consentimento LGPD - Conecta Saúde</title>
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏥</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            min-height: 100vh;
+            color: #334155;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(14, 165, 233, 0.3);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: #0369a1;
+            font-size: 22px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0f2fe;
+        }
+
+        h3 {
+            color: #0284c7;
+            font-size: 18px;
+            margin: 25px 0 15px 0;
+        }
+
+        p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        ul {
+            margin: 15px 0 15px 25px;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        .highlight-box {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-left: 4px solid #0ea5e9;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 10px 10px 0;
+        }
+
+        .permission-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 25px 0;
+        }
+
+        .permission-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .permission-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .permission-card .icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .permission-card h4 {
+            color: #0369a1;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .permission-card p {
+            font-size: 14px;
+            color: #64748b;
+            margin: 0;
+            text-align: left;
+        }
+
+        .warning-box {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .warning-box h4 {
+            color: #92400e;
+            margin-bottom: 10px;
+        }
+
+        .warning-box p {
+            color: #92400e;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .success-box {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .success-box h4 {
+            color: #166534;
+            margin-bottom: 10px;
+        }
+
+        .success-box p {
+            color: #166534;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px 20px;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .back-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(14, 165, 233, 0.3);
+        }
+
+        .version-info {
+            background: #f1f5f9;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #64748b;
+            margin-top: 30px;
+        }
+
+        @media (max-width: 600px) {
+            .card {
+                padding: 25px 20px;
+            }
+
+            h2 {
+                font-size: 20px;
+            }
+
+            .permission-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏥 Conecta Saúde</h1>
+        <p>Termo de Aceite e Consentimento para Tratamento de Dados Pessoais (LGPD)</p>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>📋 Termo de Consentimento LGPD</h2>
+
+            <p>
+                Ao utilizar este site/aplicativo, o usuário declara que leu, compreendeu e concorda com os
+                termos abaixo, autorizando de forma livre, informada e inequívoca o tratamento de seus
+                dados pessoais, nos termos da <strong>Lei nº 13.709/2018 – Lei Geral de Proteção de Dados (LGPD)</strong>.
+            </p>
+
+            <h3>1. Dados Coletados</h3>
+            <p>Poderão ser coletados e tratados os seguintes dados pessoais, conforme a finalidade do serviço:</p>
+
+            <div class="permission-grid">
+                <div class="permission-card">
+                    <div class="icon">👤</div>
+                    <h4>Dados de Identificação</h4>
+                    <p>Nome, CPF, idade, sexo e outros dados informados voluntariamente no cadastro.</p>
+                </div>
+
+                <div class="permission-card">
+                    <div class="icon">📧</div>
+                    <h4>Dados de Contato</h4>
+                    <p>Email para comunicações, confirmação de conta e notificações do sistema.</p>
+                </div>
+
+                <div class="permission-card">
+                    <div class="icon">🌐</div>
+                    <h4>Dados de Navegação</h4>
+                    <p>Informações sobre como você utiliza o aplicativo, páginas visitadas e interações.</p>
+                </div>
+
+                <div class="permission-card">
+                    <div class="icon">📍</div>
+                    <h4>Dados de Geolocalização</h4>
+                    <p>Localização do dispositivo para indicar clínicas e estabelecimentos de saúde próximos.</p>
+                </div>
+
+                <div class="permission-card">
+                    <div class="icon">🏥</div>
+                    <h4>Dados de Saúde</h4>
+                    <p>Informações sobre comorbidades, exames e resultados para análise médica assistida por IA.</p>
+                </div>
+
+                <div class="permission-card">
+                    <div class="icon">📄</div>
+                    <h4>Documentos e Arquivos</h4>
+                    <p>PDFs e imagens de exames enviados para análise na funcionalidade pós-consulta.</p>
+                </div>
+            </div>
+
+            <h3>2. Finalidade do Tratamento</h3>
+            <p>Os dados pessoais serão utilizados para:</p>
+            <ul>
+                <li><strong>Pré-Consulta:</strong> Gerar solicitações inteligentes de exames baseadas em suas comorbidades e perfil de saúde;</li>
+                <li><strong>Pós-Consulta:</strong> Analisar resultados de exames utilizando Inteligência Artificial para fornecer orientações médicas;</li>
+                <li><strong>Pré-Operatório:</strong> Realizar avaliação de risco cirúrgico e gerar laudos de liberação;</li>
+                <li><strong>Localização de Clínicas:</strong> Indicar clínicas, laboratórios e estabelecimentos de saúde próximos à sua localização;</li>
+                <li><strong>Geração de PDFs:</strong> Criar documentos de solicitação de exames, encaminhamentos e laudos para download;</li>
+                <li><strong>Compartilhamento via WhatsApp:</strong> Permitir o envio de documentos gerados para profissionais de saúde;</li>
+                <li><strong>Melhorar a experiência:</strong> Personalizar conteúdos e funcionalidades do aplicativo;</li>
+                <li><strong>Cumprir obrigações legais:</strong> Atender requisitos legais e regulatórios aplicáveis.</li>
+            </ul>
+
+            <h3>3. Permissões do Aplicativo</h3>
+            <p>Para o funcionamento adequado, o aplicativo pode solicitar as seguintes permissões:</p>
+
+            <div class="highlight-box">
+                <ul>
+                    <li><strong>📍 Acesso à Localização:</strong> Para encontrar clínicas e estabelecimentos de saúde próximos a você.</li>
+                    <li><strong>📷 Acesso à Câmera:</strong> Para fotografar exames e documentos médicos para análise.</li>
+                    <li><strong>📁 Acesso aos Arquivos:</strong> Para selecionar PDFs e imagens de exames armazenados no dispositivo.</li>
+                    <li><strong>💾 Download de Arquivos:</strong> Para salvar PDFs de solicitações de exames, encaminhamentos e laudos.</li>
+                    <li><strong>🌐 Acesso à Internet:</strong> Para comunicação com servidores e APIs de Inteligência Artificial.</li>
+                </ul>
+            </div>
+
+            <h3>4. Uso de Inteligência Artificial</h3>
+            <p>
+                O Conecta Saúde utiliza tecnologias de <strong>Inteligência Artificial (IA)</strong> para:
+            </p>
+            <ul>
+                <li>Analisar resultados de exames laboratoriais e de imagem;</li>
+                <li>Gerar sugestões de exames complementares baseadas em achados clínicos;</li>
+                <li>Realizar avaliações de risco pré-operatório;</li>
+                <li>Interpretar documentos médicos enviados pelo usuário.</li>
+            </ul>
+
+            <div class="warning-box">
+                <h4>⚠️ Aviso Importante</h4>
+                <p>
+                    As análises geradas por IA têm caráter informativo e educacional. Elas <strong>NÃO substituem</strong>
+                    a consulta médica presencial, diagnóstico ou tratamento por profissional de saúde qualificado.
+                    Sempre consulte um médico para decisões sobre sua saúde.
+                </p>
+            </div>
+
+            <h3>5. Compartilhamento de Dados</h3>
+            <p>
+                Os dados poderão ser compartilhados apenas quando necessário para a execução das
+                finalidades descritas, com parceiros e prestadores de serviço, sempre observando os
+                princípios da LGPD e adotando medidas de segurança adequadas.
+            </p>
+            <p>Seus dados podem ser compartilhados com:</p>
+            <ul>
+                <li>Provedores de serviços de nuvem e hospedagem;</li>
+                <li>APIs de Inteligência Artificial (Google Gemini) para processamento de análises;</li>
+                <li>Serviços de email para comunicações e notificações;</li>
+                <li>Autoridades governamentais, quando exigido por lei.</li>
+            </ul>
+
+            <h3>6. Armazenamento e Segurança</h3>
+            <p>
+                Os dados pessoais serão armazenados em ambiente seguro, pelo tempo necessário para
+                cumprir as finalidades para as quais foram coletados ou conforme exigido por lei.
+            </p>
+            <p>Medidas de segurança implementadas:</p>
+            <ul>
+                <li>Criptografia de dados sensíveis;</li>
+                <li>Senhas armazenadas com hash seguro (bcrypt);</li>
+                <li>Comunicação via HTTPS;</li>
+                <li>Banco de dados com acesso restrito e monitorado.</li>
+            </ul>
+
+            <h3>7. Direitos do Titular</h3>
+            <p>O usuário poderá, a qualquer momento, nos termos da LGPD:</p>
+            <ul>
+                <li>Solicitar acesso aos seus dados pessoais;</li>
+                <li>Solicitar correção, atualização ou exclusão dos dados;</li>
+                <li>Revogar este consentimento;</li>
+                <li>Solicitar informações sobre o uso e compartilhamento dos dados;</li>
+                <li>Solicitar a portabilidade dos dados;</li>
+                <li>Solicitar a anonimização ou bloqueio de dados desnecessários.</li>
+            </ul>
+
+            <div class="success-box">
+                <h4>📬 Como Exercer Seus Direitos</h4>
+                <p>
+                    Para exercer qualquer um dos direitos acima, entre em contato através do email:
+                    <strong>drtiago.barros@gmail.com</strong>
+                </p>
+            </div>
+
+            <h3>8. Revogação do Consentimento</h3>
+            <p>
+                O consentimento poderá ser revogado a qualquer momento pelo usuário, mediante
+                solicitação pelos canais de atendimento disponibilizados, sem prejuízo da legalidade do
+                tratamento realizado anteriormente.
+            </p>
+
+            <h3>9. Declaração de Consentimento</h3>
+            <p>
+                Ao criar uma conta e confirmar seu email no Conecta Saúde, o usuário concorda
+                expressamente com a coleta, uso e tratamento de seus dados pessoais, incluindo:
+            </p>
+            <ul>
+                <li>Dados de identificação e contato;</li>
+                <li>Dados de geolocalização;</li>
+                <li>Dados de saúde (comorbidades, exames);</li>
+                <li>Documentos médicos enviados;</li>
+                <li>Análise por Inteligência Artificial;</li>
+                <li>Geração e download de documentos PDF;</li>
+            </ul>
+            <p>
+                Para todas as finalidades aqui descritas, em conformidade com a Lei Geral de Proteção de Dados (LGPD).
+            </p>
+
+            <div class="version-info">
+                <strong>Versão do Termo:</strong> 1.0<br>
+                <strong>Última Atualização:</strong> Fevereiro de 2026<br>
+                <strong>Controlador:</strong> Conecta Saúde
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="/" class="back-btn">← Voltar ao Aplicativo</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>© 2026 Conecta Saúde. Todos os direitos reservados.</p>
+        <p>Este documento está em conformidade com a Lei nº 13.709/2018 (LGPD).</p>
+    </div>
+</body>
+</html>

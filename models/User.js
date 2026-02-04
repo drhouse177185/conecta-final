@@ -48,9 +48,20 @@ const User = sequelize.define('User', {
     },
     // --- CORREÇÃO PRINCIPAL AQUI ---
     blockedFeatures: {
-        type: DataTypes.JSONB, 
+        type: DataTypes.JSONB,
         field: 'blocked_features', // Mapeia explicitamente para snake_case no banco
         defaultValue: { preConsulta: false, preOp: false }
+    },
+    // --- CAMPOS DE VERIFICAÇÃO DE EMAIL ---
+    emailVerified: {
+        type: DataTypes.BOOLEAN,
+        field: 'email_verified',
+        defaultValue: false
+    },
+    emailVerifiedAt: {
+        type: DataTypes.DATE,
+        field: 'email_verified_at',
+        allowNull: true
     }
 }, {
     tableName: 'users',

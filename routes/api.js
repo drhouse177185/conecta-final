@@ -23,6 +23,11 @@ router.post('/auth/login', userController.login);
 router.post('/auth/register', userController.register);
 router.post('/auth/recover', userController.recoverPassword);
 
+// --- Rotas de Confirmação de Email e LGPD ---
+router.get('/auth/confirm-email', userController.confirmEmail);
+router.post('/auth/resend-confirmation', userController.resendConfirmationEmail);
+router.get('/auth/check-email-verification/:userId', userController.checkEmailVerification);
+
 // --- ROTAS DE ENCAMINHAMENTO (NOVO) ---
 router.post('/referrals', referralController.createReferral);
 router.get('/referrals', referralController.getAllReferrals);

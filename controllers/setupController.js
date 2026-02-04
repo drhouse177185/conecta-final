@@ -154,6 +154,54 @@ exports.installDatabase = async (req, res) => {
         `);
         console.log("✅ Tabela preoperative_assessments criada/verificada");
 
+        // 6. CRIAR TABELA DE VERIFICAÇÃO DE EMAIL
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS email_verifications (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                token VARCHAR(255) NOT NULL UNIQUE,
+                expires_at TIMESTAMP NOT NULL,
+                used_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log("✅ Tabela email_verifications criada/verificada");
+
+        // 7. CRIAR TABELA DE CONSENTIMENTOS LGPD
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS lgpd_consents (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                consent_version VARCHAR(20) NOT NULL DEFAULT '1.0',
+                ip_address VARCHAR(45),
+                user_agent TEXT,
+                consent_data JSONB NOT NULL DEFAULT '{
+                    "dados_identificacao": true,
+                    "dados_contato": true,
+                    "dados_navegacao": true,
+                    "dados_geolocalizacao": true,
+                    "dados_saude": true,
+                    "download_pdf": true,
+                    "compartilhamento_parceiros": true,
+                    "analise_ia": true
+                }',
+                accepted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                revoked_at TIMESTAMP
+            );
+        `);
+        console.log("✅ Tabela lgpd_consents criada/verificada");
+
+        // 8. ADICIONAR COLUNA email_verified NA TABELA USERS (se não existir)
+        await sequelize.query(`
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
+        `);
+        await sequelize.query(`
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP;
+        `);
+        console.log("✅ Colunas email_verified e email_verified_at adicionadas/verificadas");
+
         res.send(`
             <div style="font-family: sans-serif; padding: 20px; background: #ecfccb; color: #365314; border: 1px solid #84cc16; border-radius: 8px;">
                 <h1>✅ Reparo Completo Executado!</h1>
@@ -162,8 +210,11 @@ exports.installDatabase = async (req, res) => {
                 <p>3. Valores NULL preenchidos com defaults.</p>
                 <p>4. Catálogo de exames/cirurgias verificado.</p>
                 <p>5. Tabelas de <strong>sessões</strong> (pre_consulta_sessions, pos_consulta_analyses, preoperative_assessments) criadas.</p>
+                <p>6. Tabela <strong>email_verifications</strong> criada (confirmação de email).</p>
+                <p>7. Tabela <strong>lgpd_consents</strong> criada (consentimentos LGPD).</p>
+                <p>8. Colunas <strong>email_verified</strong> e <strong>email_verified_at</strong> adicionadas na tabela users.</p>
                 <hr>
-                <p><strong>✅ BANCO DE DADOS ATUALIZADO!</strong> Dados dos usuários serão persistidos entre sessões.</p>
+                <p><strong>✅ BANCO DE DADOS ATUALIZADO!</strong> Sistema de confirmação de email e LGPD configurado.</p>
                 <a href="/" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #365314; color: white; text-decoration: none; border-radius: 5px;">Voltar ao App</a>
             </div>
         `);
