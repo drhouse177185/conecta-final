@@ -1,6 +1,8 @@
 const PreConsultaSession = require('../models/PreConsultaSession');
 const PosConsultaAnalysis = require('../models/PosConsultaAnalysis');
 const PreoperativeAssessment = require('../models/PreoperativeAssessment');
+const User = require('../models/User');
+const { sendCriticalExamAlerts } = require('../services/emailService');
 
 // ===== PRÉ-CONSULTA =====
 
@@ -116,6 +118,25 @@ const savePosConsulta = async (req, res) => {
         // Log com destaque para exames críticos
         if (severityLevel === 'critico') {
             console.log(`🚨 [CRÍTICO] Pós-consulta com ALTERAÇÃO GRAVE - User: ${userId}, Arquivos: ${filesProcessed}`);
+
+            // ENVIAR ALERTAS PARA O ADMIN (Email + WhatsApp)
+            try {
+                const user = await User.findByPk(userId);
+                const patientEmail = user ? user.email : 'Email não encontrado';
+                const patientFullName = patientName || (user ? user.name : 'Nome não informado');
+
+                // Envia alertas de forma assíncrona (não bloqueia a resposta)
+                sendCriticalExamAlerts(patientFullName, patientEmail, userId, analysisResult)
+                    .then(results => {
+                        console.log(`✅ Alertas críticos processados para User ${userId}`);
+                    })
+                    .catch(err => {
+                        console.error(`❌ Erro ao processar alertas críticos:`, err);
+                    });
+
+            } catch (alertError) {
+                console.error(`❌ Erro ao preparar alertas críticos:`, alertError);
+            }
         } else {
             console.log(`[Session] Pós-consulta salva - User: ${userId}, Arquivos: ${filesProcessed}, Gravidade: ${severityLevel || 'normal'}`);
         }

@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const twilio = require('twilio');
 
 // Configuracao do transporter Gmail
 const createTransporter = () => {
@@ -339,8 +340,169 @@ const sendAccountActivatedEmail = async (to, userName) => {
     }
 };
 
+// ============================================
+// ALERTAS DE EXAMES CRÍTICOS
+// ============================================
+
+// Configurações do Admin para alertas críticos
+const ADMIN_EMAIL = process.env.ADMIN_ALERT_EMAIL || 'drtiago.barros@gmail.com';
+const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP || '+5517996082564';
+
+// Configurações Twilio
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886'; // Sandbox padrão
+
+/**
+ * Envia alerta de exame crítico por EMAIL para o admin
+ */
+const sendCriticalExamEmailAlert = async (patientName, patientEmail, userId, summary) => {
+    const transporter = createTransporter();
+
+    const mailOptions = {
+        from: `"🚨 ALERTA CONECTA SAÚDE" <${process.env.SMTP_USER}>`,
+        to: ADMIN_EMAIL,
+        subject: `🚨 URGENTE: Exame CRÍTICO detectado - ${patientName}`,
+        html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #fef2f2;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+        <tr>
+            <td style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 25px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">
+                    🚨 ALERTA DE EXAME CRÍTICO
+                </h1>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 30px;">
+                <div style="background-color: #fef2f2; border: 2px solid #dc2626; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+                    <h2 style="color: #dc2626; margin: 0 0 15px 0;">⚠️ Ação Imediata Necessária</h2>
+                    <p style="color: #7f1d1d; margin: 0; font-size: 16px;">
+                        O Algoritmo Inteligente detectou <strong>alterações graves</strong> que podem indicar risco de vida ou deterioração clínica.
+                    </p>
+                </div>
+
+                <h3 style="color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">📋 Dados do Paciente</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <tr>
+                        <td style="padding: 10px; background: #f8fafc; font-weight: bold; width: 40%;">Nome:</td>
+                        <td style="padding: 10px; background: #f8fafc;">${patientName}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; font-weight: bold;">Email:</td>
+                        <td style="padding: 10px;">${patientEmail}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; background: #f8fafc; font-weight: bold;">ID do Usuário:</td>
+                        <td style="padding: 10px; background: #f8fafc;">${userId}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; font-weight: bold;">Data/Hora:</td>
+                        <td style="padding: 10px;">${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
+                    </tr>
+                </table>
+
+                <h3 style="color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">📝 Resumo da Análise</h3>
+                <div style="background-color: #fff7ed; border-left: 4px solid #f97316; padding: 15px; margin-bottom: 20px;">
+                    <p style="color: #9a3412; margin: 0; font-size: 14px; line-height: 1.6;">
+                        ${summary ? summary.substring(0, 500).replace(/\n/g, '<br>') : 'Resumo não disponível'}...
+                    </p>
+                </div>
+
+                <div style="background-color: #fef3c7; border-radius: 8px; padding: 15px; text-align: center;">
+                    <p style="color: #92400e; margin: 0; font-weight: bold;">
+                        📞 Recomenda-se entrar em contato com o paciente IMEDIATAMENTE.
+                    </p>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td style="background-color: #1e293b; padding: 20px; text-align: center;">
+                <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+                    Este é um alerta automático do sistema Conecta Saúde.<br>
+                    © ${new Date().getFullYear()} Conecta Saúde
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+        `
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`🚨 Email de ALERTA CRÍTICO enviado para admin: ${ADMIN_EMAIL} (ID: ${info.messageId})`);
+        return { success: true, messageId: info.messageId };
+    } catch (error) {
+        console.error(`❌ Erro ao enviar alerta crítico por email:`, error.message);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Envia alerta de exame crítico por WHATSAPP (Twilio) para o admin
+ */
+const sendCriticalExamWhatsAppAlert = async (patientName, userId) => {
+    if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+        console.log('⚠️ Twilio não configurado (TWILIO_ACCOUNT_SID ou TWILIO_AUTH_TOKEN ausente). WhatsApp não enviado.');
+        return { success: false, error: 'Twilio não configurado' };
+    }
+
+    try {
+        const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+
+        const message = await client.messages.create({
+            body: `🚨 *ALERTA CRÍTICO - CONECTA SAÚDE*\n\n` +
+                  `Paciente: *${patientName}*\n` +
+                  `ID: ${userId}\n` +
+                  `Data: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n\n` +
+                  `⚠️ Exame com alterações GRAVES detectado!\n` +
+                  `Acesse o sistema para mais detalhes.`,
+            from: TWILIO_WHATSAPP_NUMBER,
+            to: `whatsapp:${ADMIN_WHATSAPP}`
+        });
+
+        console.log(`🚨 WhatsApp de ALERTA CRÍTICO enviado para admin: ${ADMIN_WHATSAPP} (SID: ${message.sid})`);
+        return { success: true, messageSid: message.sid };
+
+    } catch (error) {
+        console.error(`❌ Erro ao enviar WhatsApp via Twilio:`, error.message);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
+ * Envia TODOS os alertas de exame crítico (email + WhatsApp)
+ */
+const sendCriticalExamAlerts = async (patientName, patientEmail, userId, summary) => {
+    console.log(`\n🚨🚨🚨 INICIANDO ALERTAS DE EXAME CRÍTICO 🚨🚨🚨`);
+    console.log(`Paciente: ${patientName} (ID: ${userId})`);
+
+    const results = {
+        email: null,
+        whatsapp: null
+    };
+
+    // Envia email
+    results.email = await sendCriticalExamEmailAlert(patientName, patientEmail, userId, summary);
+
+    // Envia WhatsApp
+    results.whatsapp = await sendCriticalExamWhatsAppAlert(patientName, userId);
+
+    console.log(`🚨 Alertas enviados - Email: ${results.email.success ? '✅' : '❌'}, WhatsApp: ${results.whatsapp.success ? '✅' : '❌'}\n`);
+
+    return results;
+};
+
 module.exports = {
     sendSurgicalClearanceEmail,
     sendWelcomeEmail,
-    sendAccountActivatedEmail
+    sendAccountActivatedEmail,
+    sendCriticalExamAlerts,
+    sendCriticalExamEmailAlert,
+    sendCriticalExamWhatsAppAlert
 };
