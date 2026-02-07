@@ -479,7 +479,7 @@
 
                             <!-- BOTOES DE AÇÃO: PDF E WHATSAPP -->
                             <div id="pre-consulta-action-buttons" class="hidden flex flex-col md:flex-row gap-3">
-                                <button onclick="downloadPDF('PRE')" class="flex-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded flex justify-center items-center shadow-lg transition hover:bg-black"><i class="fa-solid fa-file-pdf mr-2"></i> Baixar Pedido Oficial (PDF)</button>
+                                <button onclick="downloadPDF('PRE')" class="flex-1 bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded flex justify-center items-center shadow-lg transition hover:bg-black"><i class="fa-solid fa-file-pdf mr-2"></i> Baixar Arquivo (PDF)</button>
                                 <button onclick="shareWhatsApp('PRE')" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded flex justify-center items-center shadow-lg transition"><i class="fa-brands fa-whatsapp mr-2"></i> Enviar por WhatsApp</button>
                             </div>
 
@@ -491,8 +491,8 @@
             <!-- ================= ABA 1: PÓS-CONSULTA (ANÁLISE DE EXAMES) ================= -->
             <div id="page-1" class="hidden animate-fade-in">
                 <header class="mb-6 text-center">
-                    <h1 class="text-2xl font-bold text-slate-900">Análise de Exames</h1>
-                    <p class="text-slate-600">Interpretação detalhada de laudos e resultados.</p>
+                    <h1 class="text-2xl font-bold text-slate-900">Orientações pós leitura de Exames</h1>
+                    <p class="text-slate-600">Leitura assistida de laudos e resultados.</p>
                 </header>
 
                 <!-- Área de Upload Drag & Drop -->
@@ -542,7 +542,7 @@
                     <!-- Relatório Principal -->
                     <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
                         <div class="bg-slate-800 p-4 text-white flex items-center justify-between">
-                            <div class="flex items-center"><i data-lucide="file-heart" class="w-6 h-6 mr-2"></i><h2 class="text-lg font-bold">Relatório de Análise</h2></div>
+                            <div class="flex items-center"><i data-lucide="file-heart" class="w-6 h-6 mr-2"></i><h2 class="text-lg font-bold">Resumo de Resultados</h2></div>
                             
                             <!-- BOTÕES DE ACESSIBILIDADE IA TTS -->
                             <div class="flex gap-2">
@@ -558,7 +558,7 @@
                             <div class="prose text-slate-700 text-lg leading-relaxed mb-6" id="ai-summary"></div>
                             
                             <div id="ai-possibilities" class="mb-6 bg-blue-50 p-5 rounded-xl border border-blue-100 hidden">
-                                <h3 class="font-bold text-blue-900 text-md mb-2 flex items-center"><i data-lucide="lightbulb" class="w-4 h-4 mr-2"></i>O que isso pode significar?</h3>
+                                <h3 class="font-bold text-blue-900 text-md mb-2 flex items-center"><i data-lucide="lightbulb" class="w-4 h-4 mr-2"></i>Entendendo Seus Resultados</h3>
                                 <p class="text-slate-700" id="possibilities-text"></p>
                             </div>
 
@@ -583,7 +583,7 @@
                             <div>
                                 <h3 id="procedures-header" class="font-bold text-slate-800 text-md flex items-center justify-between mb-2">
                                     <span class="flex items-center">
-                                        <i data-lucide="clipboard-list" class="w-5 h-5 mr-2 text-blue-600"></i>Procedimentos Sugeridos
+                                        <i data-lucide="clipboard-list" class="w-5 h-5 mr-2 text-blue-600"></i>Exames Que Podem Ser Relevantes
                                     </span>
                                 </h3>
                                 <ul id="procedures-list" class="list-disc pl-5 text-sm text-slate-700 space-y-1"></ul>
@@ -3588,7 +3588,7 @@ Sistema Conecta Saude`
                     throw new Error("Nenhum arquivo válido encontrado. Envie imagens (JPG, PNG) ou PDFs com texto legível.");
                 }
 
-                loadText.textContent = "Analisando...";
+                loadText.textContent = "Verificando Arquivos...";
 
                 // --- PROMPT REFINADO COM DETECÇÃO ROBUSTA DE EXAMES E PROCEDIMENTOS ESPECÍFICOS ---
                 // Ajusta o prompt dependendo se há imagens (análise visual direta) ou só texto extraído
@@ -3658,7 +3658,7 @@ Sistema Conecta Saude`
                         "summary": "Resumo clínico acolhedor (Markdown). Comece com 'Olá [Nome]'. Se NÃO for exame válido, explique educadamente que não foi possível identificar um exame médico na imagem enviada.",
                         "diagnostic_possibilities": "Texto explicativo sobre as hipóteses diagnósticas. Se não for exame válido, deixe string vazia.",
                         "findings": [ {"item": "Nome exame", "value": "Valor encontrado", "status": "Normal/Alterado/Ilegível", "explanation": "Explicação para leigos"} ],
-                        "specialist": "Especialista recomendado. Se não for exame válido ou não necessário, preencha 'Nenhum'.",
+                        "specialist": "Especialista Sugerido. Se não for exame válido ou não necessário, preencha 'Nenhum'.",
                         "recommended_procedures": ["Exame complementar 1", "Exame complementar 2", "Exame complementar 3"],
                         "follow_up": "Texto curto de orientação."
                     }
@@ -4403,10 +4403,10 @@ Sistema Conecta Saude`
                     ${examsText.substring(0, 20000)}
 
                     TAREFA:
-                    Calcule o Risco Cirúrgico (ASA e Índice de Lee) e determine se o paciente está APTO ou se faltam exames.
+                    Calcule o Risco Cirúrgico (ASA e Índice de Lee) e determine se o paciente está em boas Condicões para um procedimento cirurgico ou se faltam exames.
                     
                     INSTRUÇÕES PARA O LAUDO:
-                    1. Se o paciente for saudável (ASA I) e a cirurgia for pequeno porte, libere.
+                    1. Se o paciente for saudável (ASA I) e a cirurgia for pequeno porte, Oriente que segundo a literatura medica atual o paciente tem boas condicões clinicas para um procedimento cirurgico.
                     2. Se faltarem exames cruciais para o risco, liste-os em 'missing_exams'.
                     
                 Gere a resposta EXATAMENTE neste JSON:
