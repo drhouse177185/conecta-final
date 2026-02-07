@@ -46,7 +46,7 @@ const sendSurgicalClearanceEmail = async (options) => {
 
                 <div style="padding: 30px; background: #f8fafc;">
                     <h2 style="color: #16a34a; margin-top: 0;">
-                        ✓ Solicitacao de Agendamento Cirurgico
+                        ✓ Solicitacao de Agendamento Com Equipe Cirurgica
                     </h2>
 
                     <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -77,7 +77,7 @@ const sendSurgicalClearanceEmail = async (options) => {
 
                     <div style="background: #ecfdf5; border: 2px solid #16a34a; padding: 15px; border-radius: 8px; text-align: center;">
                         <p style="color: #166534; font-weight: bold; margin: 0;">
-                            PACIENTE LIBERADO PARA PROCEDIMENTO CIRURGICO
+                            PACIENTE EM BOAS CONDIÇÕES CLINICAS PARA UM PROCEDIMENTO CIRURGICO
                         </p>
                         <p style="color: #166534; font-size: 14px; margin: 10px 0 0;">
                             Solicitamos agendamento de consulta com Cirurgiao ou agendamento do procedimento.
@@ -85,7 +85,7 @@ const sendSurgicalClearanceEmail = async (options) => {
                     </div>
 
                     <p style="color: #64748b; font-size: 12px; margin-top: 20px; text-align: center;">
-                        O laudo de liberacao cirurgica em PDF esta anexo a este email.
+                        O de Orientaçoes pré cirurgicas em PDF esta anexo a este email.
                     </p>
                 </div>
 
@@ -159,9 +159,9 @@ const getWelcomeEmailTemplate = (userName, confirmationLink, lgpdLink) => `
                 </p>
 
                 <ul style="color: #334155; font-size: 15px; line-height: 1.8; padding-left: 20px;">
-                    <li><strong>Pré-Consulta:</strong> Geração inteligente de pedidos de exames</li>
-                    <li><strong>Pós-Consulta:</strong> Análise de resultados de exames a partir de um Algoritmo Inteligente</li>
-                    <li><strong>Pré-Operatório:</strong> Avaliação de risco cirúrgico</li>
+                    <li><strong>Pré-Consulta:</strong> Geração inteligente de Guia de exames</li>
+                    <li><strong>Pós-Consulta:</strong> Leitura de resultados de exames a partir de um Algoritmo Inteligente</li>
+                    <li><strong>Pré-Operatório:</strong> Checklist de risco cirúrgico</li>
                     <li><strong>Clínicas Próximas:</strong> Encontre estabelecimentos de saúde perto de você</li>
                 </ul>
 
@@ -189,9 +189,14 @@ const getWelcomeEmailTemplate = (userName, confirmationLink, lgpdLink) => `
                     <h3 style="color: #0369a1; margin: 0 0 10px 0; font-size: 16px;">
                         📋 Termo de Consentimento LGPD
                     </h3>
-                    <p style="color: #475569; font-size: 14px; line-height: 1.5; margin: 0 0 15px 0;">
+                    <p style="color: #475569; font-size: 14px; line-height: 1.5; margin: 0 0 10px 0;">
                         Ao confirmar seu email, você também estará concordando com nossa Política de Privacidade
                         e Termo de Consentimento para Tratamento de Dados Pessoais (LGPD).
+                    </p>
+                    <p style="color: #475569; font-size: 14px; line-height: 1.5; margin: 0 0 15px 0;">
+                        <strong>Seu número de celular</strong> será armazenado para que possamos entrar em contato
+                        caso o Algoritmo Inteligente identifique alterações graves em seus exames que necessitem
+                        de intervenção médica imediata.
                     </p>
                     <a href="${lgpdLink}"
                        style="color: #0ea5e9; font-size: 14px; text-decoration: underline;">

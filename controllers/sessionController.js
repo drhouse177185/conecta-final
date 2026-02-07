@@ -98,7 +98,7 @@ const confirmPreConsulta = async (req, res) => {
 // Salvar análise de pós-consulta
 const savePosConsulta = async (req, res) => {
     try {
-        const { userId, patientName, analysisResult, findings, filesProcessed } = req.body;
+        const { userId, patientName, analysisResult, findings, filesProcessed, severityLevel } = req.body;
 
         if (!userId) {
             return res.status(400).json({ error: 'userId é obrigatório' });
@@ -109,10 +109,16 @@ const savePosConsulta = async (req, res) => {
             patientName: patientName || null,
             analysisResult: analysisResult || null,
             findings: findings || null,
-            filesProcessed: filesProcessed || 0
+            filesProcessed: filesProcessed || 0,
+            severityLevel: severityLevel || 'normal'
         });
 
-        console.log(`[Session] Pós-consulta salva - User: ${userId}, Arquivos: ${filesProcessed}`);
+        // Log com destaque para exames críticos
+        if (severityLevel === 'critico') {
+            console.log(`🚨 [CRÍTICO] Pós-consulta com ALTERAÇÃO GRAVE - User: ${userId}, Arquivos: ${filesProcessed}`);
+        } else {
+            console.log(`[Session] Pós-consulta salva - User: ${userId}, Arquivos: ${filesProcessed}, Gravidade: ${severityLevel || 'normal'}`);
+        }
 
         return res.status(201).json({
             success: true,

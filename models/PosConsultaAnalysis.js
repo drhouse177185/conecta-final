@@ -31,6 +31,13 @@ const PosConsultaAnalysis = sequelize.define('PosConsultaAnalysis', {
         type: DataTypes.INTEGER,
         defaultValue: 0,
         field: 'files_processed'
+    },
+    severityLevel: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        field: 'severity_level',
+        defaultValue: 'normal'
+        // Valores: 'normal', 'alterado', 'critico'
     }
 }, {
     tableName: 'pos_consulta_analyses',

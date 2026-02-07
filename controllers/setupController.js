@@ -183,7 +183,8 @@ exports.installDatabase = async (req, res) => {
                     "dados_saude": true,
                     "download_pdf": true,
                     "compartilhamento_parceiros": true,
-                    "analise_ia": true
+                    "analise_ia": true,
+                    "contato_emergencia": true
                 }',
                 accepted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 revoked_at TIMESTAMP
@@ -202,6 +203,20 @@ exports.installDatabase = async (req, res) => {
         `);
         console.log("✅ Colunas email_verified e email_verified_at adicionadas/verificadas");
 
+        // 9. ADICIONAR COLUNA phone NA TABELA USERS (se não existir)
+        await sequelize.query(`
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
+        `);
+        console.log("✅ Coluna phone adicionada/verificada na tabela users");
+
+        // 10. ADICIONAR COLUNA severity_level NA TABELA pos_consulta_analyses (se não existir)
+        await sequelize.query(`
+            ALTER TABLE pos_consulta_analyses
+            ADD COLUMN IF NOT EXISTS severity_level VARCHAR(20) DEFAULT 'normal';
+        `);
+        console.log("✅ Coluna severity_level adicionada/verificada na tabela pos_consulta_analyses");
+
         res.send(`
             <div style="font-family: sans-serif; padding: 20px; background: #ecfccb; color: #365314; border: 1px solid #84cc16; border-radius: 8px;">
                 <h1>✅ Reparo Completo Executado!</h1>
@@ -213,8 +228,10 @@ exports.installDatabase = async (req, res) => {
                 <p>6. Tabela <strong>email_verifications</strong> criada (confirmação de email).</p>
                 <p>7. Tabela <strong>lgpd_consents</strong> criada (consentimentos LGPD).</p>
                 <p>8. Colunas <strong>email_verified</strong> e <strong>email_verified_at</strong> adicionadas na tabela users.</p>
+                <p>9. Coluna <strong>phone</strong> adicionada na tabela users (celular para contato de emergência).</p>
+                <p>10. Coluna <strong>severity_level</strong> adicionada na tabela pos_consulta_analyses (classificação de gravidade).</p>
                 <hr>
-                <p><strong>✅ BANCO DE DADOS ATUALIZADO!</strong> Sistema de confirmação de email e LGPD configurado.</p>
+                <p><strong>✅ BANCO DE DADOS ATUALIZADO!</strong> Sistema de confirmação de email, LGPD e gravidade de exames configurado.</p>
                 <a href="/" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #365314; color: white; text-decoration: none; border-radius: 5px;">Voltar ao App</a>
             </div>
         `);

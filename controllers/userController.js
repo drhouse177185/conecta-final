@@ -57,7 +57,7 @@ exports.login = async (req, res) => {
 // --- REGISTRO ---
 exports.register = async (req, res) => {
     try {
-        let { name, email, password, cpf, age, sex } = req.body;
+        let { name, email, password, cpf, age, sex, phone } = req.body;
         // Verifica se já existe (case-insensitive)
         const existing = await User.findOne({
             where: sequelize.where(
@@ -69,7 +69,7 @@ exports.register = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password.trim(), 10);
         const newUser = await User.create({
-            name, email: email.trim(), password: hashedPassword, cpf, age, sex,
+            name, email: email.trim(), password: hashedPassword, cpf, age, sex, phone,
             credits: 100, role: 'user',
             blockedFeatures: { preConsulta: false, preOp: false }
         });
@@ -332,6 +332,7 @@ exports.confirmEmail = async (req, res) => {
                     download_pdf: true,
                     compartilhamento_parceiros: true,
                     analise_ia: true,
+                    contato_emergencia: true,
                     aceite_termos: true,
                     data_aceite: new Date().toISOString()
                 })

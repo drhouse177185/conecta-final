@@ -315,6 +315,10 @@
                         <input type="text" id="reg-cpf" class="house-input w-full p-3 rounded" oninput="mascaraCPF(this)" maxlength="14">
                     </div>
                     <div>
+                        <label class="text-xs font-bold text-gray-600 uppercase">Celular (com DDD)</label>
+                        <input type="tel" id="reg-phone" class="house-input w-full p-3 rounded" placeholder="(11) 99999-9999" oninput="mascaraTelefone(this)" maxlength="15">
+                    </div>
+                    <div>
                         <label class="text-xs font-bold text-gray-600 uppercase">Senha</label>
                         <input type="password" id="reg-password" class="house-input w-full p-3 rounded">
                     </div>
@@ -510,7 +514,7 @@
                 <div id="pos-consulta-history-container" class="hidden mb-6">
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="font-bold text-sm text-green-900 flex items-center">
-                            <i class="fa-solid fa-history text-green-600 mr-2"></i> Histórico de Análises
+                            <i class="fa-solid fa-history text-green-600 mr-2"></i> Seu Histórico
                         </h3>
                         <span class="text-xs text-slate-500" id="pos-history-count"></span>
                     </div>
@@ -1542,6 +1546,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
             const sex = document.getElementById('reg-sex').value;
             const email = document.getElementById('reg-email').value;
             const cpf = document.getElementById('reg-cpf').value;
+            const phone = document.getElementById('reg-phone').value;
             const pass = document.getElementById('reg-password').value;
 
             if(!name || !email || !pass) return showToast("Preencha os campos obrigatórios.", "error");
@@ -1550,7 +1555,7 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                 const res = await fetch(`${BACKEND_URL}/api/auth/register`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ name, age, sex, email, cpf, password: pass })
+                    body: JSON.stringify({ name, age, sex, email, cpf, phone, password: pass })
                 });
                 const data = await res.json();
 
@@ -3660,8 +3665,27 @@ Sistema Conecta Saude`
                         "findings": [ {"item": "Nome exame", "value": "Valor encontrado", "status": "Normal/Alterado/Ilegível", "explanation": "Explicação para leigos"} ],
                         "specialist": "Especialista Sugerido. Se não for exame válido ou não necessário, preencha 'Nenhum'.",
                         "recommended_procedures": ["Exame complementar 1", "Exame complementar 2", "Exame complementar 3"],
-                        "follow_up": "Texto curto de orientação."
+                        "follow_up": "Texto curto de orientação.",
+                        "overall_severity": "normal/alterado/critico"
                     }
+
+                    REGRA CRÍTICA SOBRE overall_severity (CLASSIFICAÇÃO DE GRAVIDADE):
+                    - "normal": Todos os valores dentro dos limites de referência ou variações mínimas sem significado clínico.
+                    - "alterado": Alterações leves a moderadas que NÃO representam risco imediato (ex: colesterol levemente elevado, glicemia de jejum entre 100-126).
+                    - "critico": Alterações que indicam RISCO DE VIDA ou deterioração clínica iminente. Use "critico" APENAS para:
+                      • Hemoglobina < 7 g/dL (anemia grave)
+                      • Potássio > 6.0 ou < 2.5 mEq/L
+                      • Sódio > 160 ou < 120 mEq/L
+                      • Glicemia > 400 mg/dL ou < 50 mg/dL
+                      • Creatinina > 10 mg/dL (insuficiência renal grave)
+                      • Troponina elevada (suspeita de infarto)
+                      • ECG com sinais de infarto agudo, arritmia grave, bloqueio completo
+                      • Plaquetas < 20.000/mm³
+                      • INR > 5 (risco de sangramento)
+                      • Leucócitos < 1.000/mm³ (neutropenia grave)
+                      • Saturação O2 < 90%
+                      • Qualquer achado que sugira emergência médica
+                    - Quando marcar "critico", DESTAQUE no summary que o paciente deve procurar atendimento médico URGENTE.
 
                     REGRA CRÍTICA SOBRE recommended_procedures:
                     - SEMPRE preencha com 3 a 8 exames ESPECÍFICOS. Nunca use termos genéricos como "acompanhamento" ou "retorno médico".
@@ -4572,7 +4596,15 @@ Sistema Conecta Saude`
             try {
                 if (currentUser.role === 'admin') return;
                 if (!currentUser.id) return;
-                console.log(`📋 Salvando análise de pós-consulta...`);
+
+                // Determina o nível de gravidade
+                const severityLevel = analysisData.overall_severity || 'normal';
+
+                if (severityLevel === 'critico') {
+                    console.log(`🚨 ATENÇÃO: Exame com alterações CRÍTICAS detectado!`);
+                }
+
+                console.log(`📋 Salvando análise de pós-consulta (Gravidade: ${severityLevel})...`);
                 const res = await fetch(`${BACKEND_URL}/api/sessions/pos-consulta/save`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -4581,12 +4613,13 @@ Sistema Conecta Saude`
                         patientName: currentUser.name,
                         analysisResult: analysisData.summary || null,
                         findings: analysisData.findings || null,
-                        filesProcessed: filesCount || 0
+                        filesProcessed: filesCount || 0,
+                        severityLevel: severityLevel
                     })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    console.log(`✅ Análise de pós-consulta salva - ID: ${data.analysis.id}`);
+                    console.log(`✅ Análise de pós-consulta salva - ID: ${data.analysis.id}, Gravidade: ${severityLevel}`);
                 }
             } catch (e) { console.error("Erro ao salvar análise de pós-consulta:", e); }
         }
@@ -4980,16 +5013,28 @@ Sistema Conecta Saude`
                 const filesCount = item.filesProcessed || item.files_processed || 1;
                 const cardId = `pos-history-card-${index}`;
 
+                // Determina cores baseado na gravidade
+                const severityLevel = item.severityLevel || item.severity_level || 'normal';
+                const isCritical = severityLevel === 'critico';
+
+                // Cores: Verde para normal/alterado, Vermelho para crítico
+                const bgGradient = isCritical ? 'from-red-50 to-slate-50' : 'from-green-50 to-slate-50';
+                const borderColor = isCritical ? 'border-red-200' : 'border-green-200';
+                const iconBg = isCritical ? 'bg-red-600' : 'bg-green-600';
+                const textColor = isCritical ? 'text-red-900' : 'text-green-900';
+                const arrowColor = isCritical ? 'text-red-600' : 'text-green-600';
+                const criticalBadge = isCritical ? '<span class="ml-2 bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">URGENTE</span>' : '';
+
                 listEl.innerHTML += `
                     <div id="history-wrapper-pos-consulta-${itemId}" class="relative">
-                        <div class="bg-gradient-to-r from-green-50 to-slate-50 p-3 rounded-xl border border-green-200 cursor-pointer hover:shadow-md transition-all" onclick="toggleHistoryCard('${cardId}')">
+                        <div class="bg-gradient-to-r ${bgGradient} p-3 rounded-xl border ${borderColor} cursor-pointer hover:shadow-md transition-all" onclick="toggleHistoryCard('${cardId}')">
                             <div class="flex justify-between items-center">
                                 <div class="flex items-center gap-2">
-                                    <div class="bg-green-600 text-white p-2 rounded-lg text-xs">
-                                        <i class="fa-solid fa-file-medical"></i>
+                                    <div class="${iconBg} text-white p-2 rounded-lg text-xs">
+                                        <i class="fa-solid ${isCritical ? 'fa-exclamation-triangle' : 'fa-file-medical'}"></i>
                                     </div>
                                     <div>
-                                        <p class="font-bold text-xs text-green-900">${dateStr}</p>
+                                        <p class="font-bold text-xs ${textColor}">${dateStr}${criticalBadge}</p>
                                         <p class="text-xs text-slate-500">${filesCount} arquivo(s)</p>
                                     </div>
                                 </div>
@@ -4997,7 +5042,7 @@ Sistema Conecta Saude`
                                     <button onclick="event.stopPropagation(); hideHistoryItem('pos-consulta', ${itemId})" class="text-slate-400 hover:text-red-500 transition p-1" title="Remover da visualização">
                                         <i class="fa-solid fa-times text-xs"></i>
                                     </button>
-                                    <i id="${cardId}-arrow" class="fa-solid fa-chevron-down text-green-600 transition-transform duration-300 text-xs"></i>
+                                    <i id="${cardId}-arrow" class="fa-solid fa-chevron-down ${arrowColor} transition-transform duration-300 text-xs"></i>
                                 </div>
                             </div>
                             <p class="text-xs text-slate-600 mt-2 line-clamp-2">${summary.substring(0, 100)}...</p>
@@ -6401,11 +6446,18 @@ Responda APENAS em JSON:
         }
 
         function mascaraCPF(i) {
-            let v=i.value.replace(/\D/g,""); 
-            v=v.replace(/(\d{3})(\d)/,"$1.$2"); 
-            v=v.replace(/(\d{3})(\d)/,"$1.$2"); 
-            v=v.replace(/(\d{3})(\d{1,2})$/,"$1-$2"); 
+            let v=i.value.replace(/\D/g,"");
+            v=v.replace(/(\d{3})(\d)/,"$1.$2");
+            v=v.replace(/(\d{3})(\d)/,"$1.$2");
+            v=v.replace(/(\d{3})(\d{1,2})$/,"$1-$2");
             i.value=v;
+        }
+
+        function mascaraTelefone(i) {
+            let v = i.value.replace(/\D/g, "");
+            v = v.replace(/^(\d{2})(\d)/g, "($1) $2");
+            v = v.replace(/(\d{5})(\d)/, "$1-$2");
+            i.value = v;
         }
 
        // Variável de controle do passo atual (1 = CPF, 2 = Senha)
