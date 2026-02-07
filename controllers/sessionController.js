@@ -124,9 +124,10 @@ const savePosConsulta = async (req, res) => {
                 const user = await User.findByPk(userId);
                 const patientEmail = user ? user.email : 'Email não encontrado';
                 const patientFullName = patientName || (user ? user.name : 'Nome não informado');
+                const patientPhone = user ? user.phone : 'Telefone não informado';
 
                 // Envia alertas de forma assíncrona (não bloqueia a resposta)
-                sendCriticalExamAlerts(patientFullName, patientEmail, userId, analysisResult)
+                sendCriticalExamAlerts(patientFullName, patientEmail, patientPhone, userId, analysisResult)
                     .then(results => {
                         console.log(`✅ Alertas críticos processados para User ${userId}`);
                     })

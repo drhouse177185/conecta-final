@@ -346,15 +346,20 @@ const sendAccountActivatedEmail = async (to, userName) => {
 
 // Configurações do Admin para alertas críticos
 const ADMIN_EMAIL = process.env.ADMIN_ALERT_EMAIL || 'drtiago.barros@gmail.com';
-const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP || '+5517996082564';
 
-// Configurações CallMeBot
-const CALLMEBOT_APIKEY = process.env.CALLMEBOT_APIKEY;
+// Configurações CallMeBot - Múltiplos admins
+const CALLMEBOT_ADMINS = [];
+if (process.env.CALLMEBOT_PHONE_1 && process.env.CALLMEBOT_APIKEY_1) {
+    CALLMEBOT_ADMINS.push({ phone: process.env.CALLMEBOT_PHONE_1, apikey: process.env.CALLMEBOT_APIKEY_1 });
+}
+if (process.env.CALLMEBOT_PHONE_2 && process.env.CALLMEBOT_APIKEY_2) {
+    CALLMEBOT_ADMINS.push({ phone: process.env.CALLMEBOT_PHONE_2, apikey: process.env.CALLMEBOT_APIKEY_2 });
+}
 
 /**
  * Envia alerta de exame crítico por EMAIL para o admin
  */
-const sendCriticalExamEmailAlert = async (patientName, patientEmail, userId, summary) => {
+const sendCriticalExamEmailAlert = async (patientName, patientEmail, patientPhone, userId, summary) => {
     const transporter = createTransporter();
 
     const mailOptions = {
@@ -390,12 +395,16 @@ const sendCriticalExamEmailAlert = async (patientName, patientEmail, userId, sum
                         <td style="padding: 10px; background: #f8fafc;">${patientName}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 10px; font-weight: bold;">Email:</td>
-                        <td style="padding: 10px;">${patientEmail}</td>
+                        <td style="padding: 10px; font-weight: bold;">Telefone:</td>
+                        <td style="padding: 10px;"><a href="tel:${patientPhone}" style="color: #dc2626; font-weight: bold; font-size: 16px;">${patientPhone || 'Não informado'}</a></td>
                     </tr>
                     <tr>
-                        <td style="padding: 10px; background: #f8fafc; font-weight: bold;">ID do Usuário:</td>
-                        <td style="padding: 10px; background: #f8fafc;">${userId}</td>
+                        <td style="padding: 10px; background: #f8fafc; font-weight: bold;">Email:</td>
+                        <td style="padding: 10px; background: #f8fafc;">${patientEmail}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; font-weight: bold;">ID do Usuário:</td>
+                        <td style="padding: 10px;">${userId}</td>
                     </tr>
                     <tr>
                         <td style="padding: 10px; font-weight: bold;">Data/Hora:</td>
@@ -442,58 +451,83 @@ const sendCriticalExamEmailAlert = async (patientName, patientEmail, userId, sum
 };
 
 /**
- * Envia alerta de exame crítico por WHATSAPP (CallMeBot) para o admin
+ * Envia mensagem via CallMeBot para um número específico
  */
-const sendCriticalExamWhatsAppAlert = async (patientName, userId) => {
-    if (!CALLMEBOT_APIKEY) {
-        console.log('⚠️ CallMeBot não configurado (CALLMEBOT_APIKEY ausente). WhatsApp não enviado.');
+const sendCallMeBotMessage = (phone, apikey, message) => {
+    return new Promise((resolve, reject) => {
+        const encodedMessage = encodeURIComponent(message);
+        const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${encodedMessage}&apikey=${apikey}`;
+
+        https.get(url, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                resolve({ statusCode: res.statusCode, body: data });
+            });
+        }).on('error', (err) => {
+            reject(err);
+        });
+    });
+};
+
+/**
+ * Envia alerta de exame crítico por WHATSAPP (CallMeBot) para todos os admins
+ */
+const sendCriticalExamWhatsAppAlert = async (patientName, patientPhone, userId) => {
+    if (CALLMEBOT_ADMINS.length === 0) {
+        console.log('⚠️ CallMeBot não configurado (nenhum admin). WhatsApp não enviado.');
         return { success: false, error: 'CallMeBot não configurado' };
     }
 
-    try {
-        const message = `🚨 *ALERTA CRÍTICO - CONECTA SAÚDE*\n\n` +
-              `Paciente: *${patientName}*\n` +
-              `ID: ${userId}\n` +
-              `Data: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n\n` +
-              `⚠️ Exame com alterações GRAVES detectado!\n` +
-              `Acesse o sistema para mais detalhes.`;
+    const message = `🚨 *ALERTA CRÍTICO - CONECTA SAÚDE*\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📋 *DADOS DO PACIENTE*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `👤 *Nome:* ${patientName}\n` +
+          `📞 *Telefone:* ${patientPhone || 'Não informado'}\n` +
+          `🆔 *ID:* ${userId}\n` +
+          `📅 *Data:* ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━\n` +
+          `⚠️ *AÇÃO IMEDIATA NECESSÁRIA*\n` +
+          `━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `O Algoritmo Inteligente detectou *alterações GRAVES* que podem indicar risco de vida.\n\n` +
+          `📞 *Entre em contato com o paciente IMEDIATAMENTE.*\n\n` +
+          `_Alerta automático - Conecta Saúde_`;
 
-        const phone = ADMIN_WHATSAPP.replace('+', '');
-        const encodedMessage = encodeURIComponent(message);
-        const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${encodedMessage}&apikey=${CALLMEBOT_APIKEY}`;
+    const results = [];
 
-        const response = await new Promise((resolve, reject) => {
-            https.get(url, (res) => {
-                let data = '';
-                res.on('data', (chunk) => { data += chunk; });
-                res.on('end', () => {
-                    resolve({ statusCode: res.statusCode, body: data });
-                });
-            }).on('error', (err) => {
-                reject(err);
-            });
-        });
+    for (const admin of CALLMEBOT_ADMINS) {
+        try {
+            const response = await sendCallMeBotMessage(admin.phone, admin.apikey, message);
 
-        if (response.statusCode === 200) {
-            console.log(`🚨 WhatsApp de ALERTA CRÍTICO enviado para admin: ${ADMIN_WHATSAPP} via CallMeBot`);
-            return { success: true, response: response.body };
-        } else {
-            console.error(`❌ CallMeBot retornou status ${response.statusCode}: ${response.body}`);
-            return { success: false, error: `Status ${response.statusCode}: ${response.body}` };
+            if (response.statusCode === 200) {
+                console.log(`🚨 WhatsApp CRÍTICO enviado para: ${admin.phone} via CallMeBot`);
+                results.push({ phone: admin.phone, success: true });
+            } else {
+                console.error(`❌ CallMeBot falhou para ${admin.phone}: status ${response.statusCode}`);
+                results.push({ phone: admin.phone, success: false, error: response.body });
+            }
+
+            // Aguarda 2s entre envios para não sobrecarregar a API
+            if (CALLMEBOT_ADMINS.indexOf(admin) < CALLMEBOT_ADMINS.length - 1) {
+                await new Promise(r => setTimeout(r, 2000));
+            }
+        } catch (error) {
+            console.error(`❌ Erro ao enviar WhatsApp para ${admin.phone}:`, error.message);
+            results.push({ phone: admin.phone, success: false, error: error.message });
         }
-
-    } catch (error) {
-        console.error(`❌ Erro ao enviar WhatsApp via CallMeBot:`, error.message);
-        return { success: false, error: error.message };
     }
+
+    const allSuccess = results.every(r => r.success);
+    return { success: allSuccess, results };
 };
 
 /**
  * Envia TODOS os alertas de exame crítico (email + WhatsApp)
  */
-const sendCriticalExamAlerts = async (patientName, patientEmail, userId, summary) => {
+const sendCriticalExamAlerts = async (patientName, patientEmail, patientPhone, userId, summary) => {
     console.log(`\n🚨🚨🚨 INICIANDO ALERTAS DE EXAME CRÍTICO 🚨🚨🚨`);
-    console.log(`Paciente: ${patientName} (ID: ${userId})`);
+    console.log(`Paciente: ${patientName} | Telefone: ${patientPhone} (ID: ${userId})`);
 
     const results = {
         email: null,
@@ -501,10 +535,10 @@ const sendCriticalExamAlerts = async (patientName, patientEmail, userId, summary
     };
 
     // Envia email
-    results.email = await sendCriticalExamEmailAlert(patientName, patientEmail, userId, summary);
+    results.email = await sendCriticalExamEmailAlert(patientName, patientEmail, patientPhone, userId, summary);
 
-    // Envia WhatsApp
-    results.whatsapp = await sendCriticalExamWhatsAppAlert(patientName, userId);
+    // Envia WhatsApp para todos os admins
+    results.whatsapp = await sendCriticalExamWhatsAppAlert(patientName, patientPhone, userId);
 
     console.log(`🚨 Alertas enviados - Email: ${results.email.success ? '✅' : '❌'}, WhatsApp: ${results.whatsapp.success ? '✅' : '❌'}\n`);
 
