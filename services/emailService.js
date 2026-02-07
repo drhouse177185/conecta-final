@@ -1,5 +1,5 @@
 const nodemailer = require('nodemailer');
-const twilio = require('twilio');
+const https = require('https');
 
 // Configuracao do transporter Gmail
 const createTransporter = () => {
@@ -348,10 +348,8 @@ const sendAccountActivatedEmail = async (to, userName) => {
 const ADMIN_EMAIL = process.env.ADMIN_ALERT_EMAIL || 'drtiago.barros@gmail.com';
 const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP || '+5517996082564';
 
-// Configurações Twilio
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886'; // Sandbox padrão
+// Configurações CallMeBot
+const CALLMEBOT_APIKEY = process.env.CALLMEBOT_APIKEY;
 
 /**
  * Envia alerta de exame crítico por EMAIL para o admin
@@ -444,33 +442,48 @@ const sendCriticalExamEmailAlert = async (patientName, patientEmail, userId, sum
 };
 
 /**
- * Envia alerta de exame crítico por WHATSAPP (Twilio) para o admin
+ * Envia alerta de exame crítico por WHATSAPP (CallMeBot) para o admin
  */
 const sendCriticalExamWhatsAppAlert = async (patientName, userId) => {
-    if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
-        console.log('⚠️ Twilio não configurado (TWILIO_ACCOUNT_SID ou TWILIO_AUTH_TOKEN ausente). WhatsApp não enviado.');
-        return { success: false, error: 'Twilio não configurado' };
+    if (!CALLMEBOT_APIKEY) {
+        console.log('⚠️ CallMeBot não configurado (CALLMEBOT_APIKEY ausente). WhatsApp não enviado.');
+        return { success: false, error: 'CallMeBot não configurado' };
     }
 
     try {
-        const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+        const message = `🚨 *ALERTA CRÍTICO - CONECTA SAÚDE*\n\n` +
+              `Paciente: *${patientName}*\n` +
+              `ID: ${userId}\n` +
+              `Data: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n\n` +
+              `⚠️ Exame com alterações GRAVES detectado!\n` +
+              `Acesse o sistema para mais detalhes.`;
 
-        const message = await client.messages.create({
-            body: `🚨 *ALERTA CRÍTICO - CONECTA SAÚDE*\n\n` +
-                  `Paciente: *${patientName}*\n` +
-                  `ID: ${userId}\n` +
-                  `Data: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n\n` +
-                  `⚠️ Exame com alterações GRAVES detectado!\n` +
-                  `Acesse o sistema para mais detalhes.`,
-            from: TWILIO_WHATSAPP_NUMBER,
-            to: `whatsapp:${ADMIN_WHATSAPP}`
+        const phone = ADMIN_WHATSAPP.replace('+', '');
+        const encodedMessage = encodeURIComponent(message);
+        const url = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${encodedMessage}&apikey=${CALLMEBOT_APIKEY}`;
+
+        const response = await new Promise((resolve, reject) => {
+            https.get(url, (res) => {
+                let data = '';
+                res.on('data', (chunk) => { data += chunk; });
+                res.on('end', () => {
+                    resolve({ statusCode: res.statusCode, body: data });
+                });
+            }).on('error', (err) => {
+                reject(err);
+            });
         });
 
-        console.log(`🚨 WhatsApp de ALERTA CRÍTICO enviado para admin: ${ADMIN_WHATSAPP} (SID: ${message.sid})`);
-        return { success: true, messageSid: message.sid };
+        if (response.statusCode === 200) {
+            console.log(`🚨 WhatsApp de ALERTA CRÍTICO enviado para admin: ${ADMIN_WHATSAPP} via CallMeBot`);
+            return { success: true, response: response.body };
+        } else {
+            console.error(`❌ CallMeBot retornou status ${response.statusCode}: ${response.body}`);
+            return { success: false, error: `Status ${response.statusCode}: ${response.body}` };
+        }
 
     } catch (error) {
-        console.error(`❌ Erro ao enviar WhatsApp via Twilio:`, error.message);
+        console.error(`❌ Erro ao enviar WhatsApp via CallMeBot:`, error.message);
         return { success: false, error: error.message };
     }
 };
