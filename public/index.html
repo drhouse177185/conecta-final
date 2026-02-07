@@ -703,7 +703,7 @@
                             <div class="bg-green-50 p-4 rounded-lg border border-green-200 flex flex-col md:flex-col items-stretch gap-4">
                                 <div class="text-center md:text-left">
                                     <h4 class="text-green-800 font-black text-xl flex items-center justify-center md:justify-start">
-                                        <i class="fa-solid fa-check-circle mr-2"></i> PACIENTE LIBERADO PARA CIRURGIA
+                                        <i class="fa-solid fa-check-circle mr-2"></i> CHECKLIST COMPLETO - APTO A REAVALIAÇÃO DO CIRUGIÃO.
                                     </h4>
                                     <p class="text-sm text-green-700 mt-1">Todos os critérios de segurança foram atendidos. Baixe o laudo oficial abaixo.</p>
                                 </div>
@@ -881,7 +881,7 @@
                 </div>
                 <div class="p-4 bg-teal-50 text-xs text-teal-800 text-center flex items-center justify-center">
                     <i class="fa-solid fa-circle-info mr-2"></i>
-                    <span class="text-green-600 font-bold mr-2">Verde = Liberado</span> |
+                    <span class="text-green-600 font-bold mr-2">Verde = Completo</span> |
                     <span class="text-yellow-600 font-bold mx-2">Amarelo = Pendente</span> |
                     <span class="text-red-600 font-bold ml-2">Vermelho = Cancelar</span>
                 </div>
@@ -2777,7 +2777,7 @@ Sistema Conecta Saúde`
                 const asaScore = assessment.asaScore || assessment.asa_score || '';
                 const createdAt = assessment.createdAt || assessment.created_at;
 
-                const statusBadge = clearanceStatus === 'liberado'
+                const statusBadge = clearanceStatus === 'Completo'
                     ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><i class="fa-solid fa-check mr-1"></i> Liberado</span>'
                     : clearanceStatus === 'cancelado'
                     ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800"><i class="fa-solid fa-times mr-1"></i> Cancelado</span>'
@@ -2785,7 +2785,7 @@ Sistema Conecta Saúde`
 
                 const createdDate = createdAt ? new Date(createdAt).toLocaleDateString('pt-BR') : 'N/A';
 
-                const isLiberado = clearanceStatus === 'liberado';
+                const isLiberado = clearanceStatus === 'Completo';
                 const isPendente = clearanceStatus === 'pendente';
                 const isCancelado = clearanceStatus === 'cancelado';
 
@@ -2812,9 +2812,9 @@ Sistema Conecta Saúde`
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap text-center">
                         <div class="flex items-center justify-center space-x-1">
-                            <button onclick="updatePreopStatus(${assessment.id}, 'liberado')"
+                            <button onclick="updatePreopStatus(${assessment.id}, 'Completo')"
                                 class="p-1.5 rounded ${isLiberado ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-400 hover:bg-green-100 hover:text-green-600'} transition"
-                                title="Liberado para Cirurgia"
+                                title="Checklist Completo para Cirurgia"
                                 ${isCancelado ? 'disabled' : ''}>
                                 <i class="fa-solid fa-check text-sm"></i>
                             </button>
@@ -2855,13 +2855,13 @@ Sistema Conecta Saúde`
                     renderPreoperativeAssessments();
 
                     // Se liberado, gerar PDF e abrir compartilhamento
-                    if (newStatus === 'liberado') {
+                    if (newStatus === 'Checklist Completo') {
                         const assessment = preopAssessmentsList[idx];
                         await generateSurgicalClearancePDF(assessment);
                     }
                 }
 
-                const statusText = newStatus === 'liberado' ? 'LIBERADO' : 'PENDENTE';
+                const statusText = newStatus === 'Checklist Completo' ? 'Checklist Completo' : 'PENDENTE';
                 showToast(`Status atualizado para ${statusText}!`, "success");
 
             } catch (error) {
@@ -2973,7 +2973,7 @@ Sistema Conecta Saúde`
                     <div style="background: #ecfdf5; border: 2px solid #16a34a; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
                         <div style="text-align: center;">
                             <p style="color: #166534; font-size: 16px; font-weight: bold; margin: 0 0 10px 0;">
-                                <span style="font-size: 24px;">✓</span> PACIENTE LIBERADO PARA PROCEDIMENTO CIRURGICO
+                                <span style="font-size: 24px;">✓</span> PACIENTE COM CHECKLIST COMPLETO PRÉ PROCEDIMENTO CIRURGICO
                             </p>
                             <p style="color: #166534; font-size: 13px; line-height: 1.6; margin: 0;">
                                 Apos avaliacao pre-operatoria completa, o(a) paciente <strong>${patientName}</strong> encontra-se <strong>APTO(A)</strong> para realizacao do procedimento cirurgico proposto, sem restricoes clinicas identificadas.
@@ -3071,9 +3071,9 @@ DADOS DO PACIENTE:
 - Classificacao ASA: ${asaScore}
 - Indice de Lee: ${leeIndex}
 
-STATUS: PACIENTE LIBERADO PARA PROCEDIMENTO CIRURGICO
+STATUS: PACIENTE COM CHECKLIST COMPLETO PRÉ PROCEDIMENTO CIRURGICO
 
-Apos avaliacao pre-operatoria completa, o paciente encontra-se APTO para realizacao do procedimento cirurgico proposto.
+Apos Analise  pre-operatoria completa, o paciente encontra-se Em condicões de Reavaliação para o procedimento cirurgico proposto.
 
 O PDF com o laudo de liberacao foi gerado e esta disponivel para download.
 Por favor, anexe o arquivo PDF baixado a este email antes de enviar.
@@ -4416,7 +4416,7 @@ Sistema Conecta Saude`
                     "html_report": "Resumo médico em HTML (explicando o risco).", 
                     "speech_text": "Texto curto e acolhedor.",
                     "missing_exams": [],
-                    "clearance_message": "Mensagem formal e confortante de liberação cirúrgica (apenas se liberado). Ex: 'Apto para o procedimento com segurança...'",
+                    "clearance_message": "Mensagem formal e confortante de Checklist Pré Operatorio Completo, enfatize que de acordo com a literatura medica o paciente tem boas condicoes pre operatorias (apenas se liberado). Ex: 'Segundo a literatura medica em boas condicoes pré operatorias...'",
                     "pre_op_instructions": ["Instrução 1 (Jejum, medicação)", "Instrução 2"],
                     "post_op_instructions": ["Instrução 1 (Repouso, retorno)", "Instrução 2"]
                 }
@@ -4436,7 +4436,7 @@ Sistema Conecta Saude`
                 });
 
                 // Salvar avaliacao pre-operatoria na nova tabela
-                const clearanceStatus = (data.missing_exams && data.missing_exams.length > 0) ? 'pendente' : 'liberado';
+                const clearanceStatus = (data.missing_exams && data.missing_exams.length > 0) ? 'pendente' : 'Checklist Completo';
                 await savePreoperativeAssessment({
                     userId: safeUser.id,
                     patientName: safeUser.name,
@@ -5074,7 +5074,7 @@ Sistema Conecta Saude`
 
                 // Status badge HTML
                 let statusBadge = '';
-                if (status === 'liberado') {
+                if (status === 'Checklist Completo') {
                     statusBadge = '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold">✓ Liberado</span>';
                 } else if (status === 'cancelado') {
                     statusBadge = '<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-bold">✗ Cancelado</span>';
@@ -5356,7 +5356,7 @@ Responda APENAS em JSON:
 
                 if (result.all_exams_complete) {
                     // 3. LIBERADO! Atualiza no banco
-                    await updatePreOpStatus(currentUser.pendingPreOpAssessment.id, 'liberado');
+                    await updatePreOpStatus(currentUser.pendingPreOpAssessment.id, 'Checklist Completo');
 
                     // Atualiza a variável local com dados para gerar PDF
                     currentUser.lastPreOpResult = {
@@ -5364,14 +5364,14 @@ Responda APENAS em JSON:
                         asa: currentUser.pendingPreOpAssessment.asaScore,
                         lee: currentUser.pendingPreOpAssessment.leeIndex,
                         missing_exams: [],
-                        clearance_message: result.clearance_message || 'Paciente liberado para procedimento cirúrgico.',
+                        clearance_message: result.clearance_message || 'Paciente Com Checklist Completo Pré procedimento cirúrgico.',
                         html_report: currentUser.pendingPreOpAssessment.aiReport
                     };
 
                     // Atualiza o card de histórico
                     renderPreOpHistory({
                         ...currentUser.pendingPreOpAssessment,
-                        clearanceStatus: 'liberado',
+                        clearanceStatus: 'Checklist Completo',
                         missingExams: []
                     }, new Date());
 
@@ -5394,7 +5394,7 @@ Responda APENAS em JSON:
                     document.getElementById('results-2')?.classList.remove('hidden');
 
                     // Mostra mensagem de sucesso
-                    showToast('🎉 PACIENTE LIBERADO! Baixe o laudo de liberação abaixo.', 'success');
+                    showToast('🎉 CHECKLIST COMPLETO! Baixe as Orientações abaixo.', 'success');
 
                 } else {
                     // Ainda faltam exames
