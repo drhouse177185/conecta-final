@@ -64,6 +64,12 @@ exports.installDatabase = async (req, res) => {
                     WHERE "created_at" IS NULL;
                 `);
 
+                // Adiciona phone (celular para contato de emergência)
+                await sequelize.query(`
+                    ALTER TABLE ${tableName}
+                    ADD COLUMN IF NOT EXISTS "phone" VARCHAR(20);
+                `);
+
                 console.log(`✅ Tabela ${tableName} reparada.`);
             } catch (e) {
                 // Ignora erro se a tabela não existir, mas loga para debug
