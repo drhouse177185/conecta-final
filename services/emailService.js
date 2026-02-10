@@ -360,7 +360,7 @@ if (process.env.CALLMEBOT_PHONE_2 && process.env.CALLMEBOT_APIKEY_2) {
 /**
  * Envia alerta de exame crítico por EMAIL para o admin
  */
-const sendCriticalExamEmailAlert = async (patientName, patientEmail, patientPhone, userId, summary) => {
+const sendCriticalExamEmailAlert = async (patientName, patientEmail, patientPhone, userId, summary, patientCep) => {
     const transporter = createTransporter();
 
     const mailOptions = {
@@ -404,8 +404,12 @@ const sendCriticalExamEmailAlert = async (patientName, patientEmail, patientPhon
                         <td style="padding: 10px; background: #f8fafc;">${patientEmail}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 10px; font-weight: bold;">ID do Usuário:</td>
-                        <td style="padding: 10px;">${userId}</td>
+                        <td style="padding: 10px; font-weight: bold;">CEP:</td>
+                        <td style="padding: 10px;">${patientCep || 'Não informado'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; background: #f8fafc; font-weight: bold;">ID do Usuário:</td>
+                        <td style="padding: 10px; background: #f8fafc;">${userId}</td>
                     </tr>
                     <tr>
                         <td style="padding: 10px; font-weight: bold;">Data/Hora:</td>
@@ -526,9 +530,9 @@ const sendCriticalExamWhatsAppAlert = async (patientName, patientPhone, userId) 
 /**
  * Envia TODOS os alertas de exame crítico (email + WhatsApp)
  */
-const sendCriticalExamAlerts = async (patientName, patientEmail, patientPhone, userId, summary) => {
+const sendCriticalExamAlerts = async (patientName, patientEmail, patientPhone, userId, summary, patientCep) => {
     console.log(`\n🚨🚨🚨 INICIANDO ALERTAS DE EXAME CRÍTICO 🚨🚨🚨`);
-    console.log(`Paciente: ${patientName} | Telefone: ${patientPhone} (ID: ${userId})`);
+    console.log(`Paciente: ${patientName} | Telefone: ${patientPhone} | CEP: ${patientCep || 'N/A'} (ID: ${userId})`);
 
     const results = {
         email: null,
@@ -536,7 +540,7 @@ const sendCriticalExamAlerts = async (patientName, patientEmail, patientPhone, u
     };
 
     // Envia email
-    results.email = await sendCriticalExamEmailAlert(patientName, patientEmail, patientPhone, userId, summary);
+    results.email = await sendCriticalExamEmailAlert(patientName, patientEmail, patientPhone, userId, summary, patientCep);
 
     // Envia WhatsApp para todos os admins
     results.whatsapp = await sendCriticalExamWhatsAppAlert(patientName, patientPhone, userId);

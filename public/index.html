@@ -295,8 +295,8 @@
                     </div>
                     <div class="flex gap-2">
                         <div class="w-1/2">
-                            <label class="text-xs font-bold text-gray-600 uppercase">Idade</label>
-                            <input type="number" id="reg-age" class="house-input w-full p-3 rounded">
+                            <label class="text-xs font-bold text-gray-600 uppercase">Data de Nascimento</label>
+                            <input type="date" id="reg-birthdate" class="house-input w-full p-3 rounded">
                         </div>
                         <div class="w-1/2">
                             <label class="text-xs font-bold text-gray-600 uppercase">Sexo</label>
@@ -305,6 +305,10 @@
                                 <option value="F">Feminino</option>
                             </select>
                         </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-600 uppercase">CEP</label>
+                        <input type="text" id="reg-cep" class="house-input w-full p-3 rounded" placeholder="00000-000" oninput="mascaraCEP(this)" maxlength="9">
                     </div>
                     <div>
                         <label class="text-xs font-bold text-gray-600 uppercase">E-mail</label>
@@ -321,6 +325,7 @@
                     <div>
                         <label class="text-xs font-bold text-gray-600 uppercase">Senha</label>
                         <input type="password" id="reg-password" class="house-input w-full p-3 rounded">
+                        <p class="text-xs text-gray-500 mt-1">Min. 6 caracteres, 1 letra maiúscula e 1 símbolo (@, #, !...)</p>
                     </div>
                     <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded shadow-lg transition transform hover:scale-[1.02]">CADASTRAR</button>
                 </form>
@@ -1542,8 +1547,9 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
         async function handleRegister() {
             const name = document.getElementById('reg-name').value;
-            const age = document.getElementById('reg-age').value;
+            const birthDate = document.getElementById('reg-birthdate').value;
             const sex = document.getElementById('reg-sex').value;
+            const cep = document.getElementById('reg-cep').value;
             const email = document.getElementById('reg-email').value;
             const cpf = document.getElementById('reg-cpf').value;
             const phone = document.getElementById('reg-phone').value;
@@ -1551,11 +1557,18 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
 
             if(!name || !email || !pass) return showToast("Preencha os campos obrigatórios.", "error");
 
+            // Validação de senha forte
+            const hasUpperCase = /[A-Z]/.test(pass);
+            const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pass);
+            if (pass.length < 6) return showToast("A senha deve ter pelo menos 6 caracteres.", "error");
+            if (!hasUpperCase) return showToast("A senha deve conter pelo menos 1 letra maiúscula.", "error");
+            if (!hasSymbol) return showToast("A senha deve conter pelo menos 1 símbolo (ex: @, #, !).", "error");
+
             try {
                 const res = await fetch(`${BACKEND_URL}/api/auth/register`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ name, age, sex, email, cpf, phone, password: pass })
+                    body: JSON.stringify({ name, birthDate, sex, cep, email, cpf, phone, password: pass })
                 });
                 const data = await res.json();
 
@@ -6456,6 +6469,12 @@ Responda APENAS em JSON:
         function mascaraTelefone(i) {
             let v = i.value.replace(/\D/g, "");
             v = v.replace(/^(\d{2})(\d)/g, "($1) $2");
+            v = v.replace(/(\d{5})(\d)/, "$1-$2");
+            i.value = v;
+        }
+
+        function mascaraCEP(i) {
+            let v = i.value.replace(/\D/g, "");
             v = v.replace(/(\d{5})(\d)/, "$1-$2");
             i.value = v;
         }

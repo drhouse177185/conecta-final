@@ -216,7 +216,18 @@ exports.installDatabase = async (req, res) => {
         `);
         console.log("✅ Coluna phone adicionada/verificada na tabela users");
 
-        // 10. ADICIONAR COLUNA severity_level NA TABELA pos_consulta_analyses (se não existir)
+        // 10. ADICIONAR COLUNAS birth_date e cep NA TABELA USERS (se não existir)
+        await sequelize.query(`
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS birth_date DATE;
+        `);
+        await sequelize.query(`
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS cep VARCHAR(9);
+        `);
+        console.log("✅ Colunas birth_date e cep adicionadas/verificadas na tabela users");
+
+        // 11. ADICIONAR COLUNA severity_level NA TABELA pos_consulta_analyses (se não existir)
         await sequelize.query(`
             ALTER TABLE pos_consulta_analyses
             ADD COLUMN IF NOT EXISTS severity_level VARCHAR(20) DEFAULT 'normal';
@@ -235,7 +246,8 @@ exports.installDatabase = async (req, res) => {
                 <p>7. Tabela <strong>lgpd_consents</strong> criada (consentimentos LGPD).</p>
                 <p>8. Colunas <strong>email_verified</strong> e <strong>email_verified_at</strong> adicionadas na tabela users.</p>
                 <p>9. Coluna <strong>phone</strong> adicionada na tabela users (celular para contato de emergência).</p>
-                <p>10. Coluna <strong>severity_level</strong> adicionada na tabela pos_consulta_analyses (classificação de gravidade).</p>
+                <p>10. Colunas <strong>birth_date</strong> e <strong>cep</strong> adicionadas na tabela users (data de nascimento e CEP).</p>
+                <p>11. Coluna <strong>severity_level</strong> adicionada na tabela pos_consulta_analyses (classificação de gravidade).</p>
                 <hr>
                 <p><strong>✅ BANCO DE DADOS ATUALIZADO!</strong> Sistema de confirmação de email, LGPD e gravidade de exames configurado.</p>
                 <a href="/" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #365314; color: white; text-decoration: none; border-radius: 5px;">Voltar ao App</a>

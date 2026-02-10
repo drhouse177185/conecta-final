@@ -57,7 +57,31 @@ exports.login = async (req, res) => {
 // --- REGISTRO ---
 exports.register = async (req, res) => {
     try {
-        let { name, email, password, cpf, age, sex, phone } = req.body;
+        let { name, email, password, cpf, age, sex, phone, birthDate, cep } = req.body;
+
+        // Validação de senha forte
+        if (!password || password.trim().length < 6) {
+            return res.status(400).json({ message: "A senha deve ter pelo menos 6 caracteres." });
+        }
+        if (!/[A-Z]/.test(password)) {
+            return res.status(400).json({ message: "A senha deve conter pelo menos 1 letra maiúscula." });
+        }
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+            return res.status(400).json({ message: "A senha deve conter pelo menos 1 símbolo (ex: @, #, !)." });
+        }
+
+        // Calcular idade a partir da data de nascimento (se fornecida)
+        if (birthDate) {
+            const birth = new Date(birthDate);
+            const today = new Date();
+            let calculatedAge = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                calculatedAge--;
+            }
+            age = calculatedAge;
+        }
+
         // Verifica se já existe (case-insensitive)
         const existing = await User.findOne({
             where: sequelize.where(
@@ -70,6 +94,7 @@ exports.register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password.trim(), 10);
         const newUser = await User.create({
             name, email: email.trim(), password: hashedPassword, cpf, age, sex, phone,
+            birthDate: birthDate || null, cep: cep || null,
             credits: 100, role: 'user',
             blockedFeatures: { preConsulta: false, preOp: false }
         });
