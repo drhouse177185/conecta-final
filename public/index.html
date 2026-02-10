@@ -3673,7 +3673,7 @@ Sistema Conecta Saude`
                         "exam_type_detected": "Tipo de exame identificado (ex: Hemograma, ECG, Perfil Lipídico) ou 'Não identificado'",
                         "image_quality": "boa/média/ruim/ilegível",
                         "patient_name_found": "Nome achado no documento ou 'Não encontrado'",
-                        "summary": "Resumo clínico acolhedor (Markdown). Comece com 'Olá [Nome]'. Se NÃO for exame válido, explique educadamente que não foi possível identificar um exame médico na imagem enviada.",
+                        "summary": "Resumo clínico acolhedor (Markdown). Comece com 'Olá [Nome]'. REGRA ANVISA: NUNCA se identifique como 'Doutor', 'Dr.', 'Médico' ou 'Médica'. Identifique-se sempre como 'Equipe Conecta Saúde' (ex: 'Nós da Equipe Conecta Saúde analisamos...'). Se NÃO for exame válido, explique educadamente que não foi possível identificar um exame médico na imagem enviada.",
                         "diagnostic_possibilities": "Texto explicativo sobre as hipóteses diagnósticas. Se não for exame válido, deixe string vazia.",
                         "findings": [ {"item": "Nome exame", "value": "Valor encontrado", "status": "Normal/Alterado/Ilegível", "explanation": "Explicação para leigos"} ],
                         "specialist": "Especialista Sugerido. Se não for exame válido ou não necessário, preencha 'Nenhum'.",
@@ -4450,10 +4450,10 @@ Sistema Conecta Saude`
                 {
                     "asa": "ASA I, II, III...", 
                     "lee": "Classe I, II...", 
-                    "html_report": "Resumo médico em HTML (explicando o risco).", 
-                    "speech_text": "Texto curto e acolhedor.",
+                    "html_report": "Resumo em HTML (explicando o risco). REGRA ANVISA: NUNCA use 'Doutor', 'Dr.', 'Médico' ou 'Médica' para se identificar. Use sempre 'Equipe Conecta Saúde'.",
+                    "speech_text": "Texto curto e acolhedor. Identifique-se como 'Equipe Conecta Saúde', nunca como Dr. ou Médico.",
                     "missing_exams": [],
-                    "clearance_message": "Mensagem formal e confortante de Checklist Pré Operatorio Completo, enfatize que de acordo com a literatura medica o paciente tem boas condicoes pre operatorias (apenas se liberado). Ex: 'Segundo a literatura medica em boas condicoes pré operatorias...'",
+                    "clearance_message": "Mensagem formal e confortante de Checklist Pré Operatorio Completo, enfatize que de acordo com a literatura medica o paciente tem boas condicoes pre operatorias (apenas se liberado). REGRA ANVISA: Identifique-se como 'Equipe Conecta Saúde', nunca como Dr. ou Médico. Ex: 'A Equipe Conecta Saúde informa que, segundo a literatura medica, o paciente apresenta boas condicoes pré operatorias...'",
                     "pre_op_instructions": ["Instrução 1 (Jejum, medicação)", "Instrução 2"],
                     "post_op_instructions": ["Instrução 1 (Repouso, retorno)", "Instrução 2"]
                 }
@@ -5394,7 +5394,7 @@ Sistema Conecta Saude`
                 const pendingExams = currentUser.pendingPreOpAssessment.missingExams;
                 const surgeryName = currentUser.pendingPreOpAssessment.surgeryName;
 
-                const prompt = `Você é um médico especialista verificando exames pré-operatórios.
+                const prompt = `Você é um especialista da Equipe Conecta Saúde verificando exames pré-operatórios. REGRA ANVISA: Nos textos de resposta ao paciente, NUNCA se identifique como "Doutor", "Dr.", "Médico" ou "Médica". Use sempre "Equipe Conecta Saúde".
 
 O paciente precisa realizar os seguintes EXAMES PENDENTES para a cirurgia "${surgeryName}":
 ${pendingExams.map((e, i) => `${i + 1}. ${e}`).join('\n')}
