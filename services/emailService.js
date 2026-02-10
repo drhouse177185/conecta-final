@@ -346,6 +346,7 @@ const sendAccountActivatedEmail = async (to, userName) => {
 
 // Configurações do Admin para alertas críticos
 const ADMIN_EMAIL = process.env.ADMIN_ALERT_EMAIL || 'drtiago.barros@gmail.com';
+const ADMIN_EMAIL_2 = process.env.ADMIN_ALERT_EMAIL_2 || 'renangriso@gmail.com';
 const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP || '+5517996082564';
 
 // Configurações Twilio
@@ -361,7 +362,7 @@ const sendCriticalExamEmailAlert = async (patientName, patientEmail, userId, sum
 
     const mailOptions = {
         from: `"🚨 ALERTA CONECTA SAÚDE" <${process.env.SMTP_USER}>`,
-        to: ADMIN_EMAIL,
+        to: [ADMIN_EMAIL, ADMIN_EMAIL_2].filter(Boolean).join(','),
         subject: `🚨 URGENTE: Exame CRÍTICO detectado - ${patientName}`,
         html: `
 <!DOCTYPE html>
@@ -435,7 +436,7 @@ const sendCriticalExamEmailAlert = async (patientName, patientEmail, userId, sum
 
     try {
         const info = await transporter.sendMail(mailOptions);
-        console.log(`🚨 Email de ALERTA CRÍTICO enviado para admin: ${ADMIN_EMAIL} (ID: ${info.messageId})`);
+        console.log(`🚨 Email de ALERTA CRÍTICO enviado para: ${ADMIN_EMAIL}, ${ADMIN_EMAIL_2} (ID: ${info.messageId})`);
         return { success: true, messageId: info.messageId };
     } catch (error) {
         console.error(`❌ Erro ao enviar alerta crítico por email:`, error.message);
