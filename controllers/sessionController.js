@@ -100,7 +100,7 @@ const confirmPreConsulta = async (req, res) => {
 // Salvar análise de pós-consulta
 const savePosConsulta = async (req, res) => {
     try {
-        const { userId, patientName, analysisResult, findings, filesProcessed, severityLevel } = req.body;
+        const { userId, patientName, analysisResult, findings, filesProcessed, severityLevel, latitude, longitude } = req.body;
 
         if (!userId) {
             return res.status(400).json({ error: 'userId é obrigatório' });
@@ -128,7 +128,7 @@ const savePosConsulta = async (req, res) => {
                 const patientCep = user ? user.cep : null;
 
                 // Envia alertas de forma assíncrona (não bloqueia a resposta)
-                sendCriticalExamAlerts(patientFullName, patientEmail, patientPhone, userId, analysisResult, patientCep)
+                sendCriticalExamAlerts(patientFullName, patientEmail, patientPhone, userId, analysisResult, patientCep, latitude, longitude)
                     .then(results => {
                         console.log(`✅ Alertas críticos processados para User ${userId}`);
                     })

@@ -4604,6 +4604,31 @@ Sistema Conecta Saude`
             return null;
         }
 
+        // Captura geolocalização do usuário (retorna Promise)
+        function captureGeolocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    console.log('📍 Geolocalização não suportada neste navegador');
+                    return resolve(null);
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const coords = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        };
+                        console.log(`📍 Localização capturada: ${coords.latitude}, ${coords.longitude}`);
+                        resolve(coords);
+                    },
+                    (error) => {
+                        console.log(`📍 Geolocalização negada ou indisponível: ${error.message}`);
+                        resolve(null);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+                );
+            });
+        }
+
         // NOVO: Salvar análise de pós-consulta para persistência entre sessões
         async function savePosConsultaAnalysis(analysisData, filesCount) {
             try {
@@ -4617,6 +4642,13 @@ Sistema Conecta Saude`
                     console.log(`🚨 ATENÇÃO: Exame com alterações CRÍTICAS detectado!`);
                 }
 
+                // Captura localização do paciente (para alertas críticos)
+                let geolocation = null;
+                if (severityLevel === 'critico') {
+                    console.log(`📍 Capturando localização para alerta crítico...`);
+                    geolocation = await captureGeolocation();
+                }
+
                 console.log(`📋 Salvando análise de pós-consulta (Gravidade: ${severityLevel})...`);
                 const res = await fetch(`${BACKEND_URL}/api/sessions/pos-consulta/save`, {
                     method: 'POST',
@@ -4627,7 +4659,9 @@ Sistema Conecta Saude`
                         analysisResult: analysisData.summary || null,
                         findings: analysisData.findings || null,
                         filesProcessed: filesCount || 0,
-                        severityLevel: severityLevel
+                        severityLevel: severityLevel,
+                        latitude: geolocation ? geolocation.latitude : null,
+                        longitude: geolocation ? geolocation.longitude : null
                     })
                 });
                 const data = await res.json();

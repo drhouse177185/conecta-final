@@ -1,6 +1,48 @@
 const nodemailer = require('nodemailer');
 const https = require('https');
 
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+
+/**
+ * Busca hospitais/prontos-socorros próximos via Google Places API
+ */
+const searchNearbyHospitals = (latitude, longitude, radius = 5000) => {
+    return new Promise((resolve) => {
+        if (!GOOGLE_API_KEY || !latitude || !longitude) {
+            return resolve([]);
+        }
+
+        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=hospital&language=pt-BR&key=${GOOGLE_API_KEY}`;
+
+        https.get(url, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.results && parsed.results.length > 0) {
+                        const hospitals = parsed.results.slice(0, 3).map(h => ({
+                            name: h.name,
+                            address: h.vicinity || 'Endereço não disponível',
+                            rating: h.rating || null,
+                            open: h.opening_hours ? h.opening_hours.open_now : null
+                        }));
+                        resolve(hospitals);
+                    } else {
+                        resolve([]);
+                    }
+                } catch (e) {
+                    console.error('Erro ao parsear Google Places:', e.message);
+                    resolve([]);
+                }
+            });
+        }).on('error', (err) => {
+            console.error('Erro Google Places API:', err.message);
+            resolve([]);
+        });
+    });
+};
+
 // Configuracao do transporter Gmail
 const createTransporter = () => {
     return nodemailer.createTransport({
@@ -360,7 +402,7 @@ if (process.env.CALLMEBOT_PHONE_2 && process.env.CALLMEBOT_APIKEY_2) {
 /**
  * Envia alerta de exame crítico por EMAIL para o admin
  */
-const sendCriticalExamEmailAlert = async (patientName, patientEmail, patientPhone, userId, summary, patientCep) => {
+const sendCriticalExamEmailAlert = async (patientName, patientEmail, patientPhone, userId, summary, patientCep, latitude, longitude, nearbyHospitals) => {
     const transporter = createTransporter();
 
     const mailOptions = {
@@ -423,6 +465,37 @@ const sendCriticalExamEmailAlert = async (patientName, patientEmail, patientPhon
                         ${summary ? summary.substring(0, 500).replace(/\n/g, '<br>') : 'Resumo não disponível'}...
                     </p>
                 </div>
+
+                ${latitude && longitude ? `
+                <h3 style="color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">📍 Localização do Paciente</h3>
+                <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin-bottom: 20px;">
+                    <p style="color: #1e40af; margin: 0 0 10px 0; font-size: 14px;">
+                        <strong>Coordenadas:</strong> ${latitude}, ${longitude}
+                    </p>
+                    <a href="https://www.google.com/maps?q=${latitude},${longitude}"
+                       style="display: inline-block; background: #3b82f6; color: white; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; font-size: 14px;">
+                        📍 Abrir no Google Maps
+                    </a>
+                </div>
+                ` : ''}
+
+                ${nearbyHospitals && nearbyHospitals.length > 0 ? `
+                <h3 style="color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">🏥 Hospitais / PS Mais Próximos</h3>
+                <div style="margin-bottom: 20px;">
+                    ${nearbyHospitals.map((h, i) => `
+                    <div style="background: ${i % 2 === 0 ? '#f0fdf4' : '#ffffff'}; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+                        <p style="margin: 0 0 4px 0; font-weight: bold; color: #166534; font-size: 15px;">
+                            ${i + 1}. ${h.name}
+                        </p>
+                        <p style="margin: 0; color: #475569; font-size: 13px;">
+                            📍 ${h.address}
+                            ${h.rating ? ' | ⭐ ' + h.rating + '/5' : ''}
+                            ${h.open !== null ? (h.open ? ' | 🟢 Aberto agora' : ' | 🔴 Fechado') : ''}
+                        </p>
+                    </div>
+                    `).join('')}
+                </div>
+                ` : ''}
 
                 <div style="background-color: #fef3c7; border-radius: 8px; padding: 15px; text-align: center;">
                     <p style="color: #92400e; margin: 0; font-weight: bold;">
@@ -530,9 +603,17 @@ const sendCriticalExamWhatsAppAlert = async (patientName, patientPhone, userId) 
 /**
  * Envia TODOS os alertas de exame crítico (email + WhatsApp)
  */
-const sendCriticalExamAlerts = async (patientName, patientEmail, patientPhone, userId, summary, patientCep) => {
+const sendCriticalExamAlerts = async (patientName, patientEmail, patientPhone, userId, summary, patientCep, latitude, longitude) => {
     console.log(`\n🚨🚨🚨 INICIANDO ALERTAS DE EXAME CRÍTICO 🚨🚨🚨`);
-    console.log(`Paciente: ${patientName} | Telefone: ${patientPhone} | CEP: ${patientCep || 'N/A'} (ID: ${userId})`);
+    console.log(`Paciente: ${patientName} | Telefone: ${patientPhone} | CEP: ${patientCep || 'N/A'} | GPS: ${latitude || 'N/A'}, ${longitude || 'N/A'} (ID: ${userId})`);
+
+    // Busca hospitais próximos se tiver coordenadas
+    let nearbyHospitals = [];
+    if (latitude && longitude) {
+        console.log(`📍 Buscando hospitais próximos de ${latitude}, ${longitude}...`);
+        nearbyHospitals = await searchNearbyHospitals(latitude, longitude);
+        console.log(`🏥 ${nearbyHospitals.length} hospital(is) encontrado(s) próximo(s)`);
+    }
 
     const results = {
         email: null,
@@ -540,7 +621,7 @@ const sendCriticalExamAlerts = async (patientName, patientEmail, patientPhone, u
     };
 
     // Envia email
-    results.email = await sendCriticalExamEmailAlert(patientName, patientEmail, patientPhone, userId, summary, patientCep);
+    results.email = await sendCriticalExamEmailAlert(patientName, patientEmail, patientPhone, userId, summary, patientCep, latitude, longitude, nearbyHospitals);
 
     // Envia WhatsApp para todos os admins
     results.whatsapp = await sendCriticalExamWhatsAppAlert(patientName, patientPhone, userId);
