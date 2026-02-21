@@ -3289,7 +3289,7 @@ Sistema Conecta Saúde`
                 const res = await fetch(`${BACKEND_URL}/api/vitals/sync`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: currentUser.id })
+                    body: JSON.stringify({ userId: currentUser.id, forceFullSync: true })
                 });
                 const data = await res.json();
                 if (data.success) {

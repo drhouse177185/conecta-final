@@ -123,58 +123,78 @@ async function driveDownloadFile(accessToken, fileId) {
 }
 
 // ====================================================================
-// HELPER: Timestamp Samsung Health → Date
+// HELPER: Timestamp Health Connect / Samsung Health → Date
 // ====================================================================
-function parseSamsungTime(timeStr, offsetStr) {
+function parseHealthTime(timeStr) {
     if (!timeStr) return new Date();
     let dateStr = timeStr.trim();
-    if (offsetStr) {
-        const offset = offsetStr.trim();
-        if (offset.length === 5 && (offset[0] === '+' || offset[0] === '-')) {
-            dateStr += ` ${offset.slice(0, 3)}:${offset.slice(3)}`;
-        }
+    // Health Connect format: "2026.02.21 13:51:34" → "2026-02-21T13:51:34"
+    const dotMatch = dateStr.match(/^(\d{4})\.(\d{2})\.(\d{2})\s+(\d{2}:\d{2}:\d{2})$/);
+    if (dotMatch) {
+        dateStr = `${dotMatch[1]}-${dotMatch[2]}-${dotMatch[3]}T${dotMatch[4]}`;
     }
     const d = new Date(dateStr);
     return isNaN(d.getTime()) ? new Date() : d;
 }
 
 // ====================================================================
-// HELPER: Extratores de dados Samsung Health CSV
+// HELPER: Extratores de dados Health Connect / Samsung Health CSV
+// Suporta colunas em PT-BR (Health Connect) e EN (Samsung Health)
 // ====================================================================
 function extractHeartRateFromRow(row) {
-    const hr = row['com.samsung.health.heart_rate.heart_rate'] || row['heart_rate'] || row['Heart rate'];
-    const time = row['start_time'] || row['com.samsung.health.heart_rate.start_time'] || row['Start time'];
+    const hr = row['Frequência Cardíaca'] || row['Frequ\u00eancia Card\u00edaca']
+        || row['com.samsung.health.heart_rate.heart_rate'] || row['heart_rate'] || row['Heart rate'];
+    const time = row['Data'] || row['start_time'] || row['com.samsung.health.heart_rate.start_time'] || row['Start time'];
     if (!hr || !time || isNaN(parseFloat(hr))) return null;
-    return { heart_rate: Math.round(parseFloat(hr)), captured_at: parseSamsungTime(time, row['time_offset'] || row['Time offset']) };
+    return { heart_rate: Math.round(parseFloat(hr)), captured_at: parseHealthTime(time) };
 }
 
 function extractBloodPressureFromRow(row) {
-    const sys = row['systolic'] || row['com.samsung.health.blood_pressure.systolic'] || row['Systolic'];
-    const dia = row['diastolic'] || row['com.samsung.health.blood_pressure.diastolic'] || row['Diastolic'];
-    const time = row['start_time'] || row['com.samsung.health.blood_pressure.start_time'] || row['Start time'];
+    const sys = row['Sistólica'] || row['Sist\u00f3lica']
+        || row['systolic'] || row['com.samsung.health.blood_pressure.systolic'] || row['Systolic'];
+    const dia = row['Diastólica'] || row['Diast\u00f3lica']
+        || row['diastolic'] || row['com.samsung.health.blood_pressure.diastolic'] || row['Diastolic'];
+    const time = row['Data'] || row['start_time'] || row['com.samsung.health.blood_pressure.start_time'] || row['Start time'];
     if (!sys || !dia || !time || isNaN(parseFloat(sys))) return null;
-    return { blood_pressure_sys: Math.round(parseFloat(sys)), blood_pressure_dia: Math.round(parseFloat(dia)), captured_at: parseSamsungTime(time, row['time_offset'] || row['Time offset']) };
+    return { blood_pressure_sys: Math.round(parseFloat(sys)), blood_pressure_dia: Math.round(parseFloat(dia)), captured_at: parseHealthTime(time) };
 }
 
 function extractSpO2FromRow(row) {
-    const spo2 = row['spo2'] || row['com.samsung.health.oxygen_saturation.spo2'] || row['oxygen_saturation'] || row['SpO2'];
-    const time = row['start_time'] || row['com.samsung.health.oxygen_saturation.start_time'] || row['Start time'];
+    const spo2 = row['Saturação de oxigênio'] || row['Satura\u00e7\u00e3o de oxig\u00eanio']
+        || row['spo2'] || row['com.samsung.health.oxygen_saturation.spo2'] || row['oxygen_saturation'] || row['SpO2'];
+    const time = row['Data'] || row['start_time'] || row['com.samsung.health.oxygen_saturation.start_time'] || row['Start time'];
     if (!spo2 || !time || isNaN(parseFloat(spo2))) return null;
-    return { spo2: parseFloat(spo2).toFixed(1), captured_at: parseSamsungTime(time, row['time_offset'] || row['Time offset']) };
+    return { spo2: parseFloat(spo2).toFixed(1), captured_at: parseHealthTime(time) };
 }
 
 function extractTemperatureFromRow(row) {
-    const temp = row['temperature'] || row['com.samsung.health.body_temperature.temperature'] || row['Temperature'];
-    const time = row['start_time'] || row['com.samsung.health.body_temperature.start_time'] || row['Start time'];
+    const temp = row['Temperatura'] || row['temperature']
+        || row['com.samsung.health.body_temperature.temperature'] || row['Temperature'];
+    const time = row['Data'] || row['start_time'] || row['com.samsung.health.body_temperature.start_time'] || row['Start time'];
     if (!temp || !time || isNaN(parseFloat(temp))) return null;
-    return { skin_temperature: parseFloat(temp).toFixed(1), captured_at: parseSamsungTime(time, row['time_offset'] || row['Time offset']) };
+    return { skin_temperature: parseFloat(temp).toFixed(1), captured_at: parseHealthTime(time) };
 }
 
 function extractStepsFromRow(row) {
-    const steps = row['step_count'] || row['com.samsung.health.step_count.count'] || row['count'] || row['Steps'];
-    const time = row['start_time'] || row['com.samsung.health.step_count.start_time'] || row['Start time'];
+    const steps = row['Passos'] || row['step_count']
+        || row['com.samsung.health.step_count.count'] || row['count'] || row['Steps'];
+    const time = row['Data'] || row['start_time'] || row['com.samsung.health.step_count.start_time'] || row['Start time'];
     if (!steps || !time || isNaN(parseFloat(steps))) return null;
-    return { steps: Math.round(parseFloat(steps)), captured_at: parseSamsungTime(time, row['time_offset'] || row['Time offset']) };
+    return { steps: Math.round(parseFloat(steps)), captured_at: parseHealthTime(time) };
+}
+
+function extractWeightFromRow(row) {
+    const weight = row['Peso'] || row['weight'] || row['Weight'];
+    const time = row['Data'] || row['start_time'] || row['Start time'];
+    if (!weight || !time || isNaN(parseFloat(weight))) return null;
+    return { weight: parseFloat(weight).toFixed(1), captured_at: parseHealthTime(time) };
+}
+
+function extractBloodSugarFromRow(row) {
+    const sugar = row['Glicemia'] || row['blood_glucose'] || row['Blood glucose'];
+    const time = row['Data'] || row['start_time'] || row['Start time'];
+    if (!sugar || !time || isNaN(parseFloat(sugar))) return null;
+    return { blood_sugar: parseFloat(sugar).toFixed(1), captured_at: parseHealthTime(time) };
 }
 
 // ====================================================================
@@ -675,29 +695,27 @@ exports.syncGoogleFit = async (req, res) => {
         }
 
         // Determinar data limite para evitar reimportar dados antigos
-        const lastSyncAt = tokenData.last_sync_at
-            ? new Date(tokenData.last_sync_at)
-            : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // últimos 7 dias na primeira sync
-
-        // Buscar pasta "Health Sync" no Google Drive
-        const folderQuery = `name = '${HEALTH_SYNC_FOLDER}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-        const folders = await driveSearchFiles(accessToken, folderQuery);
-
-        let parentClause = '';
-        if (folders.length > 0) {
-            parentClause = `'${folders[0].id}' in parents and `;
-            console.log(`[HealthSync] Pasta encontrada: ${folders[0].name} (${folders[0].id})`);
+        // Se forceFullSync=true, ignora lastSyncAt (útil após migração de Google Fit → Health Sync)
+        const { forceFullSync } = req.body;
+        let lastSyncAt;
+        if (forceFullSync || !tokenData.last_sync_at) {
+            lastSyncAt = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // últimos 30 dias
+            console.log(`[HealthSync] Sync completa - buscando dados dos últimos 30 dias`);
         } else {
-            console.log(`[HealthSync] Pasta '${HEALTH_SYNC_FOLDER}' não encontrada, buscando em todo o Drive...`);
+            lastSyncAt = new Date(tokenData.last_sync_at);
         }
 
-        // Tipos de CSV para buscar
+        // Tipos de CSV para buscar (PT-BR = Health Connect, EN = Samsung Health)
+        // Nomes reais dos arquivos: "Frequência Cardíaca 2026.02.21 Health Connect.csv"
+        // Pastas reais: "Health Sync Frequência Cardíaca", "Health Sync Pressão sanguínea", etc.
         const csvPatterns = [
-            { pattern: 'heart_rate', extractor: extractHeartRateFromRow },
-            { pattern: 'blood_pressure', extractor: extractBloodPressureFromRow },
-            { pattern: 'oxygen_saturation', extractor: extractSpO2FromRow },
-            { pattern: 'body_temperature', extractor: extractTemperatureFromRow },
-            { pattern: 'step_count', extractor: extractStepsFromRow }
+            { patterns: ['Frequ', 'heart_rate'], label: 'Frequência Cardíaca', extractor: extractHeartRateFromRow },
+            { patterns: ['Press', 'blood_pressure'], label: 'Pressão Sanguínea', extractor: extractBloodPressureFromRow },
+            { patterns: ['Satura', 'oxygen_saturation'], label: 'Saturação O2', extractor: extractSpO2FromRow },
+            { patterns: ['Temperatura', 'body_temperature'], label: 'Temperatura', extractor: extractTemperatureFromRow },
+            { patterns: ['Passos', 'step_count', 'Steps'], label: 'Passos', extractor: extractStepsFromRow },
+            { patterns: ['Peso', 'weight'], label: 'Peso', extractor: extractWeightFromRow },
+            { patterns: ['car sang', 'blood_glucose'], label: 'Glicemia', extractor: extractBloodSugarFromRow }
         ];
 
         // Coletar dados por timestamp (agrupa em janelas de 5 min)
@@ -716,12 +734,16 @@ exports.syncGoogleFit = async (req, res) => {
         let filesProcessed = 0;
 
         for (const csvType of csvPatterns) {
-            // Buscar CSVs que contêm o padrão no nome
-            const query = `${parentClause}name contains '${csvType.pattern}' and (mimeType = 'text/csv' or mimeType = 'application/octet-stream') and trashed = false`;
-            const files = await driveSearchFiles(accessToken, query);
+            // Tentar cada padrão até encontrar arquivos
+            let files = [];
+            for (const pattern of csvType.patterns) {
+                const query = `name contains '${pattern}' and name contains '.csv' and trashed = false`;
+                files = await driveSearchFiles(accessToken, query);
+                if (files.length > 0) break;
+            }
 
             if (files.length === 0) {
-                console.log(`[HealthSync] Nenhum CSV encontrado para: ${csvType.pattern}`);
+                console.log(`[HealthSync] Nenhum CSV encontrado para: ${csvType.label}`);
                 continue;
             }
 
