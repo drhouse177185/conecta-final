@@ -595,6 +595,7 @@ exports.googleFitCallback = async (req, res) => {
                 access_token = :accessToken,
                 refresh_token = COALESCE(:refreshToken, google_fit_tokens.refresh_token),
                 token_expiry = :expiry,
+                scopes = :scopes,
                 connected_at = NOW()
         `, {
             replacements: {
