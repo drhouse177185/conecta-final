@@ -5388,9 +5388,38 @@ Sistema Conecta Saude`
         }
 
         // Envio periódico de localização do paciente para o backend
+        let locationFirstAttempt = true;
         async function sendLocationToBackend() {
             try {
                 if (!currentUser || currentUser.role === 'admin') return;
+
+                // Verifica se o site está em HTTPS (obrigatório para geolocalização)
+                if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+                    console.warn('📍 Geolocalização requer HTTPS. Acesse o site pela URL segura.');
+                    if (locationFirstAttempt) {
+                        showToast('Localização requer conexão segura (HTTPS)', 'error');
+                        locationFirstAttempt = false;
+                    }
+                    return;
+                }
+
+                // Solicita permissão explicitamente na primeira vez
+                if (locationFirstAttempt && navigator.permissions) {
+                    try {
+                        const perm = await navigator.permissions.query({ name: 'geolocation' });
+                        if (perm.state === 'denied') {
+                            console.log('📍 Permissão de localização foi negada pelo usuário');
+                            showToast('Localização bloqueada. Habilite nas configurações do navegador.', 'error');
+                            locationFirstAttempt = false;
+                            return;
+                        }
+                        if (perm.state === 'prompt') {
+                            showToast('Permita o acesso à localização para monitoramento', 'info');
+                        }
+                    } catch (e) { /* navigator.permissions não suportado, segue normal */ }
+                }
+                locationFirstAttempt = false;
+
                 const coords = await captureGeolocation();
                 if (!coords) return;
                 await fetch(`${BACKEND_URL}/api/location/update`, {
@@ -5411,9 +5440,9 @@ Sistema Conecta Saude`
         let locationInterval = null;
         function startLocationTracking() {
             if (locationInterval) return;
+            console.log('📍 Iniciando rastreamento de localização...');
             sendLocationToBackend();
             locationInterval = setInterval(sendLocationToBackend, 5 * 60 * 1000);
-            console.log('📍 Rastreamento de localização iniciado (intervalo: 5min)');
         }
 
         // NOVO: Salvar análise de pós-consulta para persistência entre sessões
