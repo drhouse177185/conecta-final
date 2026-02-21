@@ -2992,7 +2992,20 @@ Sistema Conecta Saúde`
                 const vRes = await fetch(`${BACKEND_URL}/api/vitals/admin/patient/${userId}/history?hours=24`);
                 const vData = await vRes.json();
                 if (vData.success && vData.vitals.length > 0) {
-                    renderVitalCards(vData.vitals[vData.vitals.length - 1]);
+                    // Agregar último valor não-nulo de cada sinal vital
+                    // (cada CSV gera registros separados, ex: FC num registro, PA em outro)
+                    const merged = {};
+                    vData.vitals.forEach(v => {
+                        if (v.heart_rate != null) merged.heart_rate = v.heart_rate;
+                        if (v.spo2 != null) merged.spo2 = v.spo2;
+                        if (v.blood_pressure_sys != null) { merged.blood_pressure_sys = v.blood_pressure_sys; merged.blood_pressure_dia = v.blood_pressure_dia; }
+                        if (v.skin_temperature != null) merged.skin_temperature = v.skin_temperature;
+                        if (v.steps != null) merged.steps = v.steps;
+                        if (v.sleep_stage != null) merged.sleep_stage = v.sleep_stage;
+                        if (v.stress_level != null) merged.stress_level = v.stress_level;
+                        if (v.captured_at) merged.captured_at = v.captured_at;
+                    });
+                    renderVitalCards(merged);
                     renderVitalCharts(vData.vitals);
                 } else {
                     renderVitalCards(null);
@@ -3051,56 +3064,138 @@ Sistema Conecta Saúde`
         }
 
         function renderVitalCharts(vitals) {
-            const labels = vitals.map(v => new Date(v.captured_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+            // Filtra apenas registros com dados reais para cada gráfico
+            const hrPoints = vitals.filter(v => v.heart_rate != null).sort((a, b) => new Date(a.captured_at) - new Date(b.captured_at));
+            const spo2Points = vitals.filter(v => v.spo2 != null).sort((a, b) => new Date(a.captured_at) - new Date(b.captured_at));
+
+            const formatLabel = (v) => {
+                const d = new Date(v.captured_at);
+                const hoje = new Date();
+                const isHoje = d.toDateString() === hoje.toDateString();
+                const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                return isHoje ? time : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + time;
+            };
 
             // Chart FC
-            const hrData = vitals.map(v => v.heart_rate);
             if (vitalsChartHR) vitalsChartHR.destroy();
             const ctxHR = document.getElementById('chart-hr');
             if (ctxHR) {
-                vitalsChartHR = new Chart(ctxHR, {
-                    type: 'line',
-                    data: {
-                        labels,
-                        datasets: [{
-                            label: 'FC (bpm)',
-                            data: hrData,
-                            borderColor: '#ef4444',
-                            backgroundColor: 'rgba(239,68,68,0.1)',
-                            fill: true, tension: 0.3, pointRadius: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        scales: { y: { suggestedMin: 40, suggestedMax: 140 } },
-                        plugins: { legend: { display: false } }
-                    }
-                });
+                if (hrPoints.length === 0) {
+                    vitalsChartHR = new Chart(ctxHR, {
+                        type: 'line',
+                        data: { labels: ['Sem dados'], datasets: [{ label: 'FC (bpm)', data: [null], borderColor: '#ccc' }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                    });
+                } else {
+                    const hrLabels = hrPoints.map(formatLabel);
+                    const hrData = hrPoints.map(v => v.heart_rate);
+                    const hrAvg = Math.round(hrData.reduce((a, b) => a + b, 0) / hrData.length);
+                    const pr = hrPoints.length > 30 ? 0 : hrPoints.length > 15 ? 2 : 3;
+
+                    vitalsChartHR = new Chart(ctxHR, {
+                        type: 'line',
+                        data: {
+                            labels: hrLabels,
+                            datasets: [
+                                {
+                                    label: 'FC (bpm)',
+                                    data: hrData,
+                                    borderColor: '#ef4444',
+                                    backgroundColor: 'rgba(239,68,68,0.1)',
+                                    fill: true, tension: 0.3, pointRadius: pr, pointHoverRadius: 5
+                                },
+                                {
+                                    label: 'Média (' + hrAvg + ' bpm)',
+                                    data: hrData.map(() => hrAvg),
+                                    borderColor: 'rgba(239,68,68,0.4)',
+                                    borderDash: [5, 5],
+                                    pointRadius: 0, fill: false, tension: 0
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            scales: {
+                                y: { suggestedMin: 40, suggestedMax: 140 },
+                                x: { ticks: { maxTicksLimit: 12, maxRotation: 45 } }
+                            },
+                            plugins: {
+                                legend: { display: true, labels: { boxWidth: 12, font: { size: 10 } } },
+                                tooltip: {
+                                    callbacks: {
+                                        title: (items) => {
+                                            const idx = items[0].dataIndex;
+                                            const d = new Date(hrPoints[idx].captured_at);
+                                            return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR');
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
             }
 
             // Chart SpO2
-            const spo2Data = vitals.map(v => v.spo2 ? parseFloat(v.spo2) : null);
             if (vitalsChartSpO2) vitalsChartSpO2.destroy();
             const ctxSpO2 = document.getElementById('chart-spo2');
             if (ctxSpO2) {
-                vitalsChartSpO2 = new Chart(ctxSpO2, {
-                    type: 'line',
-                    data: {
-                        labels,
-                        datasets: [{
-                            label: 'SpO2 (%)',
-                            data: spo2Data,
-                            borderColor: '#3b82f6',
-                            backgroundColor: 'rgba(59,130,246,0.1)',
-                            fill: true, tension: 0.3, pointRadius: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        scales: { y: { suggestedMin: 85, suggestedMax: 100 } },
-                        plugins: { legend: { display: false } }
-                    }
-                });
+                if (spo2Points.length === 0) {
+                    vitalsChartSpO2 = new Chart(ctxSpO2, {
+                        type: 'line',
+                        data: { labels: ['Sem dados'], datasets: [{ label: 'SpO2 (%)', data: [null], borderColor: '#ccc' }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                    });
+                } else {
+                    const spo2Labels = spo2Points.map(formatLabel);
+                    const spo2Data = spo2Points.map(v => parseFloat(v.spo2));
+                    const spo2Avg = (spo2Data.reduce((a, b) => a + b, 0) / spo2Data.length).toFixed(1);
+                    const pr2 = spo2Points.length > 30 ? 0 : spo2Points.length > 15 ? 2 : 3;
+
+                    vitalsChartSpO2 = new Chart(ctxSpO2, {
+                        type: 'line',
+                        data: {
+                            labels: spo2Labels,
+                            datasets: [
+                                {
+                                    label: 'SpO2 (%)',
+                                    data: spo2Data,
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: 'rgba(59,130,246,0.1)',
+                                    fill: true, tension: 0.3, pointRadius: pr2, pointHoverRadius: 5
+                                },
+                                {
+                                    label: 'Média (' + spo2Avg + '%)',
+                                    data: spo2Data.map(() => parseFloat(spo2Avg)),
+                                    borderColor: 'rgba(59,130,246,0.4)',
+                                    borderDash: [5, 5],
+                                    pointRadius: 0, fill: false, tension: 0
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            scales: {
+                                y: { suggestedMin: 85, suggestedMax: 100 },
+                                x: { ticks: { maxTicksLimit: 12, maxRotation: 45 } }
+                            },
+                            plugins: {
+                                legend: { display: true, labels: { boxWidth: 12, font: { size: 10 } } },
+                                tooltip: {
+                                    callbacks: {
+                                        title: (items) => {
+                                            const idx = items[0].dataIndex;
+                                            const d = new Date(spo2Points[idx].captured_at);
+                                            return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR');
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
             }
         }
 
@@ -3154,6 +3249,17 @@ Sistema Conecta Saúde`
             document.getElementById('vitals-ai-container').className = `rounded-lg border-2 overflow-hidden ${containerColors[analysis.classification] || ''}`;
 
             let html = `<p class="mb-3">${analysis.summary || ''}</p>`;
+
+            if (analysis.vital_status) {
+                const vs = analysis.vital_status;
+                const statusIcon = (s) => s === 'normal' ? '<span class="text-green-600 font-bold">Normal</span>' : s === 'alterado' ? '<span class="text-yellow-600 font-bold">Alterado</span>' : s === 'critico' ? '<span class="text-red-600 font-bold">Critico</span>' : '<span class="text-gray-400">Sem dados</span>';
+                html += `<div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                    <div class="bg-white rounded p-2 text-center border text-xs"><i class="fa-solid fa-heart text-red-400"></i> FC<br>${statusIcon(vs.heart_rate)}</div>
+                    <div class="bg-white rounded p-2 text-center border text-xs"><i class="fa-solid fa-lungs text-blue-400"></i> SpO2<br>${statusIcon(vs.spo2)}</div>
+                    <div class="bg-white rounded p-2 text-center border text-xs"><i class="fa-solid fa-gauge-high text-purple-400"></i> PA<br>${statusIcon(vs.blood_pressure)}</div>
+                    <div class="bg-white rounded p-2 text-center border text-xs"><i class="fa-solid fa-temperature-half text-orange-400"></i> Temp<br>${statusIcon(vs.temperature)}</div>
+                </div>`;
+            }
 
             if (analysis.trend_analysis) {
                 html += `<div class="bg-white rounded p-3 mb-3"><strong>Tendência:</strong> ${analysis.trend_analysis}</div>`;

@@ -353,9 +353,18 @@ exports.getAllPatientsVitals = async (req, res) => {
                 (SELECT COUNT(*) FROM vital_alerts va WHERE va.user_id = u.id AND va.acknowledged = false) as pending_alerts
             FROM users u
             LEFT JOIN LATERAL (
-                SELECT * FROM vital_signs_monitoring vsm
+                SELECT
+                    (array_agg(heart_rate ORDER BY captured_at DESC) FILTER (WHERE heart_rate IS NOT NULL))[1] as heart_rate,
+                    (array_agg(spo2 ORDER BY captured_at DESC) FILTER (WHERE spo2 IS NOT NULL))[1] as spo2,
+                    (array_agg(blood_pressure_sys ORDER BY captured_at DESC) FILTER (WHERE blood_pressure_sys IS NOT NULL))[1] as blood_pressure_sys,
+                    (array_agg(blood_pressure_dia ORDER BY captured_at DESC) FILTER (WHERE blood_pressure_dia IS NOT NULL))[1] as blood_pressure_dia,
+                    (array_agg(skin_temperature ORDER BY captured_at DESC) FILTER (WHERE skin_temperature IS NOT NULL))[1] as skin_temperature,
+                    (array_agg(steps ORDER BY captured_at DESC) FILTER (WHERE steps IS NOT NULL))[1] as steps,
+                    (array_agg(sleep_stage ORDER BY captured_at DESC) FILTER (WHERE sleep_stage IS NOT NULL))[1] as sleep_stage,
+                    MAX(captured_at) as captured_at,
+                    (array_agg(source ORDER BY captured_at DESC))[1] as source
+                FROM vital_signs_monitoring vsm
                 WHERE vsm.user_id = u.id
-                ORDER BY captured_at DESC LIMIT 1
             ) v ON true
             LEFT JOIN google_fit_tokens gft ON gft.user_id = u.id
             WHERE u.role = 'user'
@@ -416,56 +425,75 @@ exports.aiAnalysis = async (req, res) => {
             { replacements: { userId }, type: QueryTypes.SELECT }
         );
 
-        // Buscar sinais vitais das últimas 2 horas
+        // Buscar sinais vitais das últimas 24 horas
         const vitals = await sequelize.query(`
             SELECT heart_rate, spo2, blood_pressure_sys, blood_pressure_dia,
                    skin_temperature, steps, sleep_stage, stress_level, captured_at
             FROM vital_signs_monitoring
-            WHERE user_id = :userId AND captured_at >= NOW() - INTERVAL '2 hours'
+            WHERE user_id = :userId AND captured_at >= NOW() - INTERVAL '24 hours'
             ORDER BY captured_at ASC
         `, { replacements: { userId }, type: QueryTypes.SELECT });
 
         if (vitals.length === 0) {
-            return res.status(400).json({ error: 'Nenhum sinal vital registrado nas últimas 2 horas' });
+            return res.status(400).json({ error: 'Nenhum sinal vital registrado nas últimas 24 horas. Sincronize o Health Sync primeiro.' });
         }
 
-        // Formatar dados para o prompt
+        // Formatar dados para o prompt — agregar últimos valores não-nulos
         const comorbList = comorbidities.length > 0
             ? comorbidities.map(c => c.comorbidity).join(', ')
             : 'Nenhuma comorbidade registrada';
 
-        const fcValues = vitals.filter(v => v.heart_rate).map(v => v.heart_rate).join(', ');
-        const spo2Values = vitals.filter(v => v.spo2).map(v => v.spo2).join(', ');
-        const bpValues = vitals.filter(v => v.blood_pressure_sys).map(v => `${v.blood_pressure_sys}/${v.blood_pressure_dia}`).join(', ');
-        const tempValues = vitals.filter(v => v.skin_temperature).map(v => v.skin_temperature).join(', ');
-        const lastVital = vitals[vitals.length - 1];
+        const fcValues = vitals.filter(v => v.heart_rate).map(v => v.heart_rate);
+        const spo2Values = vitals.filter(v => v.spo2).map(v => v.spo2);
+        const bpValues = vitals.filter(v => v.blood_pressure_sys).map(v => `${v.blood_pressure_sys}/${v.blood_pressure_dia}`);
+        const tempValues = vitals.filter(v => v.skin_temperature).map(v => v.skin_temperature);
+        const stepsValues = vitals.filter(v => v.steps).map(v => v.steps);
 
-        const prompt = `Você é um Membro da Equipe Conecta Saúde analisando sinais vitais de um paciente.
+        // Calcular médias e extremos para FC
+        const fcMin = fcValues.length > 0 ? Math.min(...fcValues) : null;
+        const fcMax = fcValues.length > 0 ? Math.max(...fcValues) : null;
+        const fcAvg = fcValues.length > 0 ? Math.round(fcValues.reduce((a, b) => a + b, 0) / fcValues.length) : null;
+
+        const prompt = `Você é um Membro da Equipe Conecta Saúde analisando sinais vitais de um paciente monitorado via Smart Band (Health Sync).
 REGRA ANVISA: Nunca se identifique como "Dr.", "Médico" ou "Doutor". Use sempre "Equipe Conecta Saúde".
+Sua análise deve ser clara e objetiva, classificando o estado geral do paciente.
 
 DADOS DO PACIENTE:
 - Nome: ${user.name}, Idade: ${user.age || 'N/A'} anos, Sexo: ${user.sex === 'M' ? 'Masculino' : 'Feminino'}
 - Comorbidades ativas: ${comorbList}
 
-SINAIS VITAIS (últimas 2 horas - ${vitals.length} leituras):
-- Frequência Cardíaca: ${fcValues || 'N/A'} bpm
-- SpO2: ${spo2Values || 'N/A'} %
-- Pressão Arterial: ${bpValues || 'N/A'} mmHg
-- Temperatura: ${tempValues || 'N/A'} °C
-- Passos: ${lastVital.steps || 'N/A'}
-- Sono: ${lastVital.sleep_stage || 'N/A'}
-- Nível de Estresse: ${lastVital.stress_level || 'N/A'}
+SINAIS VITAIS (últimas 24h - ${vitals.length} leituras totais):
 
-Analise os sinais vitais considerando as comorbidades do paciente. Avalie tendências e riscos.
+Frequência Cardíaca (${fcValues.length} leituras):
+  Valores: ${fcValues.length > 0 ? fcValues.join(', ') : 'N/A'} bpm
+  ${fcMin !== null ? `Min: ${fcMin} | Média: ${fcAvg} | Max: ${fcMax} bpm` : ''}
+
+SpO2: ${spo2Values.length > 0 ? spo2Values.join(', ') : 'N/A'} %
+
+Pressão Arterial: ${bpValues.length > 0 ? bpValues.join(', ') : 'N/A'} mmHg
+
+Temperatura: ${tempValues.length > 0 ? tempValues.join(', ') : 'N/A'} °C
+
+Passos: ${stepsValues.length > 0 ? stepsValues.join(', ') : 'N/A'}
+
+Analise TODOS os sinais vitais disponíveis considerando as comorbidades do paciente.
+Avalie se cada parâmetro está dentro da normalidade, alterado ou crítico.
+Considere os valores de referência padrão para cada faixa etária e sexo.
 
 Responda em JSON:
 {
     "classification": "normal ou alterado ou critico",
-    "summary": "Resumo da análise em linguagem acessível para o admin",
+    "summary": "Resumo geral do estado do paciente em linguagem acessível (2-3 frases)",
+    "vital_status": {
+        "heart_rate": "normal/alterado/critico/sem dados",
+        "spo2": "normal/alterado/critico/sem dados",
+        "blood_pressure": "normal/alterado/critico/sem dados",
+        "temperature": "normal/alterado/critico/sem dados"
+    },
     "alerts": ["alerta 1 se houver", "alerta 2 se houver"],
     "recommendations": ["recomendação 1", "recomendação 2"],
-    "trend_analysis": "Análise de tendência dos dados ao longo do período",
-    "priority_action": "Ação prioritária (se houver) ou 'Nenhuma ação imediata necessária'"
+    "trend_analysis": "Análise de tendência e variabilidade dos dados",
+    "priority_action": "Ação prioritária ou 'Nenhuma ação imediata necessária'"
 }`;
 
         const aiResult = await callGeminiBackend(prompt);
