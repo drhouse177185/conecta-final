@@ -930,7 +930,7 @@
                             <i class="fa-solid fa-sync mr-1"></i> Atualizar
                         </button>
                         <button onclick="analyzeVitalsWithAI()" id="btn-vitals-ai" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded font-bold text-sm transition hidden">
-                            <i class="fa-solid fa-brain mr-1"></i> Analisar com IA
+                            <i class="fa-solid fa-brain mr-1"></i> Analise Inteligente!
                         </button>
                     </div>
 
@@ -1021,7 +1021,7 @@
                     <div id="vitals-empty" class="p-8 text-center text-gray-400">
                         <i class="fa-solid fa-heartbeat text-5xl text-gray-200 mb-3"></i>
                         <p class="font-bold">Selecione um paciente para visualizar os sinais vitais</p>
-                        <p class="text-xs mt-1">Os dados são capturados via Google Fit das smart bands conectadas</p>
+                        <p class="text-xs mt-1">Os dados são capturados via Health Sync (Samsung Health) das smart bands conectadas</p>
                     </div>
                 </div>
             </div>
@@ -1030,7 +1030,7 @@
     </div>
 
     <!-- MODAL DE RECARGA DE CRÉDITOS -->
-    <!-- MODAL GOOGLE FIT / SMART BAND -->
+    <!-- MODAL HEALTH SYNC / SMART BAND -->
     <div id="googlefit-modal" class="modal-overlay">
         <div class="modal-card" style="max-width:420px;">
             <div class="bg-purple-700 text-white p-4 flex justify-between items-center">
@@ -1040,7 +1040,7 @@
             <div class="p-6">
                 <div id="gfit-status" class="text-center mb-4">
                     <i class="fa-solid fa-watch text-4xl text-purple-300 mb-3"></i>
-                    <p class="text-sm text-gray-600">Conecte sua smart band via Google Fit para monitoramento de sinais vitais.</p>
+                    <p class="text-sm text-gray-600">Conecte sua smart band via Health Sync para monitoramento de sinais vitais.</p>
                 </div>
                 <div id="gfit-connected" class="hidden text-center mb-4">
                     <i class="fa-solid fa-circle-check text-4xl text-green-500 mb-3"></i>
@@ -1049,13 +1049,13 @@
                 </div>
                 <div class="space-y-3">
                     <button onclick="connectGoogleFit()" id="btn-gfit-connect" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded shadow transition">
-                        <i class="fa-brands fa-google mr-2"></i> Conectar com Google Fit
+                        <i class="fa-brands fa-google mr-2"></i> Conectar com Health Sync
                     </button>
                     <button onclick="syncGoogleFitNow()" id="btn-gfit-sync" class="hidden w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded shadow transition">
                         <i class="fa-solid fa-rotate mr-2"></i> Sincronizar Agora
                     </button>
                 </div>
-                <p class="text-xs text-gray-400 mt-4 text-center">Compatível com: Mi Band, Galaxy Watch, Fitbit, Garmin e outros dispositivos conectados ao Google Fit.</p>
+                <p class="text-xs text-gray-400 mt-4 text-center">Compatível com: Galaxy Watch e outros dispositivos Samsung Health via Health Sync (exporta dados para Google Drive).</p>
             </div>
         </div>
     </div>
@@ -3227,7 +3227,7 @@ Sistema Conecta Saúde`
         }
 
         // =============================================
-        // GOOGLE FIT - LADO DO PACIENTE
+        // HEALTH SYNC - LADO DO PACIENTE
         // =============================================
         function openGoogleFitModal() {
             document.getElementById('googlefit-modal').classList.add('active');
@@ -3255,7 +3255,7 @@ Sistema Conecta Saúde`
                         document.getElementById('gfit-last-sync').textContent = `Último sync: ${new Date(data.lastSync).toLocaleString('pt-BR')}`;
                     }
                 }
-            } catch (e) { console.error('Erro Google Fit status:', e); }
+            } catch (e) { console.error('Erro Health Sync status:', e); }
         }
 
         async function connectGoogleFit() {
@@ -3269,9 +3269,9 @@ Sistema Conecta Saúde`
                     // Verifica status após alguns segundos
                     setTimeout(checkGoogleFitStatus, 10000);
                 } else {
-                    showToast(data.error || 'Google Fit não configurado', 'error');
+                    showToast(data.error || 'Health Sync não configurado', 'error');
                 }
-            } catch (e) { showToast('Erro ao conectar Google Fit', 'error'); }
+            } catch (e) { showToast('Erro ao conectar Health Sync', 'error'); }
         }
 
         async function syncGoogleFitNow() {

@@ -282,7 +282,7 @@ exports.installDatabase = async (req, res) => {
                 last_sync_at TIMESTAMP
             );
         `);
-        console.log("✅ Tabela google_fit_tokens criada/verificada");
+        console.log("✅ Tabela google_fit_tokens criada/verificada (Health Sync/Google Drive)");
 
         // 14. ADICIONAR COLUNA severity_level NA TABELA pos_consulta_analyses (se não existir)
         await sequelize.query(`
@@ -306,7 +306,7 @@ exports.installDatabase = async (req, res) => {
                 <p>10. Colunas <strong>birth_date</strong> e <strong>cep</strong> adicionadas na tabela users (data de nascimento e CEP).</p>
                 <p>11. Tabela <strong>vital_signs_monitoring</strong> criada (monitoramento de sinais vitais).</p>
                 <p>12. Tabela <strong>vital_alerts</strong> criada (alertas automáticos de sinais vitais).</p>
-                <p>13. Tabela <strong>google_fit_tokens</strong> criada (integração Google Fit).</p>
+                <p>13. Tabela <strong>google_fit_tokens</strong> criada (integração Health Sync/Google Drive).</p>
                 <p>14. Coluna <strong>severity_level</strong> adicionada na tabela pos_consulta_analyses (classificação de gravidade).</p>
                 <hr>
                 <p><strong>✅ BANCO DE DADOS ATUALIZADO!</strong> Sistema de confirmação de email, LGPD e gravidade de exames configurado.</p>
