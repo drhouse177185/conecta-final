@@ -12,6 +12,7 @@ const comorbidityController = require('../controllers/comorbidityController'); /
 const preoperativeController = require('../controllers/preoperativeController'); // NOVO: Controller de avaliacoes pre-operatorias
 const sessionController = require('../controllers/sessionController'); // NOVO: Controller de sessões persistidas
 const vitalSignsController = require('../controllers/vitalSignsController'); // NOVO: Controller de sinais vitais
+const locationController = require('../controllers/locationController'); // NOVO: Controller de localização do paciente
 
 // --- Rotas Básicas ---
 router.get('/saudacao', mainController.saudacao);
@@ -86,6 +87,10 @@ router.get('/vitals/googlefit/callback', vitalSignsController.googleFitCallback)
 router.get('/vitals/googlefit/status/:userId', vitalSignsController.googleFitStatus);
 router.post('/vitals/demo', vitalSignsController.generateDemoData);
 router.get('/vitals/diagnose', vitalSignsController.diagnoseDrive);
+
+// --- ROTAS DE LOCALIZAÇÃO DO PACIENTE ---
+router.post('/location/update', locationController.updateLocation);
+router.get('/location/:userId', locationController.getLocation);
 
 // --- ROTAS DE RECUPERAÇÃO DE SENHA ---
 router.post('/auth/verify-cpf', userController.verifyCpf);

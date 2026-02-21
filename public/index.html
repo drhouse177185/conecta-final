@@ -39,6 +39,10 @@
     <!-- Chart.js: Gráficos para dashboard de sinais vitais -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- Leaflet.js: Mapa interativo para localização de pacientes -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <!-- Bibliotecas de Ícones -->
     <!-- Lucide: Ícones leves e modernos em SVG -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1000,6 +1004,22 @@
                         </div>
                     </div>
 
+                    <!-- Mapa de Localização do Paciente -->
+                    <div id="vitals-location-section" class="hidden mb-4">
+                        <div class="bg-white rounded-lg p-4 border">
+                            <h4 class="text-sm font-bold text-gray-700 mb-2">
+                                <i class="fa-solid fa-map-location-dot mr-1 text-emerald-500"></i>
+                                Localização do Paciente
+                                <span id="location-timestamp" class="text-xs font-normal text-gray-400 ml-2"></span>
+                            </h4>
+                            <div id="patient-map" style="height: 300px; border-radius: 8px; z-index: 0;"></div>
+                            <p id="location-empty" class="hidden text-center text-gray-400 text-sm py-8">
+                                <i class="fa-solid fa-location-crosshairs text-2xl text-gray-300 mb-2 block"></i>
+                                Nenhuma localização registrada para este paciente
+                            </p>
+                        </div>
+                    </div>
+
                     <!-- Painel de Análise IA -->
                     <div id="vitals-ai-panel" class="hidden mb-4">
                         <div class="rounded-lg border-2 overflow-hidden" id="vitals-ai-container">
@@ -1636,6 +1656,9 @@ const OFFICIAL_SIGNATURE_TEMPLATE = `
                     // NOVO: Configura listeners e carrega comorbidades salvas
                     setupComorbidityListeners();
                     loadUserComorbidities();
+
+                    // Inicia rastreamento de localização do paciente
+                    startLocationTracking();
 
                     // Lógica de sexo, etc... (Mantém o original)
                     const lblPreg = document.getElementById('lbl-pregnancy');
@@ -2950,6 +2973,7 @@ Sistema Conecta Saúde`
                 document.getElementById('vitals-charts').classList.add('hidden');
                 document.getElementById('vitals-ai-panel').classList.add('hidden');
                 document.getElementById('vitals-alerts-section').classList.add('hidden');
+                document.getElementById('vitals-location-section').classList.add('hidden');
                 document.getElementById('btn-vitals-ai').classList.add('hidden');
                 document.getElementById('vitals-empty').classList.remove('hidden');
             }
@@ -3013,8 +3037,9 @@ Sistema Conecta Saúde`
                 }
             } catch (e) { console.error('Erro vitais:', e); }
 
-            // Carregar alertas
+            // Carregar alertas e localização
             loadVitalsAlerts();
+            loadPatientLocation(userId);
         }
 
         function renderVitalCards(latest) {
@@ -3329,6 +3354,82 @@ Sistema Conecta Saúde`
                 statusEl.classList.remove('bg-rose-800');
                 statusEl.classList.add('bg-green-600');
                 showToast('Auto-refresh ativado (30s)', 'success');
+            }
+        }
+
+        // =============================================
+        // MAPA DE LOCALIZAÇÃO DO PACIENTE (ADMIN)
+        // =============================================
+        let patientMap = null;
+        let patientMarker = null;
+
+        function initPatientMap() {
+            if (patientMap) return;
+            const mapEl = document.getElementById('patient-map');
+            if (!mapEl) return;
+
+            patientMap = L.map('patient-map').setView([-15.78, -47.93], 4);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap',
+                maxZoom: 18
+            }).addTo(patientMap);
+        }
+
+        async function loadPatientLocation(userId) {
+            const sectionEl = document.getElementById('vitals-location-section');
+            const emptyEl = document.getElementById('location-empty');
+            const mapEl = document.getElementById('patient-map');
+            const tsEl = document.getElementById('location-timestamp');
+
+            if (!userId) {
+                sectionEl.classList.add('hidden');
+                return;
+            }
+
+            sectionEl.classList.remove('hidden');
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/location/${userId}`);
+                const data = await res.json();
+
+                if (!data.success || !data.location) {
+                    mapEl.style.display = 'none';
+                    emptyEl.classList.remove('hidden');
+                    tsEl.textContent = '';
+                    return;
+                }
+
+                mapEl.style.display = 'block';
+                emptyEl.classList.add('hidden');
+
+                initPatientMap();
+
+                const { latitude, longitude, updated_at } = data.location;
+                const latlng = [latitude, longitude];
+
+                if (patientMarker) {
+                    patientMarker.setLatLng(latlng);
+                } else {
+                    patientMarker = L.marker(latlng).addTo(patientMap);
+                }
+
+                const patient = vitalsPatientsList.find(p => p.id == userId);
+                const name = patient ? patient.name : 'Paciente';
+                patientMarker.bindPopup(`<strong>${name}</strong><br>Lat: ${latitude.toFixed(5)}<br>Lon: ${longitude.toFixed(5)}`).openPopup();
+
+                patientMap.setView(latlng, 15);
+                setTimeout(() => patientMap.invalidateSize(), 150);
+
+                if (updated_at) {
+                    const d = new Date(updated_at);
+                    tsEl.textContent = `Atualizado: ${d.toLocaleString('pt-BR')}`;
+                } else {
+                    tsEl.textContent = '';
+                }
+            } catch (e) {
+                console.error('[Location] Erro ao carregar:', e);
+                mapEl.style.display = 'none';
+                emptyEl.classList.remove('hidden');
             }
         }
 
@@ -5284,6 +5385,35 @@ Sistema Conecta Saude`
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
                 );
             });
+        }
+
+        // Envio periódico de localização do paciente para o backend
+        async function sendLocationToBackend() {
+            try {
+                if (!currentUser || currentUser.role === 'admin') return;
+                const coords = await captureGeolocation();
+                if (!coords) return;
+                await fetch(`${BACKEND_URL}/api/location/update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        latitude: coords.latitude,
+                        longitude: coords.longitude
+                    })
+                });
+                console.log('📍 Localização enviada ao backend');
+            } catch (e) {
+                console.error('📍 Erro ao enviar localização:', e);
+            }
+        }
+
+        let locationInterval = null;
+        function startLocationTracking() {
+            if (locationInterval) return;
+            sendLocationToBackend();
+            locationInterval = setInterval(sendLocationToBackend, 5 * 60 * 1000);
+            console.log('📍 Rastreamento de localização iniciado (intervalo: 5min)');
         }
 
         // NOVO: Salvar análise de pós-consulta para persistência entre sessões

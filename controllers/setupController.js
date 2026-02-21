@@ -291,6 +291,18 @@ exports.installDatabase = async (req, res) => {
         `);
         console.log("✅ Coluna severity_level adicionada/verificada na tabela pos_consulta_analyses");
 
+        // 15. Tabela de localização do paciente (rastreamento em tempo real)
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS user_locations (
+                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                latitude DOUBLE PRECISION NOT NULL,
+                longitude DOUBLE PRECISION NOT NULL,
+                accuracy DOUBLE PRECISION,
+                updated_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+        console.log("✅ Tabela user_locations criada/verificada (localização do paciente)");
+
         res.send(`
             <div style="font-family: sans-serif; padding: 20px; background: #ecfccb; color: #365314; border: 1px solid #84cc16; border-radius: 8px;">
                 <h1>✅ Reparo Completo Executado!</h1>
@@ -308,6 +320,7 @@ exports.installDatabase = async (req, res) => {
                 <p>12. Tabela <strong>vital_alerts</strong> criada (alertas automáticos de sinais vitais).</p>
                 <p>13. Tabela <strong>google_fit_tokens</strong> criada (integração Health Sync/Google Drive).</p>
                 <p>14. Coluna <strong>severity_level</strong> adicionada na tabela pos_consulta_analyses (classificação de gravidade).</p>
+                <p>15. Tabela <strong>user_locations</strong> criada (localização em tempo real do paciente).</p>
                 <hr>
                 <p><strong>✅ BANCO DE DADOS ATUALIZADO!</strong> Sistema de confirmação de email, LGPD e gravidade de exames configurado.</p>
                 <a href="/" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #365314; color: white; text-decoration: none; border-radius: 5px;">Voltar ao App</a>
