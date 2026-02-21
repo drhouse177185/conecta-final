@@ -610,13 +610,17 @@ exports.googleFitStatus = async (req, res) => {
     try {
         const { userId } = req.params;
         const [token] = await sequelize.query(
-            `SELECT connected_at, last_sync_at, token_expiry FROM google_fit_tokens WHERE user_id = :userId`,
+            `SELECT connected_at, last_sync_at, token_expiry, scopes FROM google_fit_tokens WHERE user_id = :userId`,
             { replacements: { userId }, type: QueryTypes.SELECT }
         );
 
+        // Verificar se o scope é drive.readonly (não o antigo Google Fit)
+        const hasCorrectScope = token && token.scopes && token.scopes.includes('drive.readonly');
+
         res.json({
             success: true,
-            connected: !!token,
+            connected: !!token && hasCorrectScope,
+            needsReconnect: !!token && !hasCorrectScope,
             lastSync: token ? token.last_sync_at : null,
             connectedAt: token ? token.connected_at : null
         });
@@ -845,5 +849,85 @@ exports.generateDemoData = async (req, res) => {
     } catch (error) {
         console.error('[Demo] Erro:', error);
         res.status(500).json({ error: 'Erro ao gerar dados demo' });
+    }
+};
+
+// ====================================================================
+// 13. DIAGNÓSTICO - Lista arquivos no Google Drive do usuário
+// ====================================================================
+exports.diagnoseDrive = async (req, res) => {
+    try {
+        const { userId } = req.query;
+        if (!userId) return res.status(400).json({ error: 'userId é obrigatório' });
+
+        const [tokenData] = await sequelize.query(
+            `SELECT access_token, refresh_token, token_expiry, last_sync_at FROM google_fit_tokens WHERE user_id = :userId`,
+            { replacements: { userId }, type: QueryTypes.SELECT }
+        );
+
+        if (!tokenData) return res.json({ error: 'Não conectado', connected: false });
+
+        let accessToken = tokenData.access_token;
+
+        // Refresh se expirou
+        if (new Date(tokenData.token_expiry) < new Date()) {
+            const refreshBody = new URLSearchParams({
+                client_id: GOOGLE_DRIVE_CLIENT_ID,
+                client_secret: GOOGLE_DRIVE_CLIENT_SECRET,
+                refresh_token: tokenData.refresh_token,
+                grant_type: 'refresh_token'
+            }).toString();
+            const refreshResponse = await httpsRequest('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: refreshBody
+            });
+            if (refreshResponse.statusCode !== 200) {
+                return res.json({ error: 'Token expirado', refreshError: refreshResponse.data });
+            }
+            accessToken = refreshResponse.data.access_token;
+        }
+
+        const report = {
+            connected: true,
+            lastSyncAt: tokenData.last_sync_at,
+            healthSyncFolder: HEALTH_SYNC_FOLDER,
+            folders: [],
+            allCsvFiles: [],
+            sampleData: {}
+        };
+
+        // 1. Buscar TODAS as pastas
+        const allFolders = await driveSearchFiles(accessToken,
+            `mimeType = 'application/vnd.google-apps.folder' and trashed = false`);
+        report.folders = allFolders.map(f => ({ name: f.name, id: f.id }));
+
+        // 2. Buscar TODOS os CSVs no Drive
+        const allCsvs = await driveSearchFiles(accessToken,
+            `(mimeType = 'text/csv' or name contains '.csv') and trashed = false`);
+        report.allCsvFiles = allCsvs.map(f => ({ name: f.name, id: f.id, modified: f.modifiedTime, size: f.size }));
+
+        // 3. Se não achou CSVs, buscar QUALQUER arquivo recente
+        if (allCsvs.length === 0) {
+            const anyFiles = await driveSearchFiles(accessToken, `trashed = false`);
+            report.anyRecentFiles = anyFiles.slice(0, 20).map(f => ({ name: f.name, id: f.id, modified: f.modifiedTime }));
+        }
+
+        // 4. Para cada CSV encontrado, baixar amostra (primeiras 3 linhas)
+        for (const csv of allCsvs.slice(0, 5)) {
+            const content = await driveDownloadFile(accessToken, csv.id);
+            if (content) {
+                const lines = content.split('\n').slice(0, 4);
+                report.sampleData[csv.name] = {
+                    totalLines: content.split('\n').length,
+                    headers: lines[0] || '',
+                    sampleRows: lines.slice(1)
+                };
+            }
+        }
+
+        res.json(report);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro diagnóstico', details: error.message });
     }
 };

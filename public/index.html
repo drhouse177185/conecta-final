@@ -3243,7 +3243,14 @@ Sistema Conecta Saúde`
             try {
                 const res = await fetch(`${BACKEND_URL}/api/vitals/googlefit/status/${currentUser.id}`);
                 const data = await res.json();
-                if (data.connected) {
+                if (data.needsReconnect) {
+                    // Token antigo (Google Fit) — precisa reconectar com scope Drive
+                    document.getElementById('gfit-status').classList.remove('hidden');
+                    document.getElementById('gfit-connected').classList.add('hidden');
+                    document.getElementById('btn-gfit-connect').classList.remove('hidden');
+                    document.getElementById('btn-gfit-sync').classList.add('hidden');
+                    showToast('Reconecte a Smart Band para ativar o Health Sync', 'warning');
+                } else if (data.connected) {
                     document.getElementById('gfit-status').classList.add('hidden');
                     document.getElementById('gfit-connected').classList.remove('hidden');
                     document.getElementById('btn-gfit-connect').classList.add('hidden');
