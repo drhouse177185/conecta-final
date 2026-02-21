@@ -1031,7 +1031,7 @@
 
     <!-- MODAL DE RECARGA DE CRÉDITOS -->
     <!-- MODAL GOOGLE FIT / SMART BAND -->
-    <div id="googlefit-modal" class="modal-overlay" style="display:none;">
+    <div id="googlefit-modal" class="modal-overlay">
         <div class="modal-card" style="max-width:420px;">
             <div class="bg-purple-700 text-white p-4 flex justify-between items-center">
                 <h3 class="font-bold text-lg"><i class="fa-solid fa-watch text-purple-200 mr-2"></i> Smart Band</h3>
@@ -3230,12 +3230,12 @@ Sistema Conecta Saúde`
         // GOOGLE FIT - LADO DO PACIENTE
         // =============================================
         function openGoogleFitModal() {
-            document.getElementById('googlefit-modal').style.display = 'flex';
+            document.getElementById('googlefit-modal').classList.add('active');
             checkGoogleFitStatus();
         }
 
         function closeGoogleFitModal() {
-            document.getElementById('googlefit-modal').style.display = 'none';
+            document.getElementById('googlefit-modal').classList.remove('active');
         }
 
         async function checkGoogleFitStatus() {
