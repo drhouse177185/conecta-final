@@ -84,6 +84,7 @@ router.post('/vitals/alerts/:id/ack', vitalSignsController.acknowledgeAlert);
 router.get('/vitals/googlefit/auth-url', vitalSignsController.getGoogleFitAuthUrl);
 router.get('/vitals/googlefit/callback', vitalSignsController.googleFitCallback);
 router.get('/vitals/googlefit/status/:userId', vitalSignsController.googleFitStatus);
+router.post('/vitals/demo', vitalSignsController.generateDemoData);
 
 // --- ROTAS DE RECUPERAÇÃO DE SENHA ---
 router.post('/auth/verify-cpf', userController.verifyCpf);

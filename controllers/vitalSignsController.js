@@ -505,7 +505,7 @@ exports.googleFitStatus = async (req, res) => {
 };
 
 // ====================================================================
-// 11. GOOGLE FIT - Sincronizar dados
+// 11. GOOGLE FIT - Sincronizar dados (TODOS os tipos de sinais vitais)
 // ====================================================================
 exports.syncGoogleFit = async (req, res) => {
     try {
@@ -549,50 +549,176 @@ exports.syncGoogleFit = async (req, res) => {
             `, { replacements: { token: accessToken, expiry: newExpiry, userId }, type: QueryTypes.UPDATE });
         }
 
-        // Buscar dados do Google Fit (últimas 2 horas)
         const endTimeMillis = Date.now();
-        const startTimeMillis = endTimeMillis - (2 * 60 * 60 * 1000);
+        const startTimeMillis = endTimeMillis - (24 * 60 * 60 * 1000); // últimas 24h
+
+        // Helper para buscar dados agregados do Google Fit
+        const fetchGoogleFitData = async (dataTypeName) => {
+            const body = JSON.stringify({
+                aggregateBy: [{ dataTypeName }],
+                bucketByTime: { durationMillis: 300000 }, // 5 min buckets
+                startTimeMillis,
+                endTimeMillis
+            });
+            const response = await httpsRequest(
+                'https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body
+                }
+            );
+            return response;
+        };
+
+        // Buscar todos os tipos de dados em paralelo
+        const [hrRes, spo2Res, bpRes, tempRes, stepsRes] = await Promise.all([
+            fetchGoogleFitData('com.google.heart_rate.bpm'),
+            fetchGoogleFitData('com.google.oxygen_saturation'),
+            fetchGoogleFitData('com.google.blood_pressure'),
+            fetchGoogleFitData('com.google.body.temperature'),
+            fetchGoogleFitData('com.google.step_count.delta')
+        ]);
+
+        // Coletar dados por timestamp (agrupa leituras próximas)
+        const readings = {};
+
+        const getTimeKey = (nanos) => {
+            const ms = parseInt(nanos) / 1000000;
+            // Arredonda para janela de 5 min
+            const rounded = Math.round(ms / 300000) * 300000;
+            return rounded;
+        };
+
+        const ensureReading = (timeKey) => {
+            if (!readings[timeKey]) {
+                readings[timeKey] = { capturedAt: new Date(timeKey) };
+            }
+            return readings[timeKey];
+        };
 
         // Heart Rate
-        const hrBody = JSON.stringify({
-            aggregateBy: [{ dataTypeName: 'com.google.heart_rate.bpm' }],
-            bucketByTime: { durationMillis: 300000 }, // 5 min buckets
-            startTimeMillis,
-            endTimeMillis
-        });
-
-        const hrResponse = await httpsRequest(
-            'https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate',
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`
-                },
-                body: hrBody
-            }
-        );
-
-        let savedCount = 0;
-
-        if (hrResponse.statusCode === 200 && hrResponse.data.bucket) {
-            for (const bucket of hrResponse.data.bucket) {
-                if (bucket.dataset && bucket.dataset[0] && bucket.dataset[0].point) {
+        if (hrRes.statusCode === 200 && hrRes.data.bucket) {
+            for (const bucket of hrRes.data.bucket) {
+                if (bucket.dataset?.[0]?.point) {
                     for (const point of bucket.dataset[0].point) {
-                        const hr = point.value[0].fpVal || point.value[0].intVal;
-                        const capturedAt = new Date(parseInt(point.startTimeNanos) / 1000000);
-
-                        await sequelize.query(`
-                            INSERT INTO vital_signs_monitoring (user_id, heart_rate, captured_at, source)
-                            VALUES (:userId, :hr, :capturedAt, 'google_fit')
-                            ON CONFLICT DO NOTHING
-                        `, {
-                            replacements: { userId, hr: Math.round(hr), capturedAt },
-                            type: QueryTypes.INSERT
-                        });
-                        savedCount++;
+                        const val = point.value[0]?.fpVal || point.value[0]?.intVal;
+                        if (val) {
+                            const tk = getTimeKey(point.startTimeNanos);
+                            ensureReading(tk).heart_rate = Math.round(val);
+                        }
                     }
                 }
+            }
+        }
+
+        // SpO2
+        if (spo2Res.statusCode === 200 && spo2Res.data.bucket) {
+            for (const bucket of spo2Res.data.bucket) {
+                if (bucket.dataset?.[0]?.point) {
+                    for (const point of bucket.dataset[0].point) {
+                        const val = point.value[0]?.fpVal || point.value[0]?.intVal;
+                        if (val) {
+                            const tk = getTimeKey(point.startTimeNanos);
+                            ensureReading(tk).spo2 = parseFloat(val).toFixed(1);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Blood Pressure (sys = value[0], dia = value[1])
+        if (bpRes.statusCode === 200 && bpRes.data.bucket) {
+            for (const bucket of bpRes.data.bucket) {
+                if (bucket.dataset?.[0]?.point) {
+                    for (const point of bucket.dataset[0].point) {
+                        const sys = point.value[0]?.fpVal || point.value[0]?.intVal;
+                        const dia = point.value[1]?.fpVal || point.value[1]?.intVal;
+                        if (sys && dia) {
+                            const tk = getTimeKey(point.startTimeNanos);
+                            const r = ensureReading(tk);
+                            r.blood_pressure_sys = Math.round(sys);
+                            r.blood_pressure_dia = Math.round(dia);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Temperature
+        if (tempRes.statusCode === 200 && tempRes.data.bucket) {
+            for (const bucket of tempRes.data.bucket) {
+                if (bucket.dataset?.[0]?.point) {
+                    for (const point of bucket.dataset[0].point) {
+                        const val = point.value[0]?.fpVal || point.value[0]?.intVal;
+                        if (val) {
+                            const tk = getTimeKey(point.startTimeNanos);
+                            ensureReading(tk).skin_temperature = parseFloat(val).toFixed(1);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Steps
+        if (stepsRes.statusCode === 200 && stepsRes.data.bucket) {
+            for (const bucket of stepsRes.data.bucket) {
+                if (bucket.dataset?.[0]?.point) {
+                    for (const point of bucket.dataset[0].point) {
+                        const val = point.value[0]?.intVal || point.value[0]?.fpVal;
+                        if (val) {
+                            const tk = getTimeKey(point.startTimeNanos);
+                            ensureReading(tk).steps = Math.round(val);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Salvar no banco
+        let savedCount = 0;
+        for (const timeKey of Object.keys(readings)) {
+            const r = readings[timeKey];
+            await sequelize.query(`
+                INSERT INTO vital_signs_monitoring
+                (user_id, heart_rate, spo2, blood_pressure_sys, blood_pressure_dia,
+                 skin_temperature, steps, captured_at, source)
+                VALUES (:userId, :hr, :spo2, :bpSys, :bpDia, :temp, :steps, :capturedAt, 'google_fit')
+            `, {
+                replacements: {
+                    userId,
+                    hr: r.heart_rate || null,
+                    spo2: r.spo2 || null,
+                    bpSys: r.blood_pressure_sys || null,
+                    bpDia: r.blood_pressure_dia || null,
+                    temp: r.skin_temperature || null,
+                    steps: r.steps || null,
+                    capturedAt: r.capturedAt
+                },
+                type: QueryTypes.INSERT
+            });
+            savedCount++;
+        }
+
+        // Gerar alertas automáticos para a leitura mais recente
+        const timeKeys = Object.keys(readings).sort();
+        if (timeKeys.length > 0) {
+            const latest = readings[timeKeys[timeKeys.length - 1]];
+            const alerts = generateAutoAlerts(latest);
+            for (const alert of alerts) {
+                await sequelize.query(`
+                    INSERT INTO vital_alerts (user_id, alert_type, severity, message)
+                    VALUES (:userId, :type, :severity, :message)
+                `, {
+                    replacements: { userId, type: alert.type, severity: alert.severity, message: alert.message },
+                    type: QueryTypes.INSERT
+                });
+            }
+            if (alerts.length > 0) {
+                console.log(`🚨 [GoogleFit] ${alerts.length} alerta(s) gerado(s) para User ${userId}`);
             }
         }
 
@@ -602,10 +728,54 @@ exports.syncGoogleFit = async (req, res) => {
             { replacements: { userId }, type: QueryTypes.UPDATE }
         );
 
-        console.log(`📱 [GoogleFit] Sync User ${userId}: ${savedCount} leituras`);
+        console.log(`📱 [GoogleFit] Sync User ${userId}: ${savedCount} leituras (HR+SpO2+BP+Temp+Steps)`);
         res.json({ success: true, synced: savedCount });
     } catch (error) {
         console.error('[GoogleFit] Sync error:', error);
         res.status(500).json({ error: 'Erro ao sincronizar', details: error.message });
+    }
+};
+
+// ====================================================================
+// 12. DADOS DEMO - Gera leituras simuladas para teste/demonstração
+// ====================================================================
+exports.generateDemoData = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) return res.status(400).json({ error: 'userId é obrigatório' });
+
+        const now = Date.now();
+        let count = 0;
+
+        // Gera 24 leituras (1 a cada 5 min nas últimas 2 horas)
+        for (let i = 0; i < 24; i++) {
+            const capturedAt = new Date(now - (i * 5 * 60 * 1000));
+            const hr = Math.floor(65 + Math.random() * 30);
+            const spo2 = (96 + Math.random() * 3).toFixed(1);
+            const bpSys = Math.floor(110 + Math.random() * 30);
+            const bpDia = Math.floor(65 + Math.random() * 20);
+            const temp = (36.0 + Math.random() * 1.2).toFixed(1);
+            const steps = Math.floor(Math.random() * 500);
+            const sleepStages = ['awake', 'light', 'deep', 'rem', null];
+            const sleep = sleepStages[Math.floor(Math.random() * sleepStages.length)];
+            const stress = Math.floor(20 + Math.random() * 50);
+
+            await sequelize.query(`
+                INSERT INTO vital_signs_monitoring
+                (user_id, heart_rate, spo2, blood_pressure_sys, blood_pressure_dia,
+                 skin_temperature, steps, sleep_stage, stress_level, captured_at, source)
+                VALUES (:userId, :hr, :spo2, :bpSys, :bpDia, :temp, :steps, :sleep, :stress, :capturedAt, 'demo')
+            `, {
+                replacements: { userId, hr, spo2, bpSys, bpDia, temp, steps, sleep, stress, capturedAt },
+                type: QueryTypes.INSERT
+            });
+            count++;
+        }
+
+        console.log(`🧪 [Demo] ${count} leituras geradas para User ${userId}`);
+        res.json({ success: true, generated: count });
+    } catch (error) {
+        console.error('[Demo] Erro:', error);
+        res.status(500).json({ error: 'Erro ao gerar dados demo' });
     }
 };
