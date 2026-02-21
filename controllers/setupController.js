@@ -227,7 +227,64 @@ exports.installDatabase = async (req, res) => {
         `);
         console.log("✅ Colunas birth_date e cep adicionadas/verificadas na tabela users");
 
-        // 11. ADICIONAR COLUNA severity_level NA TABELA pos_consulta_analyses (se não existir)
+        // 11. TABELA DE MONITORAMENTO DE SINAIS VITAIS
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS vital_signs_monitoring (
+                id BIGSERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                device_id VARCHAR(100),
+                heart_rate INTEGER,
+                spo2 DECIMAL(5,2),
+                blood_pressure_sys INTEGER,
+                blood_pressure_dia INTEGER,
+                skin_temperature DECIMAL(4,2),
+                steps INTEGER,
+                sleep_stage VARCHAR(20),
+                stress_level INTEGER,
+                captured_at TIMESTAMP NOT NULL,
+                synced_at TIMESTAMP DEFAULT NOW(),
+                source VARCHAR(50),
+                raw_data JSONB
+            );
+        `);
+        await sequelize.query(`
+            CREATE INDEX IF NOT EXISTS idx_vitals_user_time ON vital_signs_monitoring(user_id, captured_at DESC);
+        `);
+        console.log("✅ Tabela vital_signs_monitoring criada/verificada");
+
+        // 12. TABELA DE ALERTAS DE SINAIS VITAIS
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS vital_alerts (
+                id BIGSERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                vital_sign_id BIGINT,
+                alert_type VARCHAR(50),
+                severity VARCHAR(20),
+                message TEXT,
+                ai_analysis TEXT,
+                acknowledged BOOLEAN DEFAULT FALSE,
+                acknowledged_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        `);
+        console.log("✅ Tabela vital_alerts criada/verificada");
+
+        // 13. TABELA DE TOKENS GOOGLE FIT
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS google_fit_tokens (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+                access_token TEXT,
+                refresh_token TEXT,
+                token_expiry TIMESTAMP,
+                scopes TEXT,
+                connected_at TIMESTAMP DEFAULT NOW(),
+                last_sync_at TIMESTAMP
+            );
+        `);
+        console.log("✅ Tabela google_fit_tokens criada/verificada");
+
+        // 14. ADICIONAR COLUNA severity_level NA TABELA pos_consulta_analyses (se não existir)
         await sequelize.query(`
             ALTER TABLE pos_consulta_analyses
             ADD COLUMN IF NOT EXISTS severity_level VARCHAR(20) DEFAULT 'normal';
@@ -247,7 +304,10 @@ exports.installDatabase = async (req, res) => {
                 <p>8. Colunas <strong>email_verified</strong> e <strong>email_verified_at</strong> adicionadas na tabela users.</p>
                 <p>9. Coluna <strong>phone</strong> adicionada na tabela users (celular para contato de emergência).</p>
                 <p>10. Colunas <strong>birth_date</strong> e <strong>cep</strong> adicionadas na tabela users (data de nascimento e CEP).</p>
-                <p>11. Coluna <strong>severity_level</strong> adicionada na tabela pos_consulta_analyses (classificação de gravidade).</p>
+                <p>11. Tabela <strong>vital_signs_monitoring</strong> criada (monitoramento de sinais vitais).</p>
+                <p>12. Tabela <strong>vital_alerts</strong> criada (alertas automáticos de sinais vitais).</p>
+                <p>13. Tabela <strong>google_fit_tokens</strong> criada (integração Google Fit).</p>
+                <p>14. Coluna <strong>severity_level</strong> adicionada na tabela pos_consulta_analyses (classificação de gravidade).</p>
                 <hr>
                 <p><strong>✅ BANCO DE DADOS ATUALIZADO!</strong> Sistema de confirmação de email, LGPD e gravidade de exames configurado.</p>
                 <a href="/" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: #365314; color: white; text-decoration: none; border-radius: 5px;">Voltar ao App</a>

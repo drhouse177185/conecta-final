@@ -36,6 +36,9 @@
     <!-- Tesseract.js: OCR (Reconhecimento Óptico de Caracteres) para ler texto de imagens -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     
+    <!-- Chart.js: Gráficos para dashboard de sinais vitais -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <!-- Bibliotecas de Ícones -->
     <!-- Lucide: Ícones leves e modernos em SVG -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -359,6 +362,9 @@
                                 </button>
                             </div>
                         </div>
+                        <button onclick="openGoogleFitModal()" id="btn-smartband" class="text-xs text-purple-600 hover:text-purple-800 font-bold border border-purple-200 px-3 py-1 rounded hover:bg-purple-50 transition" title="Conectar Smart Band">
+                            <i class="fa-solid fa-watch mr-1"></i> <span id="smartband-status-text">Smart Band</span>
+                        </button>
                         <button onclick="handleLogout()" class="text-xs text-red-500 hover:text-red-700 font-bold border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition">SAIR</button>
                     </div>
                 </div>
@@ -896,10 +902,164 @@
                 </div>
             </div>
 
+            <!-- ===== F. MONITORAMENTO DE SINAIS VITAIS ===== -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="bg-gradient-to-r from-rose-700 to-red-600 text-white p-4 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-bold"><i class="fa-solid fa-heartbeat mr-2"></i> Monitoramento de Sinais Vitais</h2>
+                        <p class="text-rose-200 text-xs">Dados em tempo real das smart bands dos pacientes</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="vitals-polling-status" class="text-xs bg-rose-800 px-2 py-1 rounded">Auto-refresh: OFF</span>
+                        <button onclick="toggleVitalsPolling()" class="bg-white text-rose-700 px-3 py-1 rounded font-bold text-sm hover:bg-rose-100 transition">
+                            <i class="fa-solid fa-rotate mr-1"></i> Auto-Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4">
+                    <!-- Seletor de Paciente -->
+                    <div class="flex gap-3 mb-4 items-end">
+                        <div class="flex-1">
+                            <label class="text-xs font-bold text-gray-600 uppercase">Selecionar Paciente</label>
+                            <select id="vitals-patient-select" onchange="onVitalsPatientChange()" class="house-input w-full p-3 rounded border border-gray-300">
+                                <option value="">-- Selecione um paciente --</option>
+                            </select>
+                        </div>
+                        <button onclick="loadSelectedPatientVitals()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-3 rounded font-bold text-sm transition">
+                            <i class="fa-solid fa-sync mr-1"></i> Atualizar
+                        </button>
+                        <button onclick="analyzeVitalsWithAI()" id="btn-vitals-ai" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded font-bold text-sm transition hidden">
+                            <i class="fa-solid fa-brain mr-1"></i> Analisar com IA
+                        </button>
+                    </div>
+
+                    <!-- Info do Paciente + Comorbidades -->
+                    <div id="vitals-patient-info" class="hidden mb-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-slate-50 rounded-lg p-4 border">
+                                <h3 class="font-bold text-slate-700 text-sm mb-2"><i class="fa-solid fa-user mr-1"></i> Dados do Paciente</h3>
+                                <div id="vitals-patient-data" class="text-sm text-slate-600"></div>
+                            </div>
+                            <div class="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                                <h3 class="font-bold text-amber-800 text-sm mb-2"><i class="fa-solid fa-notes-medical mr-1"></i> Comorbidades Ativas</h3>
+                                <div id="vitals-comorbidities" class="text-sm text-amber-700">Nenhuma</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cards de Sinais Vitais Atuais -->
+                    <div id="vitals-cards" class="hidden grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                        <div class="vital-card bg-white rounded-lg p-3 border-2 text-center" id="card-hr">
+                            <i class="fa-solid fa-heart text-red-500 text-xl mb-1"></i>
+                            <p class="text-xs text-gray-500 font-bold">FREQ. CARDÍACA</p>
+                            <p class="text-2xl font-black" id="val-hr">--</p>
+                            <p class="text-xs text-gray-400">bpm</p>
+                        </div>
+                        <div class="vital-card bg-white rounded-lg p-3 border-2 text-center" id="card-spo2">
+                            <i class="fa-solid fa-lungs text-blue-500 text-xl mb-1"></i>
+                            <p class="text-xs text-gray-500 font-bold">SpO2</p>
+                            <p class="text-2xl font-black" id="val-spo2">--</p>
+                            <p class="text-xs text-gray-400">%</p>
+                        </div>
+                        <div class="vital-card bg-white rounded-lg p-3 border-2 text-center" id="card-bp">
+                            <i class="fa-solid fa-gauge-high text-purple-500 text-xl mb-1"></i>
+                            <p class="text-xs text-gray-500 font-bold">PRESSÃO ART.</p>
+                            <p class="text-2xl font-black" id="val-bp">--</p>
+                            <p class="text-xs text-gray-400">mmHg</p>
+                        </div>
+                        <div class="vital-card bg-white rounded-lg p-3 border-2 text-center" id="card-temp">
+                            <i class="fa-solid fa-temperature-half text-orange-500 text-xl mb-1"></i>
+                            <p class="text-xs text-gray-500 font-bold">TEMPERATURA</p>
+                            <p class="text-2xl font-black" id="val-temp">--</p>
+                            <p class="text-xs text-gray-400">°C</p>
+                        </div>
+                        <div class="vital-card bg-white rounded-lg p-3 border-2 text-center" id="card-steps">
+                            <i class="fa-solid fa-person-walking text-green-500 text-xl mb-1"></i>
+                            <p class="text-xs text-gray-500 font-bold">PASSOS</p>
+                            <p class="text-2xl font-black" id="val-steps">--</p>
+                            <p class="text-xs text-gray-400">hoje</p>
+                        </div>
+                        <div class="vital-card bg-white rounded-lg p-3 border-2 text-center" id="card-sleep">
+                            <i class="fa-solid fa-moon text-indigo-500 text-xl mb-1"></i>
+                            <p class="text-xs text-gray-500 font-bold">SONO</p>
+                            <p class="text-2xl font-black text-base" id="val-sleep">--</p>
+                            <p class="text-xs text-gray-400">estágio</p>
+                        </div>
+                    </div>
+
+                    <!-- Gráficos -->
+                    <div id="vitals-charts" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="bg-white rounded-lg p-4 border">
+                            <h4 class="text-sm font-bold text-gray-700 mb-2"><i class="fa-solid fa-heart-pulse mr-1 text-red-500"></i> Frequência Cardíaca (24h)</h4>
+                            <canvas id="chart-hr" height="200"></canvas>
+                        </div>
+                        <div class="bg-white rounded-lg p-4 border">
+                            <h4 class="text-sm font-bold text-gray-700 mb-2"><i class="fa-solid fa-lungs mr-1 text-blue-500"></i> SpO2 (24h)</h4>
+                            <canvas id="chart-spo2" height="200"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Painel de Análise IA -->
+                    <div id="vitals-ai-panel" class="hidden mb-4">
+                        <div class="rounded-lg border-2 overflow-hidden" id="vitals-ai-container">
+                            <div class="bg-purple-700 text-white p-3 flex items-center justify-between">
+                                <h3 class="font-bold text-sm"><i class="fa-solid fa-brain mr-2"></i> Análise Inteligente - Equipe Conecta Saúde</h3>
+                                <span id="vitals-ai-badge" class="px-3 py-1 rounded-full text-xs font-bold"></span>
+                            </div>
+                            <div id="vitals-ai-result" class="p-4 bg-purple-50 text-sm"></div>
+                        </div>
+                    </div>
+
+                    <!-- Alertas Recentes -->
+                    <div id="vitals-alerts-section" class="hidden">
+                        <h3 class="font-bold text-gray-700 text-sm mb-2"><i class="fa-solid fa-bell text-red-500 mr-1"></i> Alertas Pendentes</h3>
+                        <div id="vitals-alerts-list" class="space-y-2 max-h-60 overflow-y-auto"></div>
+                    </div>
+
+                    <!-- Estado Vazio -->
+                    <div id="vitals-empty" class="p-8 text-center text-gray-400">
+                        <i class="fa-solid fa-heartbeat text-5xl text-gray-200 mb-3"></i>
+                        <p class="font-bold">Selecione um paciente para visualizar os sinais vitais</p>
+                        <p class="text-xs mt-1">Os dados são capturados via Google Fit das smart bands conectadas</p>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
     <!-- MODAL DE RECARGA DE CRÉDITOS -->
+    <!-- MODAL GOOGLE FIT / SMART BAND -->
+    <div id="googlefit-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-card" style="max-width:420px;">
+            <div class="bg-purple-700 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-lg"><i class="fa-solid fa-watch text-purple-200 mr-2"></i> Smart Band</h3>
+                <button onclick="closeGoogleFitModal()" class="text-purple-300 hover:text-white"><i class="fa-solid fa-xmark fa-lg"></i></button>
+            </div>
+            <div class="p-6">
+                <div id="gfit-status" class="text-center mb-4">
+                    <i class="fa-solid fa-watch text-4xl text-purple-300 mb-3"></i>
+                    <p class="text-sm text-gray-600">Conecte sua smart band via Google Fit para monitoramento de sinais vitais.</p>
+                </div>
+                <div id="gfit-connected" class="hidden text-center mb-4">
+                    <i class="fa-solid fa-circle-check text-4xl text-green-500 mb-3"></i>
+                    <p class="font-bold text-green-700">Smart Band Conectada!</p>
+                    <p id="gfit-last-sync" class="text-xs text-gray-500 mt-1"></p>
+                </div>
+                <div class="space-y-3">
+                    <button onclick="connectGoogleFit()" id="btn-gfit-connect" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded shadow transition">
+                        <i class="fa-brands fa-google mr-2"></i> Conectar com Google Fit
+                    </button>
+                    <button onclick="syncGoogleFitNow()" id="btn-gfit-sync" class="hidden w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded shadow transition">
+                        <i class="fa-solid fa-rotate mr-2"></i> Sincronizar Agora
+                    </button>
+                </div>
+                <p class="text-xs text-gray-400 mt-4 text-center">Compatível com: Mi Band, Galaxy Watch, Fitbit, Garmin e outros dispositivos conectados ao Google Fit.</p>
+            </div>
+        </div>
+    </div>
+
     <div id="recharge-modal" class="modal-overlay">
         <div class="modal-card">
             <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
@@ -2751,9 +2911,393 @@ Sistema Conecta Saúde`
             renderExamList('img', 'adm-list-img');
             renderSurgeryList();
             loadPreoperativeAssessments();
+            initVitalSignsPanel();
         }
 
         function filterUsers(val) { renderUserList(val); }
+
+        // =============================================
+        // MONITORAMENTO DE SINAIS VITAIS (ADMIN)
+        // =============================================
+        let vitalsPollingInterval = null;
+        let vitalsChartHR = null;
+        let vitalsChartSpO2 = null;
+        let vitalsPatientsList = [];
+
+        async function initVitalSignsPanel() {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/vitals/admin/all`);
+                const data = await res.json();
+                if (data.success) {
+                    vitalsPatientsList = data.patients;
+                    const select = document.getElementById('vitals-patient-select');
+                    select.innerHTML = '<option value="">-- Selecione um paciente --</option>';
+                    data.patients.forEach(p => {
+                        const alerts = p.pending_alerts > 0 ? ` (${p.pending_alerts} alertas)` : '';
+                        select.innerHTML += `<option value="${p.id}">${p.name}${alerts}</option>`;
+                    });
+                }
+            } catch (e) { console.error('Erro ao iniciar painel vitais:', e); }
+        }
+
+        function onVitalsPatientChange() {
+            const userId = document.getElementById('vitals-patient-select').value;
+            if (userId) {
+                loadSelectedPatientVitals();
+            } else {
+                document.getElementById('vitals-patient-info').classList.add('hidden');
+                document.getElementById('vitals-cards').classList.add('hidden');
+                document.getElementById('vitals-charts').classList.add('hidden');
+                document.getElementById('vitals-ai-panel').classList.add('hidden');
+                document.getElementById('vitals-alerts-section').classList.add('hidden');
+                document.getElementById('btn-vitals-ai').classList.add('hidden');
+                document.getElementById('vitals-empty').classList.remove('hidden');
+            }
+        }
+
+        async function loadSelectedPatientVitals() {
+            const userId = document.getElementById('vitals-patient-select').value;
+            if (!userId) return;
+
+            document.getElementById('vitals-empty').classList.add('hidden');
+            document.getElementById('vitals-patient-info').classList.remove('hidden');
+            document.getElementById('vitals-cards').classList.remove('hidden');
+            document.getElementById('vitals-charts').classList.remove('hidden');
+            document.getElementById('btn-vitals-ai').classList.remove('hidden');
+
+            // Buscar dados do paciente da lista
+            const patient = vitalsPatientsList.find(p => p.id == userId);
+            if (patient) {
+                document.getElementById('vitals-patient-data').innerHTML = `
+                    <p><strong>Nome:</strong> ${patient.name}</p>
+                    <p><strong>Idade:</strong> ${patient.age || 'N/A'} anos | <strong>Sexo:</strong> ${patient.sex === 'M' ? 'Masculino' : 'Feminino'}</p>
+                    <p><strong>Email:</strong> ${patient.email}</p>
+                    <p><strong>Telefone:</strong> ${patient.phone || 'N/A'}</p>
+                    <p class="text-xs text-gray-400 mt-1">Última leitura: ${patient.captured_at ? new Date(patient.captured_at).toLocaleString('pt-BR') : 'Sem dados'}</p>
+                `;
+            }
+
+            // Buscar comorbidades
+            try {
+                const comRes = await fetch(`${BACKEND_URL}/api/comorbidities/${userId}`);
+                const comData = await comRes.json();
+                const active = comData.comorbidities ? comData.comorbidities.filter(c => c.is_active) : [];
+                document.getElementById('vitals-comorbidities').innerHTML = active.length > 0
+                    ? active.map(c => `<span class="inline-block bg-amber-200 text-amber-900 rounded px-2 py-0.5 text-xs font-bold mr-1 mb-1">${c.comorbidity}</span>`).join('')
+                    : '<span class="text-gray-400">Nenhuma comorbidade registrada</span>';
+            } catch (e) { console.error('Erro comorbidades:', e); }
+
+            // Buscar histórico de vitais (24h)
+            try {
+                const vRes = await fetch(`${BACKEND_URL}/api/vitals/admin/patient/${userId}/history?hours=24`);
+                const vData = await vRes.json();
+                if (vData.success && vData.vitals.length > 0) {
+                    renderVitalCards(vData.vitals[vData.vitals.length - 1]);
+                    renderVitalCharts(vData.vitals);
+                } else {
+                    renderVitalCards(null);
+                    renderVitalCharts([]);
+                }
+            } catch (e) { console.error('Erro vitais:', e); }
+
+            // Carregar alertas
+            loadVitalsAlerts();
+        }
+
+        function renderVitalCards(latest) {
+            if (!latest) {
+                ['val-hr','val-spo2','val-bp','val-temp','val-steps','val-sleep'].forEach(id => {
+                    document.getElementById(id).textContent = '--';
+                });
+                return;
+            }
+
+            // FC
+            const hr = latest.heart_rate;
+            document.getElementById('val-hr').textContent = hr || '--';
+            setCardColor('card-hr', hr ? (hr > 120 || hr < 50 ? 'red' : hr > 100 || hr < 60 ? 'yellow' : 'green') : 'gray');
+
+            // SpO2
+            const spo2 = latest.spo2;
+            document.getElementById('val-spo2').textContent = spo2 ? parseFloat(spo2).toFixed(0) : '--';
+            setCardColor('card-spo2', spo2 ? (spo2 < 92 ? 'red' : spo2 < 95 ? 'yellow' : 'green') : 'gray');
+
+            // PA
+            const bpSys = latest.blood_pressure_sys;
+            const bpDia = latest.blood_pressure_dia;
+            document.getElementById('val-bp').textContent = bpSys ? `${bpSys}/${bpDia}` : '--';
+            setCardColor('card-bp', bpSys ? (bpSys > 180 || bpDia > 120 ? 'red' : bpSys > 140 || bpDia > 90 ? 'yellow' : 'green') : 'gray');
+
+            // Temperatura
+            const temp = latest.skin_temperature;
+            document.getElementById('val-temp').textContent = temp ? parseFloat(temp).toFixed(1) : '--';
+            setCardColor('card-temp', temp ? (temp > 38.5 || temp < 35 ? 'red' : temp > 37.5 ? 'yellow' : 'green') : 'gray');
+
+            // Passos
+            document.getElementById('val-steps').textContent = latest.steps || '--';
+            setCardColor('card-steps', 'green');
+
+            // Sono
+            const sleepMap = { awake: 'Acordado', light: 'Leve', deep: 'Profundo', rem: 'REM' };
+            document.getElementById('val-sleep').textContent = sleepMap[latest.sleep_stage] || latest.sleep_stage || '--';
+            setCardColor('card-sleep', 'green');
+        }
+
+        function setCardColor(cardId, color) {
+            const el = document.getElementById(cardId);
+            el.className = el.className.replace(/border-\S+/g, '');
+            const colors = { red: 'border-red-500 bg-red-50', yellow: 'border-yellow-400 bg-yellow-50', green: 'border-green-400 bg-green-50', gray: 'border-gray-200' };
+            el.classList.add(...(colors[color] || colors.gray).split(' '));
+        }
+
+        function renderVitalCharts(vitals) {
+            const labels = vitals.map(v => new Date(v.captured_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+
+            // Chart FC
+            const hrData = vitals.map(v => v.heart_rate);
+            if (vitalsChartHR) vitalsChartHR.destroy();
+            const ctxHR = document.getElementById('chart-hr');
+            if (ctxHR) {
+                vitalsChartHR = new Chart(ctxHR, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: 'FC (bpm)',
+                            data: hrData,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239,68,68,0.1)',
+                            fill: true, tension: 0.3, pointRadius: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: { y: { suggestedMin: 40, suggestedMax: 140 } },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }
+
+            // Chart SpO2
+            const spo2Data = vitals.map(v => v.spo2 ? parseFloat(v.spo2) : null);
+            if (vitalsChartSpO2) vitalsChartSpO2.destroy();
+            const ctxSpO2 = document.getElementById('chart-spo2');
+            if (ctxSpO2) {
+                vitalsChartSpO2 = new Chart(ctxSpO2, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: 'SpO2 (%)',
+                            data: spo2Data,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59,130,246,0.1)',
+                            fill: true, tension: 0.3, pointRadius: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: { y: { suggestedMin: 85, suggestedMax: 100 } },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }
+        }
+
+        async function analyzeVitalsWithAI() {
+            const userId = document.getElementById('vitals-patient-select').value;
+            if (!userId) return showToast('Selecione um paciente primeiro', 'error');
+
+            const btn = document.getElementById('btn-vitals-ai');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Analisando...';
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/vitals/admin/ai-analysis`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    renderAIAnalysis(data.analysis);
+                    showToast('Análise concluída!', 'success');
+                } else {
+                    showToast(data.error || 'Erro na análise', 'error');
+                }
+            } catch (e) {
+                showToast('Erro de conexão com a IA', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-brain mr-1"></i> Analisar com IA';
+            }
+        }
+
+        function renderAIAnalysis(analysis) {
+            document.getElementById('vitals-ai-panel').classList.remove('hidden');
+
+            const badge = document.getElementById('vitals-ai-badge');
+            const classColors = {
+                normal: 'bg-green-500 text-white',
+                alterado: 'bg-yellow-400 text-yellow-900',
+                critico: 'bg-red-600 text-white'
+            };
+            badge.className = `px-3 py-1 rounded-full text-xs font-bold ${classColors[analysis.classification] || classColors.normal}`;
+            badge.textContent = (analysis.classification || 'normal').toUpperCase();
+
+            const containerColors = {
+                normal: 'border-green-400',
+                alterado: 'border-yellow-400',
+                critico: 'border-red-500'
+            };
+            document.getElementById('vitals-ai-container').className = `rounded-lg border-2 overflow-hidden ${containerColors[analysis.classification] || ''}`;
+
+            let html = `<p class="mb-3">${analysis.summary || ''}</p>`;
+
+            if (analysis.trend_analysis) {
+                html += `<div class="bg-white rounded p-3 mb-3"><strong>Tendência:</strong> ${analysis.trend_analysis}</div>`;
+            }
+            if (analysis.alerts && analysis.alerts.length > 0) {
+                html += `<div class="bg-red-50 rounded p-3 mb-3 border border-red-200"><strong class="text-red-700">Alertas:</strong><ul class="list-disc ml-5 mt-1">${analysis.alerts.map(a => `<li>${a}</li>`).join('')}</ul></div>`;
+            }
+            if (analysis.recommendations && analysis.recommendations.length > 0) {
+                html += `<div class="bg-blue-50 rounded p-3 mb-3 border border-blue-200"><strong class="text-blue-700">Recomendações:</strong><ul class="list-disc ml-5 mt-1">${analysis.recommendations.map(r => `<li>${r}</li>`).join('')}</ul></div>`;
+            }
+            if (analysis.priority_action) {
+                html += `<div class="bg-purple-100 rounded p-3 border border-purple-300"><strong class="text-purple-800">Ação Prioritária:</strong> ${analysis.priority_action}</div>`;
+            }
+
+            document.getElementById('vitals-ai-result').innerHTML = html;
+        }
+
+        async function loadVitalsAlerts() {
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/vitals/alerts`);
+                const data = await res.json();
+                if (data.success && data.alerts.length > 0) {
+                    document.getElementById('vitals-alerts-section').classList.remove('hidden');
+                    const container = document.getElementById('vitals-alerts-list');
+                    container.innerHTML = data.alerts.map(a => {
+                        const sevColors = { critical: 'border-red-500 bg-red-50', high: 'border-orange-400 bg-orange-50', medium: 'border-yellow-400 bg-yellow-50', low: 'border-blue-300 bg-blue-50' };
+                        const cls = sevColors[a.severity] || sevColors.low;
+                        return `<div class="border-l-4 ${cls} p-3 rounded-r flex justify-between items-center">
+                            <div>
+                                <span class="font-bold text-sm">${a.patient_name}</span>
+                                <span class="text-xs ml-2 text-gray-500">${new Date(a.created_at).toLocaleString('pt-BR')}</span>
+                                <p class="text-sm mt-1">${a.message}</p>
+                            </div>
+                            <button onclick="acknowledgeVitalAlert(${a.id})" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded text-xs font-bold">
+                                <i class="fa-solid fa-check mr-1"></i> OK
+                            </button>
+                        </div>`;
+                    }).join('');
+                } else {
+                    document.getElementById('vitals-alerts-section').classList.add('hidden');
+                }
+            } catch (e) { console.error('Erro alertas vitais:', e); }
+        }
+
+        async function acknowledgeVitalAlert(alertId) {
+            try {
+                await fetch(`${BACKEND_URL}/api/vitals/alerts/${alertId}/ack`, { method: 'POST' });
+                loadVitalsAlerts();
+                showToast('Alerta reconhecido', 'success');
+            } catch (e) { showToast('Erro ao reconhecer alerta', 'error'); }
+        }
+
+        function toggleVitalsPolling() {
+            const statusEl = document.getElementById('vitals-polling-status');
+            if (vitalsPollingInterval) {
+                clearInterval(vitalsPollingInterval);
+                vitalsPollingInterval = null;
+                statusEl.textContent = 'Auto-refresh: OFF';
+                statusEl.classList.remove('bg-green-600');
+                statusEl.classList.add('bg-rose-800');
+            } else {
+                vitalsPollingInterval = setInterval(() => {
+                    const userId = document.getElementById('vitals-patient-select').value;
+                    if (userId) loadSelectedPatientVitals();
+                }, 30000);
+                statusEl.textContent = 'Auto-refresh: 30s';
+                statusEl.classList.remove('bg-rose-800');
+                statusEl.classList.add('bg-green-600');
+                showToast('Auto-refresh ativado (30s)', 'success');
+            }
+        }
+
+        // =============================================
+        // GOOGLE FIT - LADO DO PACIENTE
+        // =============================================
+        function openGoogleFitModal() {
+            document.getElementById('googlefit-modal').style.display = 'flex';
+            checkGoogleFitStatus();
+        }
+
+        function closeGoogleFitModal() {
+            document.getElementById('googlefit-modal').style.display = 'none';
+        }
+
+        async function checkGoogleFitStatus() {
+            if (!currentUser || !currentUser.id) return;
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/vitals/googlefit/status/${currentUser.id}`);
+                const data = await res.json();
+                if (data.connected) {
+                    document.getElementById('gfit-status').classList.add('hidden');
+                    document.getElementById('gfit-connected').classList.remove('hidden');
+                    document.getElementById('btn-gfit-connect').classList.add('hidden');
+                    document.getElementById('btn-gfit-sync').classList.remove('hidden');
+                    document.getElementById('smartband-status-text').textContent = 'Conectada';
+                    document.getElementById('btn-smartband').classList.remove('border-purple-200', 'text-purple-600');
+                    document.getElementById('btn-smartband').classList.add('border-green-300', 'text-green-600', 'bg-green-50');
+                    if (data.lastSync) {
+                        document.getElementById('gfit-last-sync').textContent = `Último sync: ${new Date(data.lastSync).toLocaleString('pt-BR')}`;
+                    }
+                }
+            } catch (e) { console.error('Erro Google Fit status:', e); }
+        }
+
+        async function connectGoogleFit() {
+            if (!currentUser || !currentUser.id) return showToast('Faça login primeiro', 'error');
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/vitals/googlefit/auth-url?userId=${currentUser.id}`);
+                const data = await res.json();
+                if (data.authUrl) {
+                    window.open(data.authUrl, '_blank', 'width=500,height=600');
+                    showToast('Complete a autorização na janela aberta', 'success');
+                    // Verifica status após alguns segundos
+                    setTimeout(checkGoogleFitStatus, 10000);
+                } else {
+                    showToast(data.error || 'Google Fit não configurado', 'error');
+                }
+            } catch (e) { showToast('Erro ao conectar Google Fit', 'error'); }
+        }
+
+        async function syncGoogleFitNow() {
+            const btn = document.getElementById('btn-gfit-sync');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Sincronizando...';
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/vitals/sync`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentUser.id })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`Sincronizado! ${data.synced} leituras importadas.`, 'success');
+                    checkGoogleFitStatus();
+                } else {
+                    showToast(data.error || 'Erro ao sincronizar', 'error');
+                }
+            } catch (e) { showToast('Erro de conexão', 'error'); }
+            finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-rotate mr-2"></i> Sincronizar Agora';
+            }
+        }
+
 
         // --- GESTAO DE PREPAROS CIRURGICOS ---
         let preopAssessmentsList = [];

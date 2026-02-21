@@ -11,6 +11,7 @@ const referralController = require('../controllers/referralController');
 const comorbidityController = require('../controllers/comorbidityController'); // NOVO: Controller de comorbidades
 const preoperativeController = require('../controllers/preoperativeController'); // NOVO: Controller de avaliacoes pre-operatorias
 const sessionController = require('../controllers/sessionController'); // NOVO: Controller de sessões persistidas
+const vitalSignsController = require('../controllers/vitalSignsController'); // NOVO: Controller de sinais vitais
 
 // --- Rotas Básicas ---
 router.get('/saudacao', mainController.saudacao);
@@ -71,15 +72,21 @@ router.post('/sessions/pos-consulta/save', sessionController.savePosConsulta);
 router.get('/sessions/pos-consulta/:userId', sessionController.getLatestPosConsulta);
 router.get('/sessions/user/:userId', sessionController.getUserSavedSessions);
 
-module.exports = router;
-// ... (dentro do arquivo routes/api.js)
+// --- ROTAS DE MONITORAMENTO DE SINAIS VITAIS ---
+router.post('/vitals/save', vitalSignsController.saveVitalSigns);
+router.post('/vitals/sync', vitalSignsController.syncGoogleFit);
+router.get('/vitals/patient/:userId', vitalSignsController.getPatientVitals);
+router.get('/vitals/admin/all', vitalSignsController.getAllPatientsVitals);
+router.get('/vitals/admin/patient/:userId/history', vitalSignsController.getPatientHistory);
+router.post('/vitals/admin/ai-analysis', vitalSignsController.aiAnalysis);
+router.get('/vitals/alerts', vitalSignsController.getAlerts);
+router.post('/vitals/alerts/:id/ack', vitalSignsController.acknowledgeAlert);
+router.get('/vitals/googlefit/auth-url', vitalSignsController.getGoogleFitAuthUrl);
+router.get('/vitals/googlefit/callback', vitalSignsController.googleFitCallback);
+router.get('/vitals/googlefit/status/:userId', vitalSignsController.googleFitStatus);
 
-// Rotas de Autenticação existentes...
-router.post('/auth/register', userController.register);
-router.post('/auth/login', userController.login);
-
-// --- NOVAS ROTAS DE RECUPERAÇÃO DE SENHA ---
+// --- ROTAS DE RECUPERAÇÃO DE SENHA ---
 router.post('/auth/verify-cpf', userController.verifyCpf);
 router.post('/auth/reset-password', userController.resetPassword);
 
-// ... (resto do arquivo)
+module.exports = router;
