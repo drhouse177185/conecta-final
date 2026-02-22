@@ -3502,6 +3502,26 @@ Sistema Conecta Saúde`
                 if (data.success) {
                     showToast(`Sincronizado! ${data.synced} leituras importadas.`, 'success');
                     checkGoogleFitStatus();
+
+                    // Captura e envia localização junto com os dados da band
+                    // (mesma lógica da pós-consulta com captureGeolocation)
+                    try {
+                        const geolocation = await captureGeolocation();
+                        if (geolocation) {
+                            await fetch(`${BACKEND_URL}/api/location/update`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    userId: currentUser.id,
+                                    latitude: geolocation.latitude,
+                                    longitude: geolocation.longitude
+                                })
+                            });
+                            console.log('📍 Localização atualizada junto com sync da band');
+                        }
+                    } catch (locErr) {
+                        console.log('📍 Não foi possível capturar localização:', locErr.message);
+                    }
                 } else {
                     showToast(data.error || 'Erro ao sincronizar', 'error');
                 }
@@ -5387,62 +5407,31 @@ Sistema Conecta Saude`
             });
         }
 
-        // Envio periódico de localização do paciente para o backend
-        let locationFirstAttempt = true;
+        // Captura e envia localização do paciente para o backend
+        // (mesma lógica usada na pós-consulta com captureGeolocation)
         async function sendLocationToBackend() {
             try {
                 if (!currentUser || currentUser.role === 'admin') return;
-
-                // Verifica se o site está em HTTPS (obrigatório para geolocalização)
-                if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-                    console.warn('📍 Geolocalização requer HTTPS. Acesse o site pela URL segura.');
-                    if (locationFirstAttempt) {
-                        showToast('Localização requer conexão segura (HTTPS)', 'error');
-                        locationFirstAttempt = false;
-                    }
-                    return;
-                }
-
-                // Solicita permissão explicitamente na primeira vez
-                if (locationFirstAttempt && navigator.permissions) {
-                    try {
-                        const perm = await navigator.permissions.query({ name: 'geolocation' });
-                        if (perm.state === 'denied') {
-                            console.log('📍 Permissão de localização foi negada pelo usuário');
-                            showToast('Localização bloqueada. Habilite nas configurações do navegador.', 'error');
-                            locationFirstAttempt = false;
-                            return;
-                        }
-                        if (perm.state === 'prompt') {
-                            showToast('Permita o acesso à localização para monitoramento', 'info');
-                        }
-                    } catch (e) { /* navigator.permissions não suportado, segue normal */ }
-                }
-                locationFirstAttempt = false;
-
-                const coords = await captureGeolocation();
-                if (!coords) return;
+                const geolocation = await captureGeolocation();
+                if (!geolocation) return;
                 await fetch(`${BACKEND_URL}/api/location/update`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         userId: currentUser.id,
-                        latitude: coords.latitude,
-                        longitude: coords.longitude
+                        latitude: geolocation.latitude,
+                        longitude: geolocation.longitude
                     })
                 });
                 console.log('📍 Localização enviada ao backend');
             } catch (e) {
-                console.error('📍 Erro ao enviar localização:', e);
+                console.log('📍 Erro ao enviar localização:', e.message);
             }
         }
 
-        let locationInterval = null;
+        // Chamado no login do paciente — captura localização uma vez
         function startLocationTracking() {
-            if (locationInterval) return;
-            console.log('📍 Iniciando rastreamento de localização...');
             sendLocationToBackend();
-            locationInterval = setInterval(sendLocationToBackend, 5 * 60 * 1000);
         }
 
         // NOVO: Salvar análise de pós-consulta para persistência entre sessões
